@@ -631,7 +631,7 @@ body {
   outline: none;
   font-size: 18px;
   background-color: transparent;
-  color: #e8eaed;
+  color: #0d0d0d;
 }
 
 .search-baraa input:focus::placeholder {
