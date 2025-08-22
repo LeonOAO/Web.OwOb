@@ -258,8 +258,6 @@ async function fetchExternalContent(url, content, tabIndex) {
 
     const proxies = [
         `https://api.cors.lol/?url=${encodeURIComponent(url)}`,
-      //  `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-      //  `https://api.codetabs.com/v1/tmp/?quest=${encodeURIComponent(url)}`,
         `https://whateverorigin.org/get?url=${encodeURIComponent(url)}`,
         `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
         /*,
@@ -415,8 +413,6 @@ document.addEventListener('DOMContentLoaded', () => {
 async function fetchExternalContent(url, content, tabIndex) {
     let proxies = [
         `https://api.cors.lol/?url=${url}`,
-      //  `https://api.codetabs.com/v1/proxy?quest=${url}`,
-      //  `https://api.codetabs.com/v1/tmp/?quest=${url}`,
         `https://whateverorigin.org/get?url=${url}`,
         `https://api.allorigins.win/raw?url=${url}`
     ];
