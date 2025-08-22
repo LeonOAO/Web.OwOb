@@ -258,6 +258,7 @@ async function fetchExternalContent(url, content, tabIndex) {
 
     const proxies = [
         `https://api.cors.lol/?url=${encodeURIComponent(url)}`,
+        `https://proxy.corsfix.com/?{encodeURIComponent(url)}`,
         `https://seep.eu.org/${encodeURIComponent(url)}`,
         `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
         /*,
@@ -413,6 +414,7 @@ document.addEventListener('DOMContentLoaded', () => {
 async function fetchExternalContent(url, content, tabIndex) {
     let proxies = [
         `https://api.cors.lol/?url=${url}`,
+        `https://proxy.corsfix.com/?${url}`,
         `https://seep.eu.org/${url}`,
         `https://api.allorigins.win/raw?url=${url}`
     ];
