@@ -263,6 +263,7 @@ async function fetchExternalContent(url, content, tabIndex) {
         `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
         /*,
                 `https://corsproxy.io/?url=${encodeURIComponent(url)}`*/
+                `https://cors-anywhere.herokuapp.com/?url=${encodeURIComponent(url)}`*/
     ];
 
     const timeout = 10000;
