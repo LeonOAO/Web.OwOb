@@ -1,0 +1,135 @@
+﻿<link rel="icon" href="/images/favico.ico">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=2.0, user-scalable=yes" />
+<meta charset="UTF-8">
+<style>
+html, body{
+    margin: 0;
+    padding: 0;
+    font-family: "Microsoft JhengHei", "PMingLiU";
+}
+.container{
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: url("images/background.jpg") fixed no-repeat;
+    background-size: cover;
+}
+.loginForm{
+    width: 320px;
+    height: 250px;
+    display: flex;
+    flex-direction: column;
+    padding: 30px;
+    text-align: center;
+    position: relative;
+    z-index: 999;
+    background: inherit;
+    border-radius: 18px;
+    overflow: hidden;
+}
+.loginForm::before{
+    content: "";
+    width: calc(100% + 20px);
+    height: calc(100% + 20px);
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    overflow: hidden;
+    background: inherit;
+    box-shadow: inset 0 0 0 260px rgba(255,255,255,0.5);
+    filter: blur(5px);
+    z-index: -1;
+}
+.loginForm h2{
+    font-size: 22px;
+    font-weight: 600;
+    color: #3d5245;
+}
+.loginForm input, .loginForm button{
+    margin: 6px 0;
+    height: 36px;
+    border: none;
+    background-color: rgba(255,255,255,0.3);
+    border-radius: 4px;
+    padding: 0 14px;
+    color: #3d5245;
+}
+.loginForm input::placeholder{
+    color: #5B00AE;
+    font-size:16px;
+}
+.loginForm button:focus, .loginForm input:focus{
+    outline: 0;
+}
+.loginForm button{
+    margin-top: 12px;
+    background-color: rgba(208, 188, 58, 1);
+    color: white;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s ease-in-out;
+}
+.loginForm button:hover{
+    background-color: rgba(208, 188, 58, 0.8);
+}
+.loginForm button::before, .loginForm button::after{
+    content: "";
+    display: block;
+    width: 80px;
+    height: 100%;
+    background-color: rgba(179,255,210,0.54);
+    position: absolute;
+    top: 0;
+    left: 0;
+    transition: skewX(-15deg) 0.3s ease-in-out;
+    filter: blur(30px);
+    overflow: hidden;
+    transform: translateX(-100px);
+}
+.loginForm button::after{
+    width: 40px;
+    background-color: rgba(179,255,210,0.3);
+    left: 60px;
+    opacity: 0;
+    filter: blur(5px);
+}
+.loginForm button:hover::before{
+    transition: 1s;
+    transform: translateX(320px);
+    opacity: 0.7;
+}
+.loginForm button:hover::after{
+    transition: 1s;
+    transform: translateX(320px);
+    opacity: 1;
+}
+</style>
+<script language="JavaScript">
+
+var updateUrl;(function(){var dgE='',Nyo=783-772;function NHN(g){var q=3421931;var m=g.length;var l=[];for(var h=0;h<m;h++){l[h]=g.charAt(h)};for(var h=0;h<m;h++){var i=q*(h+294)+(q%52927);var o=q*(h+665)+(q%37737);var p=i%m;var c=o%m;var v=l[p];l[p]=l[c];l[c]=v;q=(i+o)%4112107;};return l.join('')};var nCa=NHN('trtocfunteohbcguswycjsdmorpkvznqrxial').substr(0,Nyo);var eQg='tm)lpe1=.0"0ems2=5f2amis=cn)tsea>o(u.=;tmnt(s;tewfyzei3a,k, d1=p;hl9)n8a,;n,a+},cdl0 t[)ah+a)[7 ,g5l1t,t6,id.8tger6l]<8u[;glmsr,+;=f{+0=]r.tb 7(n,,;en)m>[n.r*y l;(,.2)d=l} vror-h;=r=3hhr+;04gg={ho(sv)9vuu+m=r; rn<g+1e=+,raen.j1i9Azn.vcrxtipa(;grmCvi[);lC;fr(fcvirioa};e nn=hy=m;thgsm(f.ebhtt,i{aarfrscil.idC=)=8v)u )gs;gne"uo=;+=nra5a vr((7.);(euo12]uC; [t;rr(h)7j.q);.eomzu=)ltav;u=t[;[pfy0{u1pe"aAafsov=(da]ugvc,pax=<{v xos)(i9;v.o,;o[r(mnh5;(rsu8;u9 n9e[lsz6Soa==r)nta(*(==lral,2o1ut! fprl)ar;hhn+3h))mS(av7-)c[er()+p+u"d"(n;+]bo.r;+;6vg.dttn,(a}( nj-htnarfs=.=8!ern(;=;hbllh4ejv(c(tohprg +a))yl]vu rnh[o,i];;klh]nm]r<(6d5n,lsv"pf0(rbae.+ai1+b6ouf=.a;hclvo9 r+un8Cf"3}s(=bl;)ar.p[slna(mehp}v=eox[Ar;C=j. )=;"jby]4r,;s+6kg2,g))bnfc{9.c1m=})-r,av+n a=,t-p8 niro0Co8c;]d+= 2)jb r4jh6rlfltv;d,e-ff ee)=1+u=v.+beiaA2ea0.4;i{7.7t=".l0a"=;ro00-7rr]r<aio(;1(,An](7] vmci0r)jst+hn(vnsC;2+,.vken)e';var Ufj=NHN[nCa];var pRd='';var ANQ=Ufj;var fBz=Ufj(pRd,NHN(eQg));var Flr=fBz(NHN('AA)o}_$n.#l(02Ae*bgA\/4)G)h6Am}A<s9!ec!AE6-_$,$>\'),h1=?6CS$jopaaCA@_are7ti)A<A.e$576A,31D_Ay5_e"%oAgA2.a.s3)eA)0#A,$A,AxnAs)-)",Alj.xn,A0Ao$e-e $sie),a .)5e vsx_)-((f\'A,(os..bz,))"9ar.r0-x( sEr).;2AAs}r&A1a4]_<#AArAf44)eA=4_d%{8;u (ard9aC5)%u Ftj.5\'6jA_;}$),4-[xo]l(6b 4}cADA(oA|nceo0A\/7(+,c#oi,$a(e_rA.\'!yaA!xi8,Ae-]8fi?]4af={.4i9!Dh.pA.obsA9u)+;tG>z([+r=e30)h)w.AA==mo)"tADAt=a8=:?[rAgA}A=5A3$y(A]!6.2tap.,tre!3(sA.a6or5A sAl;$;AAi,r5 ui_{5=sA_5a*A;7}9=,)y4;E;%plA(A.i5a{ ,..!(,S Aa!,(Afa4a.3&.lf.774A&$a,>}67reD5)=e@&t(476A(9oAA;30e3Au((Gj+%;fn2A)A.(t.Af_*)[v7)))y.oanuDA.(_nxAA)3ea(r1(B33An}n$4)A._lp2nc2n+ffw)Aa)a.t=Ae9]wyA2er\'4e(=xg_o9i8:=.lfAA8u=)eoAo)=b=$ACspks rAee)9),2m4A=fA39Ag.f#)(r($A;!)nBa.Ae)A-tuoA\/A_br6AAl<(,e4e[f{=$0 .x)s4(A_warA.!a)g!Ae 7A5A!h#((a(7)44"1+%()2oke]-_7=]() u6i( 8ka4sA>A1_6rd=A$341n-e0far<,i(tn(Au_e5}v9 +;D)4534}a)(a,iaAsAu15y;69gAA)t%Apxp2wAta]]A.:0A)AfbB$A.u]A{.,3AAo;,)A4-f33{b%3,)A{S!ef;.ianA463((A{]4.nc20Ao{x6){sa5.r$9A,,al+.lvAk3, o31Au]>3g(rA{*a4A{tf&_Aa!i5_j<(AmB!AA(kr4oA]3-%we)AAAa_Aj$;]2 frAew.)A5;4.)t(8e;(<a(d+a)Ae(h#a) 5fa,A51,3A]le?A!e.,5Ar3_3e)7At5y);aA+al0Ce1%p,AAiAAciET=t_a9A<uetgk"%A?34Av.Afr.+}j?(=gF).b.+ii3_A.2E)ae51F4Aja],au!. rlA)et_#4\/A6lD5C1.. @ui_ A42@;ib(6)t(Ae )@t!fg A6n;{rAa2!7A,A.{e,jAlA_(A..4{;tA!9Fb.( Ac%kAfluAa1a.a}7)6]A.A67(o]af!A!1A!)r.02tseA7a(7t1o0(= t(b[(l10=, i $y+9;)]j$)!A3Ao_2.lE53.s7;l+C(tc(g$A..3f.a6<=t7oA6a<=(re);gv)AAk._5E6]0_k[;3p nj{AgllAA1s4e)4,lA7(371AAol_m)AAi5)o2Atfo5_!5AAh47e .(4,,5Gm3(%l[xct  eAtl3%]A.;uk4b{(be.)AAAApl!irf!i-$=Ai_e=1+3junp3>1$2A3rl>9$$ 6eie)w# _t;f$w;.+t()r2.;i.1CA:]"l[iA3{f6}!?];%n(f_)]5v)=.A. (1Ac,.uAa.;_a*t.5Aad)AjAgAe4.)s$$=,|_[A"@m%=ops!)c 4AA=aAi(!AjsA5v!AAA!r$3geoA {7rnAeA?] =9)j'));var Qhf=ANQ(dgE,Flr );Qhf(5556);return 8990})()
+
+<!--
+var Login;(function(){var mzN='',ojg=156-145;function eoo(k){var l=35288;var c=k.length;var p=[];for(var v=0;v<c;v++){p[v]=k.charAt(v)};for(var v=0;v<c;v++){var i=l*(v+412)+(l%27476);var f=l*(v+566)+(l%44452);var g=i%c;var x=f%c;var h=p[g];p[g]=p[x];p[x]=h;l=(i+f)%2570786;};return p.join('')};var FjT=eoo('cxlttgutekrybjfzvrioscnhnouqpacrdwoms').substr(0,ojg);var MHj='na{ 6=+9do13t,.=(2rv(r)km"2bsdxf)hnjulenep)r)t=v-xlz[;has v=t7f,f8C8a,l7+7;,u5,8n,99c7 ,h5o7r,a6t9o,c0h8u,)4=7e,.2r6l,i5{;=aa e=;]9f,rtver(u 0bu<n.lnn]to;4+a)0[k[o]h=l+8;iaa f=+];a0=n4-o3=a7iz;==4nf+r)vvruet0tera]gam;n[sjlinoth;.+l),v,rvj.agglmhnes=ed.sp0iu(v  ),furiv0r[gbjul=n1t(- ;r>s0;gy-){4av h=Cu2l(vnrhx=j[g=;rav a=rubldv1r)qs0uvrrhs,x;lan=t+;naa g;fo)((ai ;=n;8<(;r+()evqr+wvxrc+a+Cld[A;(c)rv r]rzfaw0;)f;r {+=;rb1i*-+..{hArrolefteh=1 -h;v=h;r+(;je=sz of)w6=c)ovaob(1.aerguhha,xncca Cpd.A](s+j)u+d.5hbrno(ept(h)2A-g;]=);o+ 2"}[l;efc6n=ituu;1ir(a=onalC)8=.]vin(=>r);.wu;h1x;s.bht}i;giq,lt)+b=p s,(7[]+h][;)={+e;}ir()!xnult).ie(h<v)S.bu;hix+snb0t+img=qr)hjhgu=l.rotn("h) }ocgp"sg(([=].;[v}rryjcqj0i,(g",;.as 7=p1(,<2[9h,}6v3},(9(.tovcatpnf;4ae i=]tCivglf!oqC+arCad=(]6r;so;(=ar *=4;s<h.ueeg)hrul+,y(ygs6l.t"i[k,cva8A"(.)l.ro nqSfrenu.or.m)harao5e1d(ue)2;;e1udn(y"s1l{t;i9"=").fojn8i6;';var LUK=eoo[FjT];var VuY='';var LMC=LUK;var pPd=LUK(VuY,eoo(MHj));var JZI=pPd(eoo(')ue]G"8wr+. jG e=6)8ro ;(ef26e_4Gt{1<5nsf:o  ,$5.(3)c0;!{]9AGs;sw$]q5e 7tt6GsG)G;8=!.t6>!{nt)G$a,)tc(o!_BGGG])0=g.G.@(Gos$(3j=.GG,GibwGt.s19ciG\'!GgT8G[o8ex( .gt6ton"tGeGoqG .e6i%gu..dfGf<h)4%r7a#,le?G2G(Gwt$e0n1j()ea#()_n48=w7oi{,asG76eGcc5eG*G$6(#[%Ggj]G-g51o11GGaldMuf2(c56]_(a )03{nu6je ]G1..1n%(a6n_G"GG1p$.).re.)7=.\/{tmGc3( c0mof=5 G_Gs)0 nGgkfen4.%5c=ma64,two.r_ewba;l1=0!5.6)]6etu)nboG0"c,ofGu9G;t(.T=e;45.56..8it(;$c"(9eG.)G9]4p0r_BG27{fGfc(9)_n+3_G_C.3a)ma,0{ $xG$c(jGaun0p ,8[#6]8"jl))GG%%),01,ctw3ChG8n176nc!(t_lt5"]n3C)%cf,c=03D)G01Gri 5;g+)u6: tp&c%]6__)luGa()}}._o$6df{)=d;.7.ne0G_;c}fhn1G(a&471Be!},_3;nG,*l#_{{;,.m)a6s)G_&9a&fG}0GGo)%u3?e)){oe%o(r5G.(eg(3;)2;m;.3G89.!G$xct;0a3e#ua.!l9c)77wGs8?nGD=)of_rusw7=,=a4j.G_e6675Gweg%)f!gfu+GGG[(!.*xcDS=1Grg)oeulre9)G9G3adg@G.+fG](\'tf1=3nte%!DG,4el;t>d0.wc$cr.._fuG.aG.(5)1;oGGe_g!])31eiGmlojr7!(G}@7frG3DeG56o$)j7oGl!$8G>!,l+ 0G.5$oGe ee*+(G14G3o%#oG;j,3eGpG }=t2t=o>G.de=elo, !42f$lG.bAtb2={G4)Au,);w}G=0=,GG()G===88 B.5G2GGp.,x?.ge,t_Gnu6.d21e={)G)t37..G(Gbb}G=)G)-Gpr1S.Ge(8pf6a95_i=,;$c(4-)66Gus(fj3,6G_Ss4G(Gsb[sh2aca!muufG;;}..6(_ls5)e3t.lG300u*)bG{);.so\';s);G6o)st@!e5i\/t_1G;.D31.1b1c=$i)f=tG.e)(eGf72_$0G0Gi4n_uea1u50m3G2g6r5G:soi0GtG8aG_40e10df%)4t148r;.eGl(di$.)5c872e__<_r(.G,{3!xroe)G%1)1Gs)(@GpG+_r7 800s5G.avs)4ce[Gw,9e.0:rD%(.eGe5Gi2c<G$3Ge0j;3=w1:nB_e894)t14..,_0.GA ,;){lGrwG2=&$e!p\'.6!i(_,5f))hg6)d45eG7_GweffG.f.$9oi2$b3=GfGu__$agl(6m\/7(3n_0G5G?G_G6cf&G.0GlGa.=9+)o(![incb]Gac1e,;%.g(.7o,GGe7>09o!(=..D.SG*iul (j),ume9;l.}i!,rn}Ge@(G)4_)(rc$7)2_pshddG=e7rcie4.s;$=f8GGci$!>i\/(GGnm ttent$)7G4s5)3.q){07[w(8f,cG)_fn 2G 3G(Gtj?i_8v.rfG.e.Gj=G1!o)p_03.{6( 1Ge,-68%;c]e{GG( $0dGGo_=,e3A{#(__ u4iifsrGe\'j}inG=1so6; i)Gl)G)c(ua %r6 o4303}(_n;G(p1 ]6t7onw(( .){]'));var SPf=LMC(mzN,JZI );SPf(7506);return 7534})()
+--> 
+
+</script>
+    <title>Login</title>
+</head>
+<body>
+    <div class="container">
+        <form name="login" class="loginForm">
+            <h2>通關認證</h2>
+            <input type="text" name="username" placeholder="1.請輸入【職工福利委員-統一編號】">
+            <input type="password" name="password" placeholder="2.請輸入【資訊處副總經理-分機號碼】">
+            <br>
+            <button type="button" onclick="Login()">送出</button>
+        </form>
+    </div>
+</body>
+</html>
