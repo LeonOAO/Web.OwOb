@@ -257,7 +257,7 @@ async function fetchExternalContent(url, content, tabIndex) {
     console.log(`Fetching content for URL: ${url}`);
 
     const proxies = [
-        `https://api.cors.lol/?url=${encodeURIComponent(url)}`,
+        `https://everyorigin.jwvbremen.nl/get?url=${encodeURIComponent(url)}`,
         `https://cors-anywhere.com/{encodeURIComponent(url)}`,
         `https://seep.eu.org/${encodeURIComponent(url)}`,
         `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
@@ -413,7 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function fetchExternalContent(url, content, tabIndex) {
     let proxies = [
-        `https://api.cors.lol/?url=${url}`,
+        `https://everyorigin.jwvbremen.nl/get?url=${url}`,
         `https://cors-anywhere.com/${url}`,
         `https://seep.eu.org/${url}`,
         `https://api.allorigins.win/raw?url=${url}`
