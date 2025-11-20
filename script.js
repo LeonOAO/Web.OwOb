@@ -260,6 +260,7 @@ async function fetchExternalContent(url, content, tabIndex) {
         `https://cors-anywhere.com/${encodeURIComponent(url)}`,
         `https://seep.eu.org/${encodeURIComponent(url)}`,
         `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+        `https://api.cors.lol/?url=${encodeURIComponent(url)}`
         /*,
                 `https://corsproxy.io/?url=${encodeURIComponent(url)}`*/
     ];
@@ -415,6 +416,7 @@ async function fetchExternalContent(url, content, tabIndex) {
         `https://cors-anywhere.com/${url}`,
         `https://seep.eu.org/${url}`,
         `https://api.allorigins.win/raw?url=${url}`
+        `https://api.cors.lol/?url=${url}`
     ];
 
     if (url.includes('google.com')) {
