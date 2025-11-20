@@ -257,9 +257,10 @@ async function fetchExternalContent(url, content, tabIndex) {
     console.log(`Fetching content for URL: ${url}`);
 
     const proxies = [
+        `https://go.x2u.in/proxy?email=pqk96681@laoia.com&apiKey=bc68142a&url=${encodeURIComponent(url)}`,
         `https://cors-anywhere.com/${encodeURIComponent(url)}`,
         `https://seep.eu.org/${encodeURIComponent(url)}`,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
         `https://api.cors.lol/?url=${encodeURIComponent(url)}`
         /*,
                 `https://corsproxy.io/?url=${encodeURIComponent(url)}`*/
@@ -413,9 +414,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function fetchExternalContent(url, content, tabIndex) {
     let proxies = [
+        `https://go.x2u.in/proxy?email=pqk96681@laoia.com&apiKey=bc68142a&url=${url}`,
         `https://cors-anywhere.com/${url}`,
         `https://seep.eu.org/${url}`,
-        `https://api.allorigins.win/raw?url=${url}`
+        `https://api.allorigins.win/raw?url=${url}`,
         `https://api.cors.lol/?url=${url}`
     ];
 
