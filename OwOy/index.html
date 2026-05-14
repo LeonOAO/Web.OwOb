@@ -1,0 +1,596 @@
+﻿<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title id="page-title">OwO Browser</title>
+<!-- Option B: icons live in repo root, this page is /OwOy/ so use ../ -->
+<link id="favicon" rel="icon" href="./favico.ico" type="image/x-icon">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){ dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-E9DZ1KWKQT');
+  </script>
+<!-- Core scripts (this file is /OwOy/index.html so these are correct) -->
+<script src="./baremux/index.js"></script>
+<script src="./scram/scramjet.all.js"></script>
+<style>
+:root{
+  /* Core palette */
+  --bg-0:#07070a;
+  --bg-1:#0b0c12;
+  --surface:rgba(18,19,27,.72);
+  --surface-2:rgba(255,255,255,.06);
+  --surface-3:rgba(255,255,255,.09);
+  --border:rgba(255,255,255,.10);
+  --border-2:rgba(168,85,247,.32);
+
+  --text:#eef2ff;
+  --text-muted:rgba(238,242,255,.65);
+  --text-dim:rgba(238,242,255,.45);
+
+  --accent:#a855f7;
+  --accent-2:#22d3ee;
+  --accent-3:#60a5fa;
+  --danger:#ff5a6a;
+
+  --shadow:0 18px 60px rgba(0,0,0,.55);
+  --shadow-soft:0 10px 30px rgba(0,0,0,.35);
+  --glow:0 0 0 3px rgba(168,85,247,.28);
+
+  --radius-lg:18px;
+  --radius-md:14px;
+  --radius-sm:10px;
+
+  --tab-h:42px;
+  --nav-h:60px;
+  --top-h:calc(var(--tab-h) + var(--nav-h));
+
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body,html{
+  margin:0;
+  font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  color:var(--text);
+  background:
+    radial-gradient(1000px 600px at 20% 10%, rgba(168,85,247,.18), transparent 55%),
+    radial-gradient(900px 520px at 80% 25%, rgba(34,211,238,.14), transparent 58%),
+    radial-gradient(900px 520px at 55% 95%, rgba(96,165,250,.10), transparent 60%),
+    linear-gradient(180deg, var(--bg-0), var(--bg-1));
+  overflow:hidden;
+}
+
+/* Subtle animated grain (no JS) */
+body::before{
+  content:"";
+  position:fixed;inset:0;
+  background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="260" height="260"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="3" stitchTiles="stitch"/></filter><rect width="260" height="260" filter="url(%23n)" opacity=".18"/></svg>');
+  mix-blend-mode:overlay;
+  opacity:.10;
+  pointer-events:none;
+  transform:translateZ(0);
+  animation:grain 10s steps(6) infinite;
+}
+@keyframes grain{
+  0%{transform:translate(0,0)}
+  20%{transform:translate(-2%,3%)}
+  40%{transform:translate(3%,-1%)}
+  60%{transform:translate(-3%,-2%)}
+  80%{transform:translate(2%,2%)}
+  100%{transform:translate(0,0)}
+}
+
+/* ===== Loading Screen ===== */
+#loading-screen{
+  position:fixed; inset:0;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:
+    radial-gradient(circle at center, rgba(168,85,247,.22) 0%, rgba(7,7,10,1) 55%),
+    linear-gradient(180deg, rgba(7,7,10,1), rgba(11,12,18,1));
+  z-index:99999;
+  transition:opacity .45s var(--ease);
+}
+.black-hole{
+  width:120px; height:120px;
+  border-radius:999px;
+  position:relative;
+  background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.12), rgba(0,0,0,.92) 50%, rgba(0,0,0,1) 75%);
+  box-shadow:0 0 0 1px rgba(255,255,255,.08), 0 0 50px 10px rgba(168,85,247,.38);
+  animation:float 2.8s var(--ease) infinite;
+  transform:translateZ(0);
+}
+.black-hole::before{
+  content:"";
+  position:absolute; inset:-16px;
+  border-radius:999px;
+  background:conic-gradient(from 180deg, rgba(34,211,238,.0), rgba(168,85,247,.55), rgba(34,211,238,.25), rgba(168,85,247,.0));
+  filter:blur(10px);
+  opacity:.9;
+  animation:spin 1.2s linear infinite;
+}
+.black-hole::after{
+  content:"";
+  position:absolute; inset:12px;
+  border-radius:999px;
+  box-shadow:inset 0 0 22px rgba(255,255,255,.10);
+  border:1px solid rgba(255,255,255,.10);
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes float{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-6px) scale(1.02)}}
+
+/* ===== Top UI hide animation (must match JS class toggles) ===== */
+#top-ui{transition:transform .45s var(--ease)}
+body.nav-hidden #top-ui{transform:translateY(calc(-1 * var(--top-h)))}
+body.nav-hidden .frame-container{top:0 !important}
+
+/* ===== Tab Strip ===== */
+.tab-strip{
+  height:var(--tab-h);
+  display:flex;
+  align-items:flex-end;
+  gap:6px;
+  padding:10px 12px 0;
+  background:transparent;
+  overflow:auto hidden;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(255,255,255,.12) transparent;
+}
+.tab-strip::-webkit-scrollbar{height:8px}
+.tab-strip::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:999px}
+
+.tab{
+  height:34px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:8px 12px;
+  min-width:150px;
+  max-width:240px;
+  border-radius:14px 14px 8px 8px;
+  color:var(--text-muted);
+  border:1px solid transparent;
+  border-bottom:none;
+  background:transparent;
+  cursor:pointer;
+  transition:transform .18s var(--ease), background .18s var(--ease), border-color .18s var(--ease), color .18s var(--ease);
+  position:relative;
+}
+.tab:hover{background:rgba(255,255,255,.05); transform:translateY(-1px)}
+.tab::before{
+  content:"";
+  width:10px;height:10px;border-radius:999px;
+  background:radial-gradient(circle at 30% 30%, rgba(255,255,255,.9), rgba(168,85,247,.65) 55%, rgba(34,211,238,.35));
+  box-shadow:0 0 0 3px rgba(168,85,247,.14);
+  flex:0 0 auto;
+}
+.tab.active{
+  color:var(--text);
+  background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.06));
+  border-color:rgba(255,255,255,.12);
+  box-shadow:0 10px 26px rgba(0,0,0,.25);
+}
+.tab.active::after{
+  content:"";
+  position:absolute; left:10px; right:10px; bottom:-1px;
+  height:2px;
+  background:linear-gradient(90deg, rgba(168,85,247,.0), rgba(168,85,247,1), rgba(34,211,238,.85), rgba(168,85,247,.0));
+  box-shadow:0 -2px 14px rgba(168,85,247,.6);
+  border-radius:999px;
+}
+
+.close-tab-btn{
+  margin-left:auto;
+  border:none;
+  background:transparent;
+  color:inherit;
+  opacity:.55;
+  width:26px;height:26px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:9px;
+  cursor:pointer;
+  transition:background .16s var(--ease), opacity .16s var(--ease), color .16s var(--ease), transform .16s var(--ease);
+}
+.close-tab-btn:hover{background:rgba(255,90,106,.14); color:var(--danger); opacity:1; transform:scale(1.02)}
+
+/* plus button inside tab-strip (it is .nav-button in markup, do not add more .nav-button inside tab-strip) */
+#tab-strip > .nav-button{
+  margin-left:6px;
+  height:34px;
+  width:40px;
+  border-radius:14px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.10);
+  box-shadow:0 10px 26px rgba(0,0,0,.18);
+}
+#tab-strip > .nav-button:hover{
+  background:rgba(168,85,247,.14);
+  border-color:rgba(168,85,247,.35);
+  color:var(--text);
+}
+
+/* ===== Navbar ===== */
+.navbar{
+  height:var(--nav-h);
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:0 14px;
+  margin:0 12px 10px;
+  border-radius:var(--radius-lg);
+  background:var(--surface);
+  border:1px solid rgba(255,255,255,.10);
+  backdrop-filter:blur(14px);
+  box-shadow:var(--shadow-soft);
+}
+
+.nav-buttons{display:flex; gap:8px; align-items:center}
+
+.nav-button{
+  width:38px;height:38px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:12px;
+  user-select:none;
+  cursor:pointer;
+  color:var(--text-muted);
+  border:1px solid transparent;
+  transition:background .16s var(--ease), color .16s var(--ease), border-color .16s var(--ease), transform .16s var(--ease);
+}
+.nav-button:hover{
+  background:rgba(255,255,255,.06);
+  color:var(--text);
+  border-color:rgba(255,255,255,.10);
+  transform:translateY(-1px);
+}
+
+.settings-icon-img{
+  width:20px;height:20px;object-fit:contain;
+  opacity:.80;
+  transition:filter .18s var(--ease), opacity .18s var(--ease);
+}
+.nav-button:hover .settings-icon-img{
+  opacity:1;
+  filter:drop-shadow(0 0 8px rgba(168,85,247,.65));
+}
+
+/* ===== Address Bar ===== */
+.search-container{
+  flex:1 1 auto;
+  height:42px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:0 14px;
+  border-radius:14px;
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.10);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.10);
+  transition:border-color .16s var(--ease), box-shadow .16s var(--ease), background .16s var(--ease);
+}
+.search-container::before{
+  content:"";
+  width:18px;height:18px;
+  opacity:.70;
+  background:radial-gradient(circle at 30% 30%, rgba(255,255,255,.95), rgba(168,85,247,.65));
+  -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="black"><path d="M10 4a6 6 0 104.472 10.03l3.749 3.75a1 1 0 001.415-1.415l-3.75-3.749A6 6 0 0010 4zm-4 6a4 4 0 118 0 4 4 0 01-8 0z"/></svg>') center/contain no-repeat;
+          mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="black"><path d="M10 4a6 6 0 104.472 10.03l3.749 3.75a1 1 0 001.415-1.415l-3.75-3.749A6 6 0 0010 4zm-4 6a4 4 0 118 0 4 4 0 01-8 0z"/></svg>') center/contain no-repeat;
+}
+.search-container:focus-within{
+  border-color:rgba(168,85,247,.55);
+  box-shadow:var(--glow), inset 0 0 0 1px rgba(0,0,0,.20);
+  background:rgba(255,255,255,.075);
+}
+
+input#bar{
+  flex:1 1 auto;
+  height:100%;
+  background:transparent;
+  border:none;
+  outline:none;
+  color:var(--text);
+  font-size:14px;
+  letter-spacing:.2px;
+}
+input#bar::placeholder{color:rgba(238,242,255,.45)}
+
+/* ===== Frame area ===== */
+.frame-container{
+  position:absolute;
+  top:108px;
+  left:0; right:0; bottom:0;
+  background:#000;
+  border-top:1px solid rgba(255,255,255,.06);
+  transition:top .45s var(--ease);
+}
+iframe{width:100%;height:100%;border:none;display:none;background:#000}
+iframe.active{display:block}
+
+/* ===== New Tab ===== */
+.new-tab-screen{
+  position:absolute; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  padding:24px;
+  background:
+    radial-gradient(900px 520px at 25% 25%, rgba(168,85,247,.22), transparent 60%),
+    radial-gradient(900px 520px at 75% 30%, rgba(34,211,238,.18), transparent 60%),
+    radial-gradient(900px 520px at 55% 95%, rgba(96,165,250,.12), transparent 60%),
+    linear-gradient(180deg, rgba(7,7,10,1), rgba(11,12,18,1));
+  color:var(--text);
+  z-index:5;
+}
+
+.new-tab-content{
+  width:min(760px, 94vw);
+  border-radius:24px;
+  padding:34px 26px;
+  background:linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.05));
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow:var(--shadow);
+  position:relative;
+  overflow:hidden;
+}
+.new-tab-content::before{
+  content:"";
+  position:absolute; inset:-80px;
+  background:
+    radial-gradient(circle at 20% 35%, rgba(168,85,247,.30), transparent 52%),
+    radial-gradient(circle at 75% 30%, rgba(34,211,238,.22), transparent 50%),
+    radial-gradient(circle at 55% 80%, rgba(96,165,250,.16), transparent 55%);
+  filter:blur(10px);
+  opacity:.9;
+}
+.new-tab-content > *{position:relative}
+
+.new-tab-content h1{
+  margin:0;
+  font-size:54px;
+  line-height:1.05;
+  letter-spacing:-1px;
+  font-weight:750;
+  background:linear-gradient(180deg, rgba(255,255,255,1), rgba(168,85,247,1));
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+
+.new-tab-content p{
+  margin:12px 0 0;
+  color:var(--text-muted);
+  letter-spacing:3px;
+  font-size:12px;
+  text-transform:uppercase;
+}
+
+/* ===== Modal ===== */
+.modal-overlay{
+  position:fixed; inset:0;
+  background:rgba(0,0,0,.72);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+  z-index:100000;
+  backdrop-filter:blur(8px);
+}
+.modal-overlay.show{display:flex}
+
+.modal-content{
+  width:min(520px, 94vw);
+  max-height:88vh;
+  overflow:auto;
+  border-radius:22px;
+  padding:22px 18px 18px;
+  background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.06));
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow:var(--shadow);
+}
+.modal-content::-webkit-scrollbar{width:10px}
+.modal-content::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:999px}
+
+/* Keep h2 inline styles in HTML; polish them by overriding gently */
+.modal-content h2{
+  margin:0 0 12px;
+  text-shadow:0 0 18px rgba(168,85,247,.22);
+}
+
+.section-label{
+  display:block;
+  margin:14px 0 6px;
+  font-size:10px;
+  letter-spacing:2.2px;
+  text-transform:uppercase;
+  color:var(--text-dim);
+}
+
+.setting-btn{
+  width:100%;
+  padding:12px 12px;
+  margin:6px 0;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.06);
+  color:var(--text);
+  font-weight:600;
+  cursor:pointer;
+  transition:transform .16s var(--ease), background .16s var(--ease), border-color .16s var(--ease), color .16s var(--ease), box-shadow .16s var(--ease);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-transform:uppercase;
+  letter-spacing:1.1px;
+  font-size:10px;
+  position:relative;
+}
+.setting-btn:hover{
+  transform:translateY(-1px);
+  background:rgba(255,255,255,.085);
+  border-color:rgba(168,85,247,.35);
+  box-shadow:0 0 0 3px rgba(168,85,247,.14);
+  color:var(--text);
+}
+.setting-btn.primary{
+  text-transform:none;
+  letter-spacing:.4px;
+  font-size:13px;
+  padding:13px 12px;
+  border:none;
+  background:linear-gradient(90deg, rgba(168,85,247,1), rgba(34,211,238,.95));
+  box-shadow:0 14px 40px rgba(168,85,247,.22);
+}
+.setting-btn.primary:hover{box-shadow:0 18px 50px rgba(168,85,247,.30)}
+
+.setting-btn.active-wisp{
+  border-color:rgba(34,211,238,.55);
+  background:rgba(34,211,238,.10);
+  box-shadow:0 0 0 3px rgba(34,211,238,.16);
+}
+
+.ping-tag{
+  position:absolute;
+  right:12px;
+  font-size:10px;
+  opacity:.65;
+  letter-spacing:.4px;
+}
+
+.btn-row{display:flex; gap:10px}
+.btn-row .setting-btn{flex:1}
+
+.custom-wisp-box{display:flex; gap:8px; margin-top:8px}
+.custom-wisp-input{
+  flex:1;
+  height:40px;
+  border-radius:14px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.12);
+  color:var(--text);
+  padding:10px 12px;
+  font-size:12px;
+  outline:none;
+  transition:border-color .16s var(--ease), box-shadow .16s var(--ease), background .16s var(--ease);
+}
+.custom-wisp-input:focus{
+  border-color:rgba(168,85,247,.55);
+  box-shadow:var(--glow);
+  background:rgba(255,255,255,.075);
+}
+
+/* Close button in modal (it's a .setting-btn with special inline styles) */
+.modal-content .setting-btn[data-action="hideSettings"]{
+  margin-top:14px !important;
+}
+
+/* ===== Responsiveness ===== */
+@media (max-width: 720px){
+  .navbar{margin:0 10px 10px; padding:0 10px}
+  .tab{min-width:120px; max-width:180px}
+  .new-tab-content h1{font-size:42px}
+}
+@media (max-width: 480px){
+  .nav-button{width:36px;height:36px;border-radius:12px}
+  .search-container{height:40px}
+}
+
+/* Accessibility: reduced motion */
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; scroll-behavior:auto !important;}
+}
+</style>
+</head>
+<body>
+<div id="loading-screen"><div class="black-hole"></div></div>
+<div id="top-ui">
+<div class="tab-strip" id="tab-strip">
+<div class="nav-button" data-action="newTab" style="font-size: 24px;">+</div>
+</div>
+<nav class="navbar">
+<div class="nav-buttons">
+<div class="nav-button" data-action="back">←</div>
+<div class="nav-button" data-action="forward">→</div>
+<div class="nav-button" data-action="reload">↻</div>
+</div>
+<div class="search-container">
+<input autocomplete="off" id="bar" placeholder="Search with Brave or enter URL" type="text"/>
+</div>
+<div class="nav-buttons">
+<div class="nav-button" data-action="showSettings">
+<img alt="Settings" class="settings-icon-img" src="../settingsicon.png"/>
+</div>
+<div class="nav-button" data-action="fullscreen">⛶</div>
+</div>
+</nav>
+</div>
+<div class="frame-container" id="frame-container">
+<div class="new-tab-screen" id="new-tab-ui">
+<div class="new-tab-content" style="text-align: center;">
+<h1>OwO Browser</h1>
+<p style="color: var(--text-muted); letter-spacing: 2px; font-size: 12px;">Never enter confidential information anywhere.</p>
+</div>
+</div>
+</div>
+<div class="modal-overlay" data-action="hideSettings" id="settings-modal">
+<div class="modal-content" data-action="stopPropagation">
+<h2 style="margin-top:0; color: var(--accent); letter-spacing: 2px; font-size: 18px; text-transform: uppercase;">Settings</h2>
+<span class="section-label">General</span>
+<button class="setting-btn primary" data-action="aboutBlank">Open in About:Blank</button>
+<button class="setting-btn" data-action="hideNavbar">Hide Navigation Bar</button>
+<button class="setting-btn" data-action="toggleCloak" id="cloak-toggle-btn">Enable Tab Cloaking (Drive)</button>
+<span class="section-label">Wisp Servers</span>
+<div style="display: flex; flex-direction: column; gap: 0;">
+<button class="setting-btn active-wisp" data-action="setWisp" data-wisp="main" id="wisp-main">
+          Main Server <span class="ping-tag" id="ping-main">--ms</span>
+</button>
+<div class="btn-row">
+<button class="setting-btn" data-action="setWisp" data-wisp="backup2" id="wisp-backup2">
+            Backup 2 <span class="ping-tag" id="ping-backup2">--ms</span>
+</button>
+<button class="setting-btn" data-action="setWisp" data-wisp="backup3" id="wisp-backup3">
+            Backup 3 <span class="ping-tag" id="ping-backup3">--ms</span>
+</button>
+</div>
+<div class="btn-row">
+<button class="setting-btn" data-action="setWisp" data-wisp="backup4" id="wisp-backup4">
+            Backup 4 <span class="ping-tag" id="ping-backup4">--ms</span>
+</button>
+<button class="setting-btn" data-action="setWisp" data-wisp="backup5" id="wisp-backup5">
+            Backup 5 <span class="ping-tag" id="ping-backup5">--ms</span>
+</button>
+</div>
+<div class="btn-row">
+<button class="setting-btn" data-action="setWisp" data-wisp="backup6" id="wisp-backup6">
+            Backup 6 <span class="ping-tag" id="ping-backup6">--ms</span>
+</button>
+<button class="setting-btn" data-action="setWisp" data-wisp="backup7" id="wisp-backup7">
+            Backup 7 <span class="ping-tag" id="ping-backup7">--ms</span>
+</button>
+</div>
+<div class="btn-row">
+<button class="setting-btn" data-action="setWisp" data-wisp="backup8" id="wisp-backup8">
+            Backup 8 <span class="ping-tag" id="ping-backup8">--ms</span>
+</button>
+<button class="setting-btn" data-action="setWisp" data-wisp="backup9" id="wisp-backup9">
+            Backup 9 <span class="ping-tag" id="ping-backup9">--ms</span>
+</button>
+</div>
+<div class="btn-row">
+<button class="setting-btn" data-action="setWisp" data-wisp="backup10" id="wisp-backup10">
+            Backup 10 <span class="ping-tag" id="ping-backup10">--ms</span>
+</button>
+</div>
+<div class="custom-wisp-box">
+<input class="custom-wisp-input" id="custom-wisp-url" placeholder="wss://your-wisp-server/wisp/" type="text"/>
+<button class="setting-btn" data-action="setCustomWisp" style="margin:0; width: auto; padding: 0 15px;">Use</button>
+</div>
+</div>
+<button class="setting-btn" data-action="hideSettings" style="margin-top: 20px; border: none; background: transparent; opacity: 0.6; text-transform: none; letter-spacing: 0;">
+        Close
+      </button>
+</div>
+</div>
+
+<script defer="" src="./app.hardened.js"></script></body>
+</html>
