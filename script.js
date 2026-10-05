@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
  *  OwOb Browser - 主程式
  *  架構：
  *    1. 設定與狀態
@@ -311,6 +311,53 @@ function GetCookieHeader(url) {
     });
 
     return pairs.join("; ");
+}
+
+/**
+ * 取得網站主網域（簡化版）
+ *   tw.search.yahoo.com → yahoo.com
+ *   www.ptt.cc          → ptt.cc
+ *   news.yahoo.com.tw   → yahoo.com.tw（第二層為 com / net / org 等的國碼網域）
+ */
+function GetSiteDomain(host) {
+    const labels = host.toLowerCase().split(".");
+
+    if (labels.length <= 2) {
+        return labels.join(".");
+    }
+
+    const secondLevel = labels[labels.length - 2];
+    const topLevel    = labels[labels.length - 1];
+    const isCcSecond  = topLevel.length === 2 && ["com", "net", "org", "edu", "gov", "co", "ac", "or", "ne", "idv"].includes(secondLevel);
+
+    return labels.slice(isCcSecond ? -3 : -2).join(".");
+}
+
+/**
+ * 取得同站 Cookie 罐（傳給代理）
+ * 轉址可能跨子網域（例如 tw.search.yahoo.com → guce.yahoo.com），
+ * 因此把同一主網域下的 Cookie 全部交給代理，由代理依每一跳的主機挑選
+ */
+function GetSiteCookieJar(url) {
+    let site;
+    try {
+        site = GetSiteDomain(new URL(url).hostname);
+    } catch {
+        return [];
+    }
+
+    const jar     = LoadCookieJar();
+    const entries = [];
+
+    Object.keys(jar).forEach(domain => {
+        if (domain !== site && !domain.endsWith("." + site)) return;
+
+        Object.entries(jar[domain]).forEach(([name, item]) => {
+            entries.push({ Domain: domain, Name: name, Value: item.Value, HostOnly: item.HostOnly });
+        });
+    });
+
+    return entries;
 }
 
 /** 計算目前 Cookie 總數（設定頁顯示用） */
@@ -803,9 +850,9 @@ async function LoadExternalPage(tab, url, postData = null) {
         /* ---------- 組合代理請求 ---------- */
         const headers = {};
 
-        const cookieHeader = GetCookieHeader(url);
-        if (cookieHeader) {
-            headers["X-Proxy-Cookie"] = cookieHeader;
+        const siteJar = GetSiteCookieJar(url);
+        if (siteJar.length > 0) {
+            headers["X-Proxy-Cookie-Jar"] = encodeURIComponent(JSON.stringify(siteJar));
         }
 
         const requestOptions = {
@@ -862,9 +909,19 @@ async function LoadExternalPage(tab, url, postData = null) {
             return;   // 使用者主動切換頁面，不顯示錯誤
         }
 
-        const detail = controller.signal.reason === "timeout"
-            ? `連線逾時（超過 ${Config.FetchTimeoutMs / 1000} 秒）。`
-            : `${error.message}\n\n可能原因：\n• 代理的 ALLOWED_ORIGINS 未包含目前網站來源（${location.origin}）\n• 代理尚未更新為支援 POST / Cookie 的版本\n• 目標網站封鎖了代理伺服器\n• 網路連線異常`;
+        // 依錯誤類型顯示對應說明：
+        //   逾時          → 連線逾時
+        //   代理回傳錯誤   → 直接顯示代理訊息（代理本身可連線，不是 CORS 問題）
+        //   其他（TypeError: Failed to fetch）→ 代理無法連線或 CORS 被擋
+        let detail;
+
+        if (controller.signal.reason === "timeout") {
+            detail = `連線逾時（超過 ${Config.FetchTimeoutMs / 1000} 秒）。`;
+        } else if (error.message.startsWith("代理錯誤")) {
+            detail = `${error.message}\n\n可改用「直接開啟原網址」，或在首頁切換其他搜尋引擎。`;
+        } else {
+            detail = `${error.message}\n\n可能原因：\n• 代理的 ALLOWED_ORIGINS 未包含目前網站來源（${location.origin}）\n• 代理尚未更新為最新版本\n• 網路連線異常`;
+        }
 
         RenderErrorPage(tab, "無法載入此網頁", `${url}\n\n${detail}`, url);
     } finally {
