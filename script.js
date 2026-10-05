@@ -21,8 +21,8 @@
  * ============================================================ */
 
 const Config = {
-    // 自架 Cloudflare Worker 代理
-    ProxyBase: "https://owob-proxy.kkwan812.workers.dev/?url=",
+    // 預設代理（自架 Cloudflare Worker）；介面上不顯示，使用者可於設定頁自填覆蓋
+    DefaultProxyBase: "https://owob-proxy.kkwan812.workers.dev/?url=",
 
     // 代理請求逾時（毫秒）
     FetchTimeoutMs: 15000,
@@ -33,17 +33,13 @@ const Config = {
     // 歷史紀錄最大筆數
     MaxHistory: 200,
 
-    // 搜尋引擎（DuckDuckGo HTML 版不需要 JavaScript，最適合代理顯示）
-    SearchEngines: {
-        DuckDuckGo: "https://html.duckduckgo.com/html/?q=",
-        Bing:       "https://www.bing.com/search?q=",
-        Google:     "https://www.google.com/search?q="
-    },
+    // 內建搜尋引擎（固定使用 Bing）
+    SearchUrl: "https://www.bing.com/search?q=",
 
     // localStorage 鍵名
     StorageKeys: {
         Theme:        "OwOb.Theme",
-        Engine:       "OwOb.SearchEngine",
+        ProxyBase:    "OwOb.ProxyBase",
         History:      "OwOb.History",
         OpenTabs:     "OwOb.OpenTabs",
         ActiveTab:    "OwOb.ActiveTab",
@@ -207,7 +203,7 @@ function UnwrapRedirectUrl(url) {
  *   owob://xxx         → 內部頁面
  *   含協定的網址         → 原樣
  *   像網域的字串         → 補上 https://
- *   其他                → 使用搜尋引擎
+ *   其他                → 使用 Bing 搜尋
  */
 function ResolveInput(input) {
     const text = input.trim();
@@ -229,12 +225,50 @@ function ResolveInput(input) {
         return "https://" + text;
     }
 
-    const engine = localStorage.getItem(Config.StorageKeys.Engine) || "DuckDuckGo";
-    const base = Config.SearchEngines[engine] || Config.SearchEngines.DuckDuckGo;
-    return base + encodeURIComponent(text);
+    return Config.SearchUrl + encodeURIComponent(text);
 }
 
 
+/* ---------- 代理伺服器設定 ---------- */
+/** 是否使用自訂代理 */
+function IsCustomProxy() {
+    return Boolean(localStorage.getItem(Config.StorageKeys.ProxyBase));
+}
+/** 取得目前使用的代理前綴（自訂優先，否則使用預設） */
+function GetProxyBase() {
+    return localStorage.getItem(Config.StorageKeys.ProxyBase) || Config.DefaultProxyBase;
+}
+/** 組合代理網址 */
+function BuildProxyUrl(url) {
+    return GetProxyBase() + encodeURIComponent(url);
+}
+/**
+ * 整理使用者輸入的代理網址
+ *   https://xxx.workers.dev/?url=   → 原樣
+ *   https://xxx.workers.dev         → 自動補成 https://xxx.workers.dev/?url=
+ *   https://xxx/api?target=         → 原樣（以「=」結尾視為已含參數名稱）
+ * @returns {string|null} 格式錯誤時回傳 null
+ */
+function NormalizeProxyBase(input) {
+    const text = String(input || "").trim();
+    if (!text) return null;
+    let parsed;
+    try {
+        parsed = new URL(text);
+    } catch {
+        return null;
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        return null;
+    }
+    if (text.endsWith("=")) {
+        return text;
+    }
+    if (!parsed.search) {
+        return text.replace(/\/+$/, "") + "/?url=";
+    }
+    return text + "&url=";
+}
 /* ============================================================
  *  3. Cookie 罐
  *     代理會移除 Set-Cookie，改以 X-Proxy-Set-Cookie 回傳。
@@ -706,12 +740,6 @@ function RenderStartPage(tab) {
     tab.Title = "新分頁";
     UpdateTabHeader(tab);
 
-    const currentEngine = localStorage.getItem(Config.StorageKeys.Engine) || "DuckDuckGo";
-
-    const engineOptions = Object.keys(Config.SearchEngines)
-        .map(name => `<option value="${name}" ${name === currentEngine ? "selected" : ""}>${name}</option>`)
-        .join("");
-
     const shortcuts = Config.Shortcuts
         .map(item => `
             <button class="Shortcut" data-url="${EscapeHtml(item.Url)}">
@@ -726,7 +754,6 @@ function RenderStartPage(tab) {
             <form class="StartSearch" autocomplete="off">
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input type="text" placeholder="搜尋或輸入網址（Ctrl+K）" spellcheck="false">
-                <select title="搜尋引擎">${engineOptions}</select>
             </form>
             <div class="Shortcuts">${shortcuts}</div>
         </div>
@@ -734,16 +761,9 @@ function RenderStartPage(tab) {
 
     const form = tab.ViewEl.querySelector(".StartSearch");
     const input = form.querySelector("input");
-    const select = form.querySelector("select");
-
     form.addEventListener("submit", event => {
         event.preventDefault();
         if (input.value.trim()) Navigate(tab, ResolveInput(input.value));
-    });
-
-    select.addEventListener("change", () => {
-        localStorage.setItem(Config.StorageKeys.Engine, select.value);
-        ShowToast(`搜尋引擎已切換為 ${select.value}`);
     });
 
     tab.ViewEl.querySelectorAll(".Shortcut").forEach(button => {
@@ -777,8 +797,20 @@ function RenderSettingsPage(tab) {
 
             <div class="Card">
                 <h2>代理伺服器</h2>
-                <p>所有外部網頁都經由 <code>${EscapeHtml(Config.ProxyBase)}</code> 載入。</p>
+                <p>
+                    目前使用：${IsCustomProxy()
+                        ? `自訂 <code>${EscapeHtml(GetProxyBase())}</code>`
+                        : "預設代理伺服器"}
+                    <br>
+                    填入代理網址後按「儲存」；留空並儲存或按「還原預設」即改回預設代理伺服器。
+                    網址需以 <code>?url=</code> 等參數結尾，未填參數時會自動補上 <code>/?url=</code>。
+                </p>
+                <input id="ProxyInput" class="SettingInput" type="text" spellcheck="false"
+                       placeholder="https://your-proxy.example.com/?url="
+                       value="${IsCustomProxy() ? EscapeHtml(GetProxyBase()) : ""}">
                 <div class="ButtonRow">
+                    <button class="ActionButton" data-action="save-proxy">儲存</button>
+                    <button class="ActionButton" data-action="reset-proxy">還原預設</button>
                     <button class="ActionButton" data-action="test-proxy">測試連線</button>
                 </div>
             </div>
@@ -821,6 +853,8 @@ function RenderSettingsPage(tab) {
     const actions = {
         "light":         () => { ApplyTheme("light"); RenderSettingsPage(tab); },
         "dark":          () => { ApplyTheme("dark");  RenderSettingsPage(tab); },
+        "save-proxy":    () => SaveProxySetting(tab),
+        "reset-proxy":   () => ResetProxySetting(tab),
         "test-proxy":    () => TestProxy(),
         "clear-cookies": () => { localStorage.removeItem(Config.StorageKeys.Cookies); ShowToast("已清除 Cookie"); RenderSettingsPage(tab); },
         "history":       () => Navigate(tab, "owob://history"),
@@ -831,6 +865,36 @@ function RenderSettingsPage(tab) {
     tab.ViewEl.querySelectorAll("[data-action]").forEach(button => {
         button.addEventListener("click", () => actions[button.dataset.action]());
     });
+    // 在代理輸入框按 Enter 直接儲存
+    tab.ViewEl.querySelector("#ProxyInput").addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            SaveProxySetting(tab);
+        }
+    });
+}
+/** 儲存自訂代理（留空 = 還原預設） */
+function SaveProxySetting(tab) {
+    const input = tab.ViewEl.querySelector("#ProxyInput");
+    const raw   = input ? input.value.trim() : "";
+    if (!raw) {
+        ResetProxySetting(tab);
+        return;
+    }
+    const normalized = NormalizeProxyBase(raw);
+    if (!normalized) {
+        ShowToast("代理網址格式錯誤，需為 http:// 或 https:// 開頭");
+        return;
+    }
+    localStorage.setItem(Config.StorageKeys.ProxyBase, normalized);
+    ShowToast("已改用自訂代理伺服器");
+    RenderSettingsPage(tab);
+}
+/** 還原預設代理 */
+function ResetProxySetting(tab) {
+    localStorage.removeItem(Config.StorageKeys.ProxyBase);
+    ShowToast("已還原為預設代理伺服器");
+    RenderSettingsPage(tab);
 }
 
 /** 歷史紀錄頁 */
@@ -935,7 +999,7 @@ async function LoadExternalPage(tab, url, postData = null) {
             }
         }
 
-        const response = await fetch(Config.ProxyBase + encodeURIComponent(url), requestOptions);
+        const response = await fetch(BuildProxyUrl(url), requestOptions);
 
         const contentType = response.headers.get("Content-Type") || "";
         const finalUrl = response.headers.get("X-Final-URL") || url;
@@ -989,7 +1053,7 @@ async function LoadExternalPage(tab, url, postData = null) {
         if (controller.signal.reason === "timeout") {
             detail = `連線逾時（超過 ${Config.FetchTimeoutMs / 1000} 秒）。`;
         } else if (error.message.startsWith("代理錯誤")) {
-            detail = `${error.message}\n\n可改用「直接開啟原網址」，或在首頁切換其他搜尋引擎。`;
+            detail = `${error.message}\n\n可改用「直接開啟原網址」，或至設定頁更換代理伺服器。`;
         } else {
             detail = `${error.message}\n\n可能原因：\n• 代理的 ALLOWED_ORIGINS 未包含目前網站來源（${location.origin}）\n• 代理尚未更新為最新版本\n• 網路連線異常`;
         }
@@ -1050,7 +1114,7 @@ async function FetchStylesheet(cssUrl, pageUrl, pageSignal) {
     pageSignal.addEventListener("abort", onPageAbort);
 
     try {
-        const response = await fetch(Config.ProxyBase + encodeURIComponent(cssUrl), {
+        const response = await fetch(BuildProxyUrl(cssUrl), {
             headers: { "X-Proxy-Referer": pageUrl },
             signal:  controller.signal
         });
@@ -1190,7 +1254,7 @@ function RenderRawInFrame(tab, url) {
     UpdateTabHeader(tab);
 
     const frame = CreateFrame();
-    frame.src = Config.ProxyBase + encodeURIComponent(url);
+    frame.src = BuildProxyUrl(url);
 
     tab.ViewEl.innerHTML = "";
     tab.ViewEl.appendChild(frame);
@@ -1216,7 +1280,7 @@ async function TestProxy() {
     const start = performance.now();
 
     try {
-        const response = await fetch(Config.ProxyBase + encodeURIComponent("https://example.com/"));
+        const response = await fetch(BuildProxyUrl("https://example.com/"));
         const ms = Math.round(performance.now() - start);
         ShowToast(response.ok ? `代理正常（${ms} ms）` : `代理回應 HTTP ${response.status}`);
     } catch (error) {
@@ -1374,14 +1438,14 @@ function AddHistoryRecord(url) {
     SaveJson(Config.StorageKeys.History, records.slice(0, Config.MaxHistory));
 }
 
-/** 清除所有本機資料（保留主題設定；Cookie 一併清除） */
+/** 清除所有本機資料（保留主題與自訂代理設定；Cookie 一併清除） */
 function ClearAllData() {
     const theme = localStorage.getItem(Config.StorageKeys.Theme);
-
+    const proxy = localStorage.getItem(Config.StorageKeys.ProxyBase);
     localStorage.clear();
     sessionStorage.clear();
-
     if (theme) localStorage.setItem(Config.StorageKeys.Theme, theme);
+    if (proxy) localStorage.setItem(Config.StorageKeys.ProxyBase, proxy);
     ShowToast("已清除瀏覽紀錄、分頁與 Cookie");
 }
 
@@ -1486,6 +1550,7 @@ UpdateTabHeader = function (tab) {           // eslint-disable-line no-func-assi
 
 /** 初始化（只使用 DOMContentLoaded，不覆寫 window.onload） */
 document.addEventListener("DOMContentLoaded", () => {
+    localStorage.removeItem("OwOb.SearchEngine");   // 移除舊版搜尋引擎選擇
     ApplyTheme(localStorage.getItem(Config.StorageKeys.Theme) || "light");
     BindEvents();
     RestoreTabs();

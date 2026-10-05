@@ -335,15 +335,6 @@ button {
     font-size: 17px;
 }
 
-.StartSearch select {
-    border: none;
-    outline: none;
-    background: transparent;
-    color: var(--TextSub);
-    font-size: 14px;
-    cursor: pointer;
-}
-
 .Shortcuts {
     display: flex;
     flex-wrap: wrap;
@@ -421,6 +412,21 @@ button {
     word-break: break-all;
 }
 
+.SettingInput {
+    width: 100%;
+    margin-bottom: 12px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 2px solid var(--Border);
+    background: var(--BgInput);
+    color: var(--TextMain);
+    font-size: 14px;
+    outline: none;
+    transition: border 0.2s;
+}
+.SettingInput:focus {
+    border-color: var(--Accent);
+}
 .ButtonRow {
     display: flex;
     flex-wrap: wrap;
