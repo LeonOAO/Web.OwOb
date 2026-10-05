@@ -1,50 +1,62 @@
 /* ============================================================
- *  OwOb Proxy - Cloudflare Worker¡]CORS ¥N²z¡^v3
+ *  OwOb Proxy - Cloudflare Workerï¼ˆCORS ä»£ç†ï¼‰v4
  *
- *  ¥Îªk¡G
- *      GET  https://owob-proxy.kkwan812.workers.dev/?url=<¤w½s½Xªº¥Ø¼Ğºô§}>
- *      POST https://owob-proxy.kkwan812.workers.dev/?url=<¤w½s½Xªº¥Ø¼Ğºô§}>
- *           Body¡Gapplication/x-www-form-urlencoded
+ *  ç”¨æ³•ï¼š
+ *      GET  https://owob-proxy.kkwan812.workers.dev/?url=<å·²ç·¨ç¢¼çš„ç›®æ¨™ç¶²å€>
+ *      POST https://owob-proxy.kkwan812.workers.dev/?url=<å·²ç·¨ç¢¼çš„ç›®æ¨™ç¶²å€>
+ *           Bodyï¼šapplication/x-www-form-urlencodedï¼ˆæˆ–ç¶²é  fetch é€å‡ºçš„åŸå§‹å…§å®¹é¡å‹ï¼‰
  *
- *  ¦Û­q½Ğ¨D¼ĞÀY¡]¥Ñ OwOb «eºİ°e¥X¡^¡G
- *      X-Proxy-Cookie-Jar¡G¦P¯¸ Cookie Åø¡]JSON «á¦A URI ½s½X¡A¥i¸ó¤lºô°ìÂà§}¨Ï¥Î¡^
- *      X-Proxy-Cookie   ¡GÂÂª©®æ¦¡¡ua=1; b=2¡v¡]¬Û®e¥Î¡A¥u®M¥Î¨ì°_©l¥D¾÷¡^
- *      X-Proxy-Referer  ¡G­nÂà°eµ¹¥Ø¼Ğºô¯¸ªº Referer¡]°e¥Xªí³æ®Éªº­¶­±ºô§}¡^
+ *      è¨­å®š ACCESS_KEY æ™‚ï¼Œæ¯å€‹è«‹æ±‚éƒ½å¿…é ˆé™„ä¸Šé‡‘é‘°ï¼ˆäºŒæ“‡ä¸€ï¼‰ï¼š
+ *          æŸ¥è©¢åƒæ•¸ &key=<é‡‘é‘°>   â† <img> ç­‰ç„¡æ³•è‡ªè¨‚æ¨™é ­çš„è³‡æºè«‹æ±‚ä½¿ç”¨
+ *          è«‹æ±‚æ¨™é ­ X-Proxy-Key
  *
- *  ¦Û­q¦^À³¼ĞÀY¡]¦^¶Çµ¹ OwOb «eºİ¡^¡G
- *      X-Final-URL         ¡GÂà§}«áªº³Ì²×ºô§}
- *      X-Proxy-Status      ¡G¥Ø¼Ğºô¯¸­ì©lª¬ºA½X
- *      X-Proxy-Set-Cookie  ¡G¥Ø¼Ğºô¯¸³]©wªº Cookie¡]JSON «á¦A URI ½s½X¡^
+ *  è‡ªè¨‚è«‹æ±‚æ¨™é ­ï¼ˆç”± OwOb å‰ç«¯é€å‡ºï¼‰ï¼š
+ *      X-Proxy-Cookie-Jarï¼šåŒç«™ Cookie ç½ï¼ˆJSON å¾Œå† URI ç·¨ç¢¼ï¼Œå¯è·¨å­ç¶²åŸŸè½‰å€ä½¿ç”¨ï¼‰
+ *      X-Proxy-Cookie   ï¼šèˆŠç‰ˆæ ¼å¼ã€Œa=1; b=2ã€ï¼ˆç›¸å®¹ç”¨ï¼Œåªå¥—ç”¨åˆ°èµ·å§‹ä¸»æ©Ÿï¼‰
+ *      X-Proxy-Referer  ï¼šè¦è½‰é€çµ¦ç›®æ¨™ç¶²ç«™çš„ Refererï¼ˆé€å‡ºè¡¨å–®æ™‚çš„é é¢ç¶²å€ï¼‰
+ *      X-Proxy-Key      ï¼šå­˜å–é‡‘é‘°ï¼ˆäº¦å¯æ”¹ç”¨ key æŸ¥è©¢åƒæ•¸ï¼‰
  *
- *  ¬[ºc¡G
- *      1. ³]©w¡]¤¹³\¨Ó·½¡BÂà°e¼ĞÀY¡BÂà§}¤W­­¡^
- *      2. CORS ¤u¨ã¨ç¦¡
- *      3. ¦w¥şÀË¬d¡]¨ó©w / ¤ººô¦ì§}¡^
- *      4. Cookie ¤u¨ã¨ç¦¡
- *      5. ³v¨BÂà§}§ì¨ú¡]«O¯d¨C¤@¸õªº Set-Cookie¡^
- *      6. ¥D­n³B²z¬yµ{¡]OPTIONS / GET / HEAD / POST¡^
+ *  æœƒè½‰é€çµ¦ç›®æ¨™ç¶²ç«™çš„ä¸€èˆ¬æ¨™é ­ï¼š
+ *      Acceptï¼ˆéé è¨­å€¼æ™‚ï¼‰ã€Rangeï¼ˆå½±éŸ³åˆ†æ®µè¼‰å…¥ï¼‰
  *
- *  Àô¹ÒÅÜ¼Æ¡]Cloudflare ¡÷ Worker ¡÷ Settings ¡÷ Variables¡^¡G
+ *  è‡ªè¨‚å›æ‡‰æ¨™é ­ï¼ˆå›å‚³çµ¦ OwOb å‰ç«¯ï¼‰ï¼š
+ *      X-Final-URL         ï¼šè½‰å€å¾Œçš„æœ€çµ‚ç¶²å€
+ *      X-Proxy-Status      ï¼šç›®æ¨™ç¶²ç«™åŸå§‹ç‹€æ…‹ç¢¼
+ *      X-Proxy-Set-Cookie  ï¼šç›®æ¨™ç¶²ç«™è¨­å®šçš„ Cookieï¼ˆJSON å¾Œå† URI ç·¨ç¢¼ï¼‰
+ *
+ *  æ¶æ§‹ï¼š
+ *      1. è¨­å®šï¼ˆå…è¨±ä¾†æºã€è½‰é€æ¨™é ­ã€è½‰å€ä¸Šé™ï¼‰
+ *      2. CORS å·¥å…·å‡½å¼
+ *      3. å®‰å…¨æª¢æŸ¥ï¼ˆå”å®š / å…§ç¶²ä½å€ / å­˜å–é‡‘é‘°ï¼‰
+ *      4. Cookie å·¥å…·å‡½å¼
+ *      5. é€æ­¥è½‰å€æŠ“å–ï¼ˆä¿ç•™æ¯ä¸€è·³çš„ Set-Cookieï¼‰
+ *      6. ä¸»è¦è™•ç†æµç¨‹ï¼ˆOPTIONS / GET / HEAD / POSTï¼‰
+ *
+ *  ç’°å¢ƒè®Šæ•¸ï¼ˆCloudflare â†’ Worker â†’ Settings â†’ Variablesï¼‰ï¼š
  *      ALLOWED_ORIGINS = https://leonoao.github.io
- *      ¡]¦h­Ó¨Ó·½¥H³r¸¹¤À¹j¡F¥u¶ñ¡u¨ó©w + ºô°ì¡v¡A¤£¥i§t¸ô®|»Pµ²§À±×½u¡^
+ *      ï¼ˆå¤šå€‹ä¾†æºä»¥é€—è™Ÿåˆ†éš”ï¼›åªå¡«ã€Œå”å®š + ç¶²åŸŸã€ï¼Œä¸å¯å«è·¯å¾‘èˆ‡çµå°¾æ–œç·šï¼‰
+ *
+ *      ACCESS_KEY = <è‡ªè¨‚çš„ä¸€çµ„é•·äº‚ç¢¼>ï¼ˆé¸å¡«ï¼Œå»ºè­°è¨­ç‚º Secretï¼‰
+ *      ï¼ˆè¨­å®šå¾Œæœªé™„æ­£ç¢ºé‡‘é‘°çš„è«‹æ±‚ä¸€å¾‹å›å‚³ 401ï¼Œé¿å…ä»£ç†è¢«ä»–äººç›œç”¨ï¼›
+ *        OwOb å‰ç«¯è«‹åœ¨ã€Œè¨­å®š â†’ ä»£ç†ä¼ºæœå™¨ â†’ ä»£ç†é‡‘é‘°ã€å¡«å…¥ç›¸åŒå€¼ï¼‰
  * ============================================================ */
 
 
 /* ============================================================
- *  1. ³]©w
+ *  1. è¨­å®š
  * ============================================================ */
 
-// ¥¼³]©wÀô¹ÒÅÜ¼Æ®É¨Ï¥Îªº¹w³]¤¹³\¨Ó·½
+// æœªè¨­å®šç’°å¢ƒè®Šæ•¸æ™‚ä½¿ç”¨çš„é è¨­å…è¨±ä¾†æº
 const DefaultAllowedOrigins = [
     "https://leonoao.github.io",
     "http://localhost:5500",
     "http://127.0.0.1:5500"
 ];
 
-// ³Ì¦h¸òÀH´X¦¸Âà§}
+// æœ€å¤šè·Ÿéš¨å¹¾æ¬¡è½‰å€
 const MaxRedirects = 15;
 
-// ¦^À³µ¹«eºİ®É­n²¾°£ªº¼ĞÀY¡]Á×§K iframe ³Q¾×¡BÁ×§Kªø«×¤£²Å¡^
+// å›æ‡‰çµ¦å‰ç«¯æ™‚è¦ç§»é™¤çš„æ¨™é ­ï¼ˆé¿å… iframe è¢«æ“‹ã€é¿å…é•·åº¦ä¸ç¬¦ï¼‰
 const StripResponseHeaders = [
     "content-security-policy",
     "content-security-policy-report-only",
@@ -58,7 +70,7 @@ const StripResponseHeaders = [
     "location"
 ];
 
-// ¼ÒÀÀ¤@¯ëÂsÄı¾¹ªº½Ğ¨D¼ĞÀY¡A­°§C³Q¥Ø¼Ğºô¯¸©Úµ´ªº¾÷²v
+// æ¨¡æ“¬ä¸€èˆ¬ç€è¦½å™¨çš„è«‹æ±‚æ¨™é ­ï¼Œé™ä½è¢«ç›®æ¨™ç¶²ç«™æ‹’çµ•çš„æ©Ÿç‡
 const BrowserHeaders = {
     "User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
     "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
@@ -67,10 +79,10 @@ const BrowserHeaders = {
 
 
 /* ============================================================
- *  2. CORS ¤u¨ã¨ç¦¡
+ *  2. CORS å·¥å…·å‡½å¼
  * ============================================================ */
 
-/** ¦Û­q¿ù»~¡G±a HTTP ª¬ºA½X */
+/** è‡ªè¨‚éŒ¯èª¤ï¼šå¸¶ HTTP ç‹€æ…‹ç¢¼ */
 class ProxyError extends Error {
     constructor(status, message) {
         super(message);
@@ -78,7 +90,7 @@ class ProxyError extends Error {
     }
 }
 
-/** ¨ú±o¤¹³\¨Ó·½²M³æ¡]Àô¹ÒÅÜ¼ÆÀu¥ı¡^ */
+/** å–å¾—å…è¨±ä¾†æºæ¸…å–®ï¼ˆç’°å¢ƒè®Šæ•¸å„ªå…ˆï¼‰ */
 function GetAllowedOrigins(env) {
     const raw = (env && env.ALLOWED_ORIGINS) ? String(env.ALLOWED_ORIGINS) : "";
 
@@ -86,17 +98,17 @@ function GetAllowedOrigins(env) {
         ? raw.split(",")
         : DefaultAllowedOrigins;
 
-    // ¥h°£ªÅ¥Õ»Pµ²§À±×½u¡AÁ×§K¡uhttps://xxx.github.io/¡v³oÃş¼gªk¤ñ¹ï¥¢±Ñ
+    // å»é™¤ç©ºç™½èˆ‡çµå°¾æ–œç·šï¼Œé¿å…ã€Œhttps://xxx.github.io/ã€é€™é¡å¯«æ³•æ¯”å°å¤±æ•—
     return list
         .map(item => item.trim().replace(/\/+$/, ""))
         .filter(Boolean);
 }
 
 /**
- * §PÂ_½Ğ¨D¨Ó·½¬O§_¤¹³\
- *   - µL Origin¡Gª½±µ¦bºô§}¦C¶}±Ò¡Biframe src ¸ü¤J¹Ï¤ù / PDF ¡÷ ¤¹³\
- *   - "null"¡G¨F½c iframe ¤ºµo¥Xªº½Ğ¨D ¡÷ ¤¹³\
- *   - ²M³æ¤º§t "*" ¡÷ ¥ş³¡¤¹³\
+ * åˆ¤æ–·è«‹æ±‚ä¾†æºæ˜¯å¦å…è¨±
+ *   - ç„¡ Originï¼šç›´æ¥åœ¨ç¶²å€åˆ—é–‹å•Ÿã€iframe src è¼‰å…¥åœ–ç‰‡ / PDF â†’ å…è¨±
+ *   - "null"ï¼šæ²™ç®± iframe å…§ç™¼å‡ºçš„è«‹æ±‚ â†’ å…è¨±
+ *   - æ¸…å–®å…§å« "*" â†’ å…¨éƒ¨å…è¨±
  */
 function IsOriginAllowed(origin, allowedOrigins) {
     if (!origin || origin === "null") {
@@ -110,22 +122,37 @@ function IsOriginAllowed(origin, allowedOrigins) {
     return allowedOrigins.includes(origin);
 }
 
-/** «Ø¥ß CORS ¼ĞÀY */
-function BuildCorsHeaders(origin) {
-    return {
+// é è¨­å…è¨±çš„è«‹æ±‚æ¨™é ­
+const DefaultAllowHeaders = "Content-Type, Accept, Accept-Language, Range, X-Proxy-Cookie, X-Proxy-Cookie-Jar, X-Proxy-Referer, X-Proxy-Key";
+
+/**
+ * å»ºç«‹ CORS æ¨™é ­
+ * @param {string|null} origin            è«‹æ±‚ä¾†æºï¼›æ²™ç®± iframe ç‚º "null"
+ * @param {string|null} requestedHeaders  é æª¢è«‹æ±‚çš„ Access-Control-Request-Headers
+ *        ç¶²é å…§ fetch å¯èƒ½å¸¶ä»»æ„è‡ªè¨‚æ¨™é ­ï¼Œé æª¢æ™‚ä¸€å¾‹å›æ‡‰å…è¨±ï¼Œé¿å…è¢«ç€è¦½å™¨æ“‹ä¸‹
+ */
+function BuildCorsHeaders(origin, requestedHeaders = null) {
+    const headers = {
         "Access-Control-Allow-Origin":   origin || "*",
         "Access-Control-Allow-Methods":  "GET, HEAD, POST, OPTIONS",
-        "Access-Control-Allow-Headers":  "Content-Type, Accept, Accept-Language, X-Proxy-Cookie, X-Proxy-Cookie-Jar, X-Proxy-Referer",
-        "Access-Control-Expose-Headers": "Content-Type, X-Final-URL, X-Proxy-Status, X-Proxy-Set-Cookie",
+        "Access-Control-Allow-Headers":  requestedHeaders || DefaultAllowHeaders,
+        "Access-Control-Expose-Headers": "Content-Type, Content-Range, Accept-Ranges, X-Final-URL, X-Proxy-Status, X-Proxy-Set-Cookie",
         "Access-Control-Max-Age":        "86400",
         "Vary":                          "Origin"
     };
+
+    // æœ‰æ˜ç¢ºä¾†æºæ™‚å…è¨±å¸¶æ†‘è­‰ï¼ˆç¶²é  XHR è¨­å®š withCredentials æ™‚æ‰ä¸æœƒè¢«æ“‹ï¼‰
+    if (origin) {
+        headers["Access-Control-Allow-Credentials"] = "true";
+    }
+
+    return headers;
 }
 
 /**
- * ¦^¶Ç JSON ¿ù»~
- * ¿ù»~¦^À³¦P¼Ëªş¤W CORS ¼ĞÀY¡A«eºİ¤~Åª±o¨ì¿ù»~¤º®e¡A
- * §_«hÂsÄı¾¹¥u·|Åã¥Ü¡uFailed to fetch¡v
+ * å›å‚³ JSON éŒ¯èª¤
+ * éŒ¯èª¤å›æ‡‰åŒæ¨£é™„ä¸Š CORS æ¨™é ­ï¼Œå‰ç«¯æ‰è®€å¾—åˆ°éŒ¯èª¤å…§å®¹ï¼Œ
+ * å¦å‰‡ç€è¦½å™¨åªæœƒé¡¯ç¤ºã€ŒFailed to fetchã€
  */
 function JsonResponse(status, message, origin, extra = {}) {
     return new Response(
@@ -142,10 +169,10 @@ function JsonResponse(status, message, origin, extra = {}) {
 
 
 /* ============================================================
- *  3. ¦w¥şÀË¬d
+ *  3. å®‰å…¨æª¢æŸ¥
  * ============================================================ */
 
-/** «ÊÂê¥»¾÷»P¤ººô¦ì§}¡AÁ×§K¥N²z³Q®³¨Ó¦s¨ú¤º³¡ªA°È */
+/** å°é–æœ¬æ©Ÿèˆ‡å…§ç¶²ä½å€ï¼Œé¿å…ä»£ç†è¢«æ‹¿ä¾†å­˜å–å…§éƒ¨æœå‹™ */
 function IsBlockedHost(hostname) {
     const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
 
@@ -153,7 +180,7 @@ function IsBlockedHost(hostname) {
         return true;
     }
 
-    // IPv6 ¥»¾÷ / ¤ººô
+    // IPv6 æœ¬æ©Ÿ / å…§ç¶²
     if (host.includes(":")) {
         return (
             host === "::1" ||
@@ -163,7 +190,7 @@ function IsBlockedHost(hostname) {
         );
     }
 
-    // IPv4 ¤ººô
+    // IPv4 å…§ç¶²
     const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
     if (ipv4) {
         const [a, b] = [Number(ipv4[1]), Number(ipv4[2])];
@@ -181,30 +208,53 @@ function IsBlockedHost(hostname) {
     return false;
 }
 
-/** ÀË¬dºô§}¨ó©w»P¥D¾÷ */
+/** å–å¾—å­˜å–é‡‘é‘°ï¼ˆæœªè¨­å®šå›å‚³ç©ºå­—ä¸² = ä¸é©—è­‰ï¼‰ */
+function GetAccessKey(env) {
+    return env && env.ACCESS_KEY ? String(env.ACCESS_KEY).trim() : "";
+}
+
+/** å›ºå®šæ™‚é–“æ¯”è¼ƒå­—ä¸²ï¼Œé¿å…ä»¥å›æ‡‰æ™‚é–“æ¨æ¸¬é‡‘é‘° */
+function SafeEqual(a, b) {
+    const left  = String(a);
+    const right = String(b);
+    let diff = left.length ^ right.length;
+    for (let i = 0; i < Math.max(left.length, right.length); i++) {
+        diff |= (left.charCodeAt(i) || 0) ^ (right.charCodeAt(i) || 0);
+    }
+    return diff === 0;
+}
+
+/** é©—è­‰è«‹æ±‚æ˜¯å¦é™„ä¸Šæ­£ç¢ºé‡‘é‘°ï¼ˆæŸ¥è©¢åƒæ•¸ key æˆ–æ¨™é ­ X-Proxy-Keyï¼‰ */
+function IsKeyValid(request, requestUrl, accessKey) {
+    if (!accessKey) return true;
+    const provided = requestUrl.searchParams.get("key") || request.headers.get("X-Proxy-Key") || "";
+    return SafeEqual(provided, accessKey);
+}
+
+/** æª¢æŸ¥ç¶²å€å”å®šèˆ‡ä¸»æ©Ÿ */
 function AssertSafeUrl(url) {
     if (url.protocol !== "http:" && url.protocol !== "https:") {
-        throw new ProxyError(400, `¥u¤ä´© http / https¡G${url.protocol}`);
+        throw new ProxyError(400, `åªæ”¯æ´ http / httpsï¼š${url.protocol}`);
     }
 
     if (IsBlockedHost(url.hostname)) {
-        throw new ProxyError(403, `¸T¤î¦s¨ú¤ººô¦ì§}¡G${url.hostname}`);
+        throw new ProxyError(403, `ç¦æ­¢å­˜å–å…§ç¶²ä½å€ï¼š${url.hostname}`);
     }
 }
 
 
 /* ============================================================
- *  4. Cookie ¤u¨ã¨ç¦¡¡]¨Ìºô°ìºŞ²z¡^
- *     Âà§}Ãì¤¤±`·|¦b¤£¦P¤lºô°ì¶¡¸õÂà¡]¨Ò¦p tw.search.yahoo.com
- *     ¡÷ guce.yahoo.com ¡÷ tw.search.yahoo.com¡^¡A¥B¥H
- *     Domain=.yahoo.com ªº Cookie ½T»{¡u¤w³]©w Cookie¡v¡C
- *     ­Y´«¥D¾÷´N²MªÅ Cookie¡Aºô¯¸·|¤@ª½Âà§}¦^¨Ó ¡÷ µL­­Âà§}¡C
- *     ¦]¦¹§ï¥Î¨Ìºô°ì¤ñ¹ïªº Cookie Åø¡C
+ *  4. Cookie å·¥å…·å‡½å¼ï¼ˆä¾ç¶²åŸŸç®¡ç†ï¼‰
+ *     è½‰å€éˆä¸­å¸¸æœƒåœ¨ä¸åŒå­ç¶²åŸŸé–“è·³è½‰ï¼ˆä¾‹å¦‚ tw.search.yahoo.com
+ *     â†’ guce.yahoo.com â†’ tw.search.yahoo.comï¼‰ï¼Œä¸”ä»¥
+ *     Domain=.yahoo.com çš„ Cookie ç¢ºèªã€Œå·²è¨­å®š Cookieã€ã€‚
+ *     è‹¥æ›ä¸»æ©Ÿå°±æ¸…ç©º Cookieï¼Œç¶²ç«™æœƒä¸€ç›´è½‰å€å›ä¾† â†’ ç„¡é™è½‰å€ã€‚
+ *     å› æ­¤æ”¹ç”¨ä¾ç¶²åŸŸæ¯”å°çš„ Cookie ç½ã€‚
  * ============================================================ */
 
 /**
- * «Ø¥ß Cookie Åø
- * ¶µ¥Øµ²ºc¡G{ Domain, Name, Value, HostOnly }
+ * å»ºç«‹ Cookie ç½
+ * é …ç›®çµæ§‹ï¼š{ Domain, Name, Value, HostOnly }
  */
 function CreateCookieJar(entries) {
     const jar = [];
@@ -223,7 +273,7 @@ function CreateCookieJar(entries) {
     return jar;
 }
 
-/** ±N¡ua=1; b=2¡vÂÂ®æ¦¡ Cookie Âà¦¨ Cookie Åø¶µ¥Ø¡]¸j©w°_©l¥D¾÷¡^ */
+/** å°‡ã€Œa=1; b=2ã€èˆŠæ ¼å¼ Cookie è½‰æˆ Cookie ç½é …ç›®ï¼ˆç¶å®šèµ·å§‹ä¸»æ©Ÿï¼‰ */
 function ParseLegacyCookie(text, host) {
     const entries = [];
 
@@ -242,7 +292,7 @@ function ParseLegacyCookie(text, host) {
     return entries;
 }
 
-/** ¨ú±o­n°eµ¹«ü©w¥D¾÷ªº Cookie ¼ĞÀY */
+/** å–å¾—è¦é€çµ¦æŒ‡å®šä¸»æ©Ÿçš„ Cookie æ¨™é ­ */
 function GetCookieHeaderForHost(jar, host) {
     const target = host.toLowerCase();
 
@@ -256,8 +306,8 @@ function GetCookieHeaderForHost(jar, host) {
 }
 
 /**
- * ±N¤@µ§ Set-Cookie ¼g¤J Cookie Åø
- * @returns {boolean} Cookie Åø¬O§_¦³ÅÜ°Ê
+ * å°‡ä¸€ç­† Set-Cookie å¯«å…¥ Cookie ç½
+ * @returns {boolean} Cookie ç½æ˜¯å¦æœ‰è®Šå‹•
  */
 function ApplySetCookieToJar(jar, host, cookie) {
     const parts = String(cookie).split(";");
@@ -281,7 +331,7 @@ function ApplySetCookieToJar(jar, host, cookie) {
         if (key === "domain" && val) {
             const cleaned = val.replace(/^\./, "").toLowerCase();
 
-            // ¥u±µ¨ü¥D¾÷¥»¨­©Î¨ä¤W¼hºô°ì¡AÁ×§K¸ó¯¸¼g¤J
+            // åªæ¥å—ä¸»æ©Ÿæœ¬èº«æˆ–å…¶ä¸Šå±¤ç¶²åŸŸï¼Œé¿å…è·¨ç«™å¯«å…¥
             if (domain !== cleaned && !domain.endsWith("." + cleaned)) {
                 return false;
             }
@@ -316,7 +366,7 @@ function ApplySetCookieToJar(jar, host, cookie) {
     return true;
 }
 
-/** ¨ú±o¦^À³¤¤©Ò¦³ Set-Cookie¡]¬Û®e¤£¦P Workers °õ¦æÀô¹Ò¡^ */
+/** å–å¾—å›æ‡‰ä¸­æ‰€æœ‰ Set-Cookieï¼ˆç›¸å®¹ä¸åŒ Workers åŸ·è¡Œç’°å¢ƒï¼‰ */
 function GetSetCookies(headers) {
     if (typeof headers.getSetCookie === "function") {
         return headers.getSetCookie();
@@ -332,9 +382,9 @@ function GetSetCookies(headers) {
 
 
 /* ============================================================
- *  5. ³v¨BÂà§}§ì¨ú
- *     ¨Ï¥Î redirect: "manual" ¦Û¦æ¸òÀHÂà§}¡A
- *     «O¯d¨C¤@¸õªº Set-Cookie¡A¨Ã¨Ìºô°ì°e¥X¥¿½T Cookie
+ *  5. é€æ­¥è½‰å€æŠ“å–
+ *     ä½¿ç”¨ redirect: "manual" è‡ªè¡Œè·Ÿéš¨è½‰å€ï¼Œ
+ *     ä¿ç•™æ¯ä¸€è·³çš„ Set-Cookieï¼Œä¸¦ä¾ç¶²åŸŸé€å‡ºæ­£ç¢º Cookie
  * ============================================================ */
 
 async function FetchWithRedirects(startUrl, options) {
@@ -344,26 +394,26 @@ async function FetchWithRedirects(startUrl, options) {
     let referer    = options.Referer;
 
     const jar       = options.Jar;
-    const collected = [];          // [{ Host, Cookie }] ¦^¶Çµ¹«eºİ«O¦s
-    const visited   = new Map();   // ºô§} ¡÷ ¤W¦¸¸g¹L®Éªº Cookie ª¬ºA¡]°»´úµL­­Âà§}¡^
+    const collected = [];          // [{ Host, Cookie }] å›å‚³çµ¦å‰ç«¯ä¿å­˜
+    const visited   = new Map();   // ç¶²å€ â†’ ä¸Šæ¬¡ç¶“éæ™‚çš„ Cookie ç‹€æ…‹ï¼ˆåµæ¸¬ç„¡é™è½‰å€ï¼‰
 
     for (let hop = 0; hop <= MaxRedirects; hop++) {
         AssertSafeUrl(currentUrl);
 
-        /* ---------- µL­­Âà§}°»´ú ---------- */
-        // ¦P¤@ºô§}¡B¦P¤@ Cookie ª¬ºA¦A¦¸¥X²{ ¡÷ ¤@©w·|¤@ª½Â¶°é¡A´£¦­µ²§ô
+        /* ---------- ç„¡é™è½‰å€åµæ¸¬ ---------- */
+        // åŒä¸€ç¶²å€ã€åŒä¸€ Cookie ç‹€æ…‹å†æ¬¡å‡ºç¾ â†’ ä¸€å®šæœƒä¸€ç›´ç¹åœˆï¼Œææ—©çµæŸ
         const stateKey = method + " " + currentUrl.toString();
         const cookieState = GetCookieHeaderForHost(jar, currentUrl.hostname);
 
         if (visited.get(stateKey) === cookieState) {
             throw new ProxyError(
                 508,
-                `¥Ø¼Ğºô¯¸§Î¦¨Âà§}°j°é¡]${currentUrl.hostname}¡^¡Aºô¯¸¥i¯à©Úµ´¥N²z¦øªA¾¹©Î­n¨DÃB¥~ÅçÃÒ`
+                `ç›®æ¨™ç¶²ç«™å½¢æˆè½‰å€è¿´åœˆï¼ˆ${currentUrl.hostname}ï¼‰ï¼Œç¶²ç«™å¯èƒ½æ‹’çµ•ä»£ç†ä¼ºæœå™¨æˆ–è¦æ±‚é¡å¤–é©—è­‰`
             );
         }
         visited.set(stateKey, cookieState);
 
-        /* ---------- ²Õ¦X½Ğ¨D¼ĞÀY ---------- */
+        /* ---------- çµ„åˆè«‹æ±‚æ¨™é ­ ---------- */
         const headers = new Headers(BrowserHeaders);
 
         if (cookieState) {
@@ -374,12 +424,20 @@ async function FetchWithRedirects(startUrl, options) {
             headers.set("Referer", referer);
         }
 
+        if (options.Accept) {
+            headers.set("Accept", options.Accept);
+        }
+
+        if (options.Range) {
+            headers.set("Range", options.Range);
+        }
+
         if (method === "POST") {
             headers.set("Content-Type", options.ContentType);
             headers.set("Origin", currentUrl.origin);
         }
 
-        /* ---------- µo¥X½Ğ¨D ---------- */
+        /* ---------- ç™¼å‡ºè«‹æ±‚ ---------- */
         const response = await fetch(currentUrl.toString(), {
             method,
             headers,
@@ -387,13 +445,13 @@ async function FetchWithRedirects(startUrl, options) {
             redirect: "manual"
         });
 
-        /* ---------- ¦¬¶° Set-Cookie ---------- */
+        /* ---------- æ”¶é›† Set-Cookie ---------- */
         GetSetCookies(response.headers).forEach(cookie => {
             collected.push({ Host: currentUrl.hostname, Cookie: cookie });
             ApplySetCookieToJar(jar, currentUrl.hostname, cookie);
         });
 
-        /* ---------- ³B²zÂà§} ---------- */
+        /* ---------- è™•ç†è½‰å€ ---------- */
         const location   = response.headers.get("Location");
         const isRedirect = response.status >= 300 && response.status < 400 && location;
 
@@ -405,14 +463,14 @@ async function FetchWithRedirects(startUrl, options) {
             };
         }
 
-        // ¥á±óÂà§}¦^À³ªº¤º®e¡AÄÀ©ñ³s½u
+        // ä¸Ÿæ£„è½‰å€å›æ‡‰çš„å…§å®¹ï¼Œé‡‹æ”¾é€£ç·š
         if (response.body) {
             await response.body.cancel().catch(() => {});
         }
 
         const nextUrl = new URL(location, currentUrl);
 
-        // 301 / 302 / 303 ¹J¨ì POST ®É§ï¬° GET¡]»PÂsÄı¾¹¦æ¬°¤@­P¡^
+        // 301 / 302 / 303 é‡åˆ° POST æ™‚æ”¹ç‚º GETï¼ˆèˆ‡ç€è¦½å™¨è¡Œç‚ºä¸€è‡´ï¼‰
         if (response.status === 303 || (method === "POST" && (response.status === 301 || response.status === 302))) {
             method = "GET";
             body   = null;
@@ -422,15 +480,15 @@ async function FetchWithRedirects(startUrl, options) {
         currentUrl = nextUrl;
     }
 
-    throw new ProxyError(508, `Âà§}¦¸¼Æ¶W¹L ${MaxRedirects} ¦¸`);
+    throw new ProxyError(508, `è½‰å€æ¬¡æ•¸è¶…é ${MaxRedirects} æ¬¡`);
 }
 
 
 /* ============================================================
- *  6. ¥D­n³B²z¬yµ{
+ *  6. ä¸»è¦è™•ç†æµç¨‹
  * ============================================================ */
 
-/** ¥Ñ«eºİ½Ğ¨D¼ĞÀY«Ø¥ß Cookie Åø */
+/** ç”±å‰ç«¯è«‹æ±‚æ¨™é ­å»ºç«‹ Cookie ç½ */
 function BuildRequestJar(request, targetUrl) {
     const rawJar = request.headers.get("X-Proxy-Cookie-Jar");
 
@@ -438,7 +496,7 @@ function BuildRequestJar(request, targetUrl) {
         try {
             return CreateCookieJar(JSON.parse(decodeURIComponent(rawJar)));
         } catch {
-            /* ®æ¦¡¿ù»~®É§ï¥ÎÂÂ®æ¦¡ */
+            /* æ ¼å¼éŒ¯èª¤æ™‚æ”¹ç”¨èˆŠæ ¼å¼ */
         }
     }
 
@@ -450,35 +508,45 @@ export default {
         const origin         = request.headers.get("Origin");
         const allowedOrigins = GetAllowedOrigins(env);
 
-        /* ---------- ¨Ó·½ÀË¬d ---------- */
+        /* ---------- ä¾†æºæª¢æŸ¥ ---------- */
         if (!IsOriginAllowed(origin, allowedOrigins)) {
             return JsonResponse(
                 403,
-                `¨Ó·½¥¼³Q¤¹³\¡G${origin}¡]½Ğ±N¦¹¨Ó·½¥[¤J ALLOWED_ORIGINS¡^`,
+                `ä¾†æºæœªè¢«å…è¨±ï¼š${origin}ï¼ˆè«‹å°‡æ­¤ä¾†æºåŠ å…¥ ALLOWED_ORIGINSï¼‰`,
                 origin,
                 { allowedOrigins }
             );
         }
 
-        /* ---------- ¹wÀË½Ğ¨D ---------- */
+        /* ---------- é æª¢è«‹æ±‚ ---------- */
         if (request.method === "OPTIONS") {
-            return new Response(null, { status: 204, headers: BuildCorsHeaders(origin) });
+            return new Response(null, {
+                status:  204,
+                headers: BuildCorsHeaders(origin, request.headers.get("Access-Control-Request-Headers"))
+            });
         }
 
-        /* ---------- ¥u±µ¨ü GET / HEAD / POST ---------- */
+        /* ---------- åªæ¥å— GET / HEAD / POST ---------- */
         if (!["GET", "HEAD", "POST"].includes(request.method)) {
-            return JsonResponse(405, `¤£¤ä´©ªº¤èªk¡G${request.method}`, origin);
+            return JsonResponse(405, `ä¸æ”¯æ´çš„æ–¹æ³•ï¼š${request.method}`, origin);
         }
 
-        /* ---------- ¸ÑªR¥Ø¼Ğºô§} ---------- */
         const requestUrl = new URL(request.url);
-        const target     = requestUrl.searchParams.get("url");
 
-        // ¨S±a url °Ñ¼Æ ¡÷ °·±dÀË¬d
+        /* ---------- å­˜å–é‡‘é‘°æª¢æŸ¥ï¼ˆé æª¢è«‹æ±‚ä¸å¸¶é‡‘é‘°ï¼Œæ•…æ”¾åœ¨é æª¢ä¹‹å¾Œï¼‰ ---------- */
+        if (!IsKeyValid(request, requestUrl, GetAccessKey(env))) {
+            return JsonResponse(401, "éœ€è¦å­˜å–é‡‘é‘°æˆ–é‡‘é‘°éŒ¯èª¤", origin);
+        }
+
+        /* ---------- è§£æç›®æ¨™ç¶²å€ ---------- */
+        const target = requestUrl.searchParams.get("url");
+
+        // æ²’å¸¶ url åƒæ•¸ â†’ å¥åº·æª¢æŸ¥
         if (!target) {
-            return JsonResponse(200, "OwOb Proxy ¹B§@¤¤", origin, {
-                version: "3",
-                usage:   "/?url=<encoded url>",
+            return JsonResponse(200, "OwOb Proxy é‹ä½œä¸­", origin, {
+                version:     "4",
+                usage:       "/?url=<encoded url>[&key=<access key>]",
+                keyRequired: Boolean(GetAccessKey(env)),
                 allowedOrigins,
                 time:    new Date().toISOString()
             });
@@ -488,28 +556,34 @@ export default {
         try {
             targetUrl = new URL(target);
         } catch {
-            return JsonResponse(400, `ºô§}®æ¦¡¿ù»~¡G${target}`, origin);
+            return JsonResponse(400, `ç¶²å€æ ¼å¼éŒ¯èª¤ï¼š${target}`, origin);
         }
 
-        /* ---------- Âà°e½Ğ¨D ---------- */
+        /* ---------- è½‰é€è«‹æ±‚ ---------- */
         try {
             const isPost = request.method === "POST";
+
+            // å‰ç«¯ä¸»é é¢ fetch çš„ Accept ç‚ºé è¨­ã€Œ*/*ã€ï¼Œæ­¤æ™‚æ²¿ç”¨æ¨¡æ“¬ç€è¦½å™¨çš„ HTML Acceptï¼›
+            // åœ–ç‰‡ç­‰è³‡æºè«‹æ±‚å¸¶æœ‰å…·é«” Accept æ™‚å‰‡ç…§å¯¦è½‰é€
+            const accept = request.headers.get("Accept") || "";
 
             const result = await FetchWithRedirects(targetUrl, {
                 Method:      request.method,
                 Body:        isPost ? await request.arrayBuffer() : null,
                 ContentType: request.headers.get("Content-Type") || "application/x-www-form-urlencoded",
                 Jar:         BuildRequestJar(request, targetUrl),
-                Referer:     request.headers.get("X-Proxy-Referer") || ""
+                Referer:     request.headers.get("X-Proxy-Referer") || "",
+                Accept:      accept && accept !== "*/*" ? accept : "",
+                Range:       request.headers.get("Range") || ""
             });
 
             const upstream = result.Response;
 
-            // ½Æ»s¨Ã²M²z¥Ø¼Ğºô¯¸¦^À³¼ĞÀY
+            // è¤‡è£½ä¸¦æ¸…ç†ç›®æ¨™ç¶²ç«™å›æ‡‰æ¨™é ­
             const headers = new Headers(upstream.headers);
             StripResponseHeaders.forEach(name => headers.delete(name));
 
-            // ¥[¤W CORS¡B³Ì²×ºô§}»P Cookie
+            // åŠ ä¸Š CORSã€æœ€çµ‚ç¶²å€èˆ‡ Cookie
             Object.entries(BuildCorsHeaders(origin)).forEach(([key, value]) => headers.set(key, value));
             headers.set("X-Final-URL",    result.FinalUrl);
             headers.set("X-Proxy-Status", String(upstream.status));
@@ -524,13 +598,13 @@ export default {
                 headers
             });
         } catch (error) {
-            // ¥ô¦ó¨Ò¥~³£¦^¶Ç±a CORS ªº JSON¡AÁ×§K«eºİ¥u¬İ¨ì Failed to fetch
+            // ä»»ä½•ä¾‹å¤–éƒ½å›å‚³å¸¶ CORS çš„ JSONï¼Œé¿å…å‰ç«¯åªçœ‹åˆ° Failed to fetch
             const status = error instanceof ProxyError ? error.Status : 502;
             const reason = error && error.message ? error.message : String(error);
 
             return JsonResponse(
                 status,
-                status === 502 ? `¥N²zµLªk³s½u¦Ü¥Ø¼Ğºô¯¸¡G${reason}` : reason,
+                status === 502 ? `ä»£ç†ç„¡æ³•é€£ç·šè‡³ç›®æ¨™ç¶²ç«™ï¼š${reason}` : reason,
                 origin,
                 { target: targetUrl.toString() }
             );
