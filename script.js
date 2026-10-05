@@ -143,6 +143,65 @@ function IsInternalUrl(url) {
     return url.toLowerCase().startsWith("owob://");
 }
 
+/** Base64 / Base64URL 解碼為 UTF-8 字串；失敗回傳空字串 */
+function DecodeBase64Url(text) {
+    try {
+        let base64 = String(text).replace(/-/g, "+").replace(/_/g, "/");
+        while (base64.length % 4) base64 += "=";
+
+        const binary = atob(base64);
+        const bytes  = Uint8Array.from(binary, char => char.charCodeAt(0));
+        return new TextDecoder().decode(bytes);
+    } catch {
+        return "";
+    }
+}
+
+/**
+ * 解除搜尋引擎的點擊追蹤轉址，直接取得真正的目的網址
+ * 這些追蹤頁多半用 JavaScript（location.replace）跳轉，
+ * 在沙箱 iframe 內會繞過代理直接連線，被目的網站拒絕嵌入而顯示破圖。
+ *
+ *   Bing       https://www.bing.com/ck/a?...&u=a1<Base64URL>
+ *   DuckDuckGo https://duckduckgo.com/l/?uddg=<編碼網址>
+ *   Google     https://www.google.com/url?q=<編碼網址>
+ *   Yahoo      https://r.search.yahoo.com/.../RU=<編碼網址>/RK=...
+ *
+ * 無法解析時回傳原網址
+ */
+function UnwrapRedirectUrl(url) {
+    let parsed;
+    try {
+        parsed = new URL(url);
+    } catch {
+        return url;
+    }
+
+    const host = parsed.hostname.toLowerCase();
+    const path = parsed.pathname;
+    let target = "";
+
+    if (/(^|\.)bing\.com$/.test(host) && path.startsWith("/ck/a")) {
+        const value = parsed.searchParams.get("u") || "";
+        target = value.startsWith("a1") ? DecodeBase64Url(value.slice(2)) : value;
+    } else if (/(^|\.)duckduckgo\.com$/.test(host) && path.startsWith("/l/")) {
+        target = parsed.searchParams.get("uddg") || "";
+    } else if (/(^|\.)google\.[a-z.]+$/.test(host) && path === "/url") {
+        target = parsed.searchParams.get("q") || parsed.searchParams.get("url") || "";
+    } else if (/(^|\.)search\.yahoo\.com$/.test(host)) {
+        const match = path.match(/\/RU=([^/]+)\//);
+        if (match) {
+            try {
+                target = decodeURIComponent(match[1]);
+            } catch {
+                target = "";
+            }
+        }
+    }
+
+    return /^https?:\/\//i.test(target) ? target : url;
+}
+
 /**
  * 將使用者輸入轉為可導覽的網址
  *   owob://xxx         → 內部頁面
@@ -517,6 +576,11 @@ function RestoreTabs() {
  * @param {object|null}  postData  POST 表單資料 { Body, Referer }；GET 時為 null
  */
 function Navigate(tab, url, pushState = true, postData = null) {
+    // 搜尋結果的追蹤轉址 → 直接換成目的網址（POST 不處理）
+    if (!postData && !IsInternalUrl(url)) {
+        url = UnwrapRedirectUrl(url);
+    }
+
     if (pushState) {
         tab.History = tab.History.slice(0, tab.Index + 1);
         tab.History.push(url);
@@ -949,6 +1013,13 @@ function RenderHtmlInFrame(tab, html, baseUrl) {
         ? html.replace(/<head[^>]*>/i, match => match + injected)
         : injected + html;
 
+    // <meta http-equiv="refresh"> 會讓 iframe 繞過代理直接跳轉，
+    // 因此從 HTML 移除，改由 OwOb 經代理導覽
+    const refresh = ExtractMetaRefresh(html, baseUrl);
+    if (refresh) {
+        html = html.replace(/<meta[^>]+http-equiv\s*=\s*["']?refresh["']?[^>]*>/gi, "");
+    }
+
     // 取得標題
     const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
     tab.Title = titleMatch ? DecodeEntities(titleMatch[1].trim()) : new URL(baseUrl).hostname;
@@ -959,6 +1030,43 @@ function RenderHtmlInFrame(tab, html, baseUrl) {
 
     tab.ViewEl.innerHTML = "";
     tab.ViewEl.appendChild(frame);
+
+    if (refresh) {
+        const expectedUrl = GetTabUrl(tab);
+
+        setTimeout(() => {
+            // 期間使用者已切換頁面則不跳轉
+            if (GetTabUrl(tab) === expectedUrl) {
+                Navigate(tab, refresh.Url);
+            }
+        }, refresh.DelayMs);
+    }
+}
+
+/**
+ * 解析 <meta http-equiv="refresh" content="秒數; url=網址">
+ * @returns {{ Url: string, DelayMs: number } | null}
+ */
+function ExtractMetaRefresh(html, baseUrl) {
+    const tagMatch = html.match(/<meta[^>]+http-equiv\s*=\s*["']?refresh["']?[^>]*>/i);
+    if (!tagMatch) return null;
+
+    const contentMatch = tagMatch[0].match(/content\s*=\s*(["'])([\s\S]*?)\1/i);
+    if (!contentMatch) return null;
+
+    const content  = DecodeEntities(contentMatch[2]);
+    const urlMatch = content.match(/url\s*=\s*['"]?([^'"]+)['"]?/i);
+    if (!urlMatch) return null;
+
+    try {
+        const target = new URL(urlMatch[1].trim(), baseUrl).toString();
+        if (!/^https?:\/\//i.test(target)) return null;
+
+        const seconds = parseFloat(content) || 0;
+        return { Url: target, DelayMs: Math.min(Math.max(seconds, 0), 10) * 1000 };
+    } catch {
+        return null;
+    }
 }
 
 /** 非 HTML 內容直接顯示 */
