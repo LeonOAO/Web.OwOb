@@ -1286,3 +1286,151 @@ body::before {
         transform: rotate(360deg);
     }
 }
+
+/* ============================================================
+ *  設定頁資訊層級
+ * ============================================================ */
+
+.SettingsHeader {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 0 0 24px;
+    padding: 0 2px 18px;
+    border-bottom: 1px solid var(--Border);
+}
+
+.SettingsHeaderIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    flex-shrink: 0;
+    border-radius: 15px;
+    background: var(--BgCard);
+    backdrop-filter: var(--Blur);
+    -webkit-backdrop-filter: var(--Blur);
+    border: 1px solid var(--Border);
+    box-shadow: var(--Edge), var(--Shadow);
+    color: var(--Accent);
+    font-size: 20px;
+}
+
+.InternalPage .SettingsHeader h1 {
+    margin: 0;
+    padding: 0;
+    border: none;
+    font-size: 28px;
+    line-height: 1.15;
+}
+
+.SettingsHeader p {
+    margin: 5px 0 0;
+    color: var(--TextSub);
+    font-size: 13px;
+    letter-spacing: 0.4px;
+}
+
+.Card p.CardIntro {
+    margin: 0 0 16px;
+    color: var(--TextSub);
+}
+
+.Card p.CardSummary {
+    margin: -4px 0 14px;
+    color: var(--TextMain);
+    font-weight: 600;
+}
+
+.Card p.FieldHint {
+    margin: -7px 0 15px;
+    color: var(--TextSub);
+    font-size: 12.5px;
+    line-height: 1.5;
+}
+
+.Card p.CardNote {
+    margin: 14px 0 0;
+    padding-top: 12px;
+    border-top: 1px solid var(--Divider);
+    color: var(--TextSub);
+    font-size: 12.5px;
+    line-height: 1.65;
+}
+
+.SettingStatus {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 18px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--BgInput);
+    border: 1px solid var(--Border);
+    box-shadow: var(--Edge);
+    font-size: 13px;
+}
+
+.SettingStatusLabel {
+    color: var(--TextSub);
+}
+
+.SettingStatusLabel::after {
+    content: "：";
+}
+
+.StatusBadge {
+    margin-left: auto;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--BgHover);
+    color: var(--Accent);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.KeyTable kbd {
+    display: inline-flex;
+    align-items: center;
+    min-height: 25px;
+    padding: 2px 8px;
+    border-radius: 7px;
+    background: var(--BgInput);
+    border: 1px solid var(--Border);
+    box-shadow: var(--Edge), 0 2px 5px rgba(0, 0, 0, 0.08);
+    color: var(--TextMain);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.KeyTable td:first-child {
+    width: 155px;
+    color: inherit;
+}
+
+.KeyTable td:last-child {
+    color: var(--TextSub);
+}
+
+@media (max-width: 620px) {
+    .SettingsHeader {
+        gap: 11px;
+    }
+
+    .SettingsHeaderIcon {
+        width: 42px;
+        height: 42px;
+    }
+
+    .InternalPage .SettingsHeader h1 {
+        font-size: 25px;
+    }
+
+    .KeyTable td:first-child {
+        width: 130px;
+    }
+}

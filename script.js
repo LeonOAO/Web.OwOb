@@ -1630,7 +1630,7 @@ function RenderStartPage(tab) {
 /* ---------- 設定頁 ---------- */
 
 function RenderSettingsPage(tab) {
-    tab.Title = "OwO Simple Browser 設定";
+    tab.Title = "設定";
     UpdateTabHeader(tab);
 
     const isDark   = document.body.classList.contains("theme-dark");
@@ -1647,65 +1647,77 @@ function RenderSettingsPage(tab) {
 
     SetTabContent(tab, `
         <div class="InternalPage">
-            <h1><i class="fa-solid fa-gear"></i> OwO Simple Browser 設定</h1>
+            <header class="SettingsHeader">
+                <div class="SettingsHeaderIcon"><i class="fa-solid fa-gear"></i></div>
+                <div>
+                    <h1>設定</h1>
+                    <p>OwO Simple Browser</p>
+                </div>
+            </header>
 
             <div class="Card">
                 <h2>外觀</h2>
-                <p>目前主題：${isDark ? "深色（Dark Ember）" : "亮色（預設）"}</p>
+                <p class="CardIntro">選擇瀏覽器的顯示主題。</p>
                 <div class="ButtonRow">
-                    <button class="ActionButton" data-action="light">亮色</button>
-                    <button class="ActionButton" data-action="dark">深色</button>
+                    <button class="ActionButton${isDark ? " Secondary" : ""}" data-action="light">亮色</button>
+                    <button class="ActionButton${isDark ? "" : " Secondary"}" data-action="dark">深色</button>
                 </div>
             </div>
 
             <div class="Card">
                 <h2>代理伺服器</h2>
-                <p>
-                    目前使用：${IsCustomProxy()
-                        ? `自訂 <code>${EscapeHtml(GetProxyBase())}</code>`
-                        : "預設代理伺服器"}
-                    ${proxyKey ? "（已設定金鑰）" : ""}
-                    <br>
-                    代理網址留空即使用預設代理伺服器；未填參數時會自動補上 <code>/?url=</code>。
-                    若代理有設定 <code>ACCESS_KEY</code>，請在下方填入相同的金鑰。
-                </p>
+                <p class="CardIntro">設定載入外部網頁時使用的代理伺服器。</p>
+
+                <div class="SettingStatus">
+                    <span class="SettingStatusLabel">使用狀態</span>
+                    <strong>${IsCustomProxy() ? "自訂代理伺服器" : "預設代理伺服器"}</strong>
+                    ${proxyKey ? '<span class="StatusBadge">已設定金鑰</span>' : ""}
+                </div>
+
                 <label class="FieldLabel" for="ProxyInput">代理網址</label>
                 <input id="ProxyInput" class="SettingInput" type="text" spellcheck="false"
-                       placeholder="https://your-proxy.example.com/?url="
+                       placeholder="留空時，將使用預設代理伺服器。"
                        value="${IsCustomProxy() ? EscapeHtml(GetProxyBase()) : ""}">
-                <label class="FieldLabel" for="ProxyKeyInput">代理金鑰</label>
+                <p class="FieldHint">留空時，將使用預設代理伺服器。</p>
+
+                <label class="FieldLabel" for="ProxyKeyInput">存取金鑰</label>
                 <div class="InputRow">
                     <input id="ProxyKeyInput" class="SettingInput" type="password" spellcheck="false"
                            autocomplete="off" placeholder="未設定"
                            value="${EscapeHtml(proxyKey)}">
-                    <button class="ToolButton" data-action="toggle-key" title="顯示 / 隱藏金鑰">
+                    <button class="ToolButton" data-action="toggle-key" title="顯示或隱藏存取金鑰。">
                         <i class="fa-solid fa-eye"></i>
                     </button>
                 </div>
+                <p class="FieldHint">若代理伺服器已啟用存取驗證，請輸入相同的金鑰。</p>
+
                 <div class="ButtonRow">
-                    <button class="ActionButton" data-action="save-proxy">儲存</button>
+                    <button class="ActionButton" data-action="save-proxy">儲存設定</button>
                     <button class="ActionButton Secondary" data-action="reset-proxy">還原預設</button>
                     <button class="ActionButton Secondary" data-action="test-proxy">測試連線</button>
                 </div>
             </div>
 
             <div class="Card">
-                <h2>載入</h2>
-                <label class="FieldLabel" for="TimeoutInput">
-                    代理逾時（${Config.MinTimeoutSec}～${Config.MaxTimeoutSec} 秒）
-                </label>
+                <h2>網頁載入</h2>
+                <p class="CardIntro">調整網頁載入方式與連線等待時間。</p>
+
+                <label class="FieldLabel" for="TimeoutInput">連線逾時</label>
                 <input id="TimeoutInput" class="SettingInput ShortInput" type="number"
                        min="${Config.MinTimeoutSec}" max="${Config.MaxTimeoutSec}" step="1"
                        value="${GetTimeoutSec()}">
-                ${checkbox("ProxyResources", "圖片、影音、字型經代理載入", "可解決防盜連造成的破圖，但會增加代理請求數量。")}
-                ${checkbox("ProxyRequests",  "網頁內動態請求經代理送出",   "讓網頁中的 fetch / XHR 經代理送出，可改善部分動態內容無法載入的問題。")}
-                ${checkbox("ProxyScripts",   "外部腳本經代理載入（實驗性）", "可解決腳本被阻擋的問題，但會使依賴腳本路徑載入其他檔案的網站失效，預設關閉。")}
-                <p class="Hint">載入選項會在下次載入頁面時生效。</p>
+                <p class="FieldHint">可設定 ${Config.MinTimeoutSec} 至 ${Config.MaxTimeoutSec} 秒。</p>
+
+                ${checkbox("ProxyResources", "圖片與影音使用代理", "可改善圖片或影音無法載入的情況，但會增加代理請求數量。")}
+                ${checkbox("ProxyRequests",  "動態內容使用代理",   "可改善部分網頁的動態內容無法載入的情況。")}
+                ${checkbox("ProxyScripts",   "網頁腳本使用代理",   "此功能仍在測試中，啟用後可能造成部分網站無法正常運作。")}
+                <p class="CardNote">變更將於重新整理網頁後生效。</p>
             </div>
 
             <div class="Card">
                 <h2>書籤與首頁捷徑</h2>
-                <p>目前共 ${LoadBookmarks().length} 個書籤、${LoadShortcuts().length} 個首頁捷徑。</p>
+                <p class="CardIntro">管理已儲存的書籤與首頁捷徑。</p>
+                <p class="CardSummary">目前有 ${LoadBookmarks().length} 個書籤，以及 ${LoadShortcuts().length} 個首頁捷徑。</p>
                 <div class="ButtonRow">
                     <button class="ActionButton" data-action="bookmarks">管理書籤</button>
                     <button class="ActionButton Secondary" data-action="reset-shortcuts">還原預設捷徑</button>
@@ -1713,8 +1725,9 @@ function RenderSettingsPage(tab) {
             </div>
 
             <div class="Card">
-                <h2>Cookie</h2>
-                <p>目前保存 ${CountCookies()} 筆網站 Cookie（例如網站驗證通過的紀錄）。</p>
+                <h2>網站資料</h2>
+                <p class="CardIntro">管理網站儲存在瀏覽器中的 Cookie。</p>
+                <p class="CardSummary">目前已儲存 ${CountCookies()} 筆 Cookie。</p>
                 <div class="ButtonRow">
                     <button class="ActionButton" data-action="cookies">管理 Cookie</button>
                     <button class="ActionButton Danger" data-action="clear-cookies">清除全部 Cookie</button>
@@ -1723,39 +1736,53 @@ function RenderSettingsPage(tab) {
 
             <div class="Card">
                 <h2>瀏覽紀錄</h2>
-                <p>目前共 ${LoadHistory().length} 筆紀錄。</p>
+                <p class="CardIntro">查看或清除瀏覽紀錄。</p>
+                <p class="CardSummary">目前共有 ${LoadHistory().length} 筆瀏覽紀錄。</p>
                 <div class="ButtonRow">
-                    <button class="ActionButton" data-action="history">查看紀錄</button>
+                    <button class="ActionButton" data-action="history">查看瀏覽紀錄</button>
                     <button class="ActionButton Danger" data-action="clear">清除瀏覽資料</button>
                 </div>
-                <p class="Hint">「清除瀏覽資料」會清除瀏覽紀錄、已開啟分頁與 Cookie，保留設定、書籤與捷徑。</p>
+                <p class="CardNote">清除後，瀏覽紀錄、已開啟的分頁與 Cookie 將被移除；瀏覽器設定、書籤與首頁捷徑將會保留。</p>
             </div>
 
             <div class="Card">
-                <h2>備份</h2>
-                <p>匯出主題、代理設定、載入選項、書籤與首頁捷徑為 JSON 檔，可在其他電腦匯入。匯出檔包含代理金鑰，請妥善保管。</p>
+                <h2>備份與還原</h2>
+                <p class="CardIntro">匯出或匯入瀏覽器設定、書籤與首頁捷徑。</p>
                 <div class="ButtonRow">
                     <button class="ActionButton" data-action="export">匯出設定</button>
                     <button class="ActionButton Secondary" data-action="import">匯入設定</button>
                 </div>
+                <p class="CardNote">匯出的設定檔可能包含代理伺服器的存取金鑰，請妥善保管。</p>
             </div>
 
             <div class="Card">
-                <h2>隱藏分頁</h2>
-                <p>在 about:blank 視窗中開啟本瀏覽器，瀏覽器分頁列只會顯示空白頁。</p>
+                <h2>隱藏視窗</h2>
+                <p class="CardIntro">在空白瀏覽器標籤中開啟 OwO Simple Browser。</p>
                 <div class="ButtonRow">
-                    <button class="ActionButton" data-action="cloak">以 about:blank 開啟</button>
+                    <button class="ActionButton" data-action="cloak">開啟隱藏視窗</button>
                 </div>
+                <p class="CardNote">開啟後，外層瀏覽器的標籤名稱將顯示為「新分頁」。</p>
             </div>
 
             <div class="Card">
-                <h2>快捷鍵</h2>
+                <h2>鍵盤快捷鍵</h2>
+                <p class="CardIntro">使用鍵盤快速執行常用操作。</p>
                 <table class="KeyTable">
-                    <tr><td>Ctrl+K</td><td>聚焦搜尋</td>        <td>Ctrl+L</td><td>聚焦網址列</td></tr>
-                    <tr><td>Ctrl+F</td><td>頁內搜尋</td>        <td>Ctrl+D</td><td>加入 / 移除書籤</td></tr>
-                    <tr><td>Alt+T</td><td>新分頁</td>           <td>Alt+W</td><td>關閉分頁</td></tr>
-                    <tr><td>Alt+Shift+T</td><td>重新開啟已關閉分頁</td><td>F5</td><td>重新整理</td></tr>
-                    <tr><td>Alt+← / →</td><td>上一頁 / 下一頁</td><td>Ctrl + = / - / 0</td><td>放大 / 縮小 / 重設縮放</td></tr>
+                    <tbody>
+                        <tr><td><kbd>Ctrl + K</kbd></td><td>聚焦首頁搜尋框。</td></tr>
+                        <tr><td><kbd>Ctrl + L</kbd></td><td>聚焦網址列。</td></tr>
+                        <tr><td><kbd>Ctrl + F</kbd></td><td>在頁面中尋找文字。</td></tr>
+                        <tr><td><kbd>Ctrl + D</kbd></td><td>加入或移除書籤。</td></tr>
+                        <tr><td><kbd>Alt + T</kbd></td><td>新增分頁。</td></tr>
+                        <tr><td><kbd>Alt + W</kbd></td><td>關閉目前分頁。</td></tr>
+                        <tr><td><kbd>Alt + Shift + T</kbd></td><td>重新開啟最近關閉的分頁。</td></tr>
+                        <tr><td><kbd>Alt + ←</kbd></td><td>返回上一頁。</td></tr>
+                        <tr><td><kbd>Alt + →</kbd></td><td>前往下一頁。</td></tr>
+                        <tr><td><kbd>Ctrl + +</kbd></td><td>放大頁面。</td></tr>
+                        <tr><td><kbd>Ctrl + -</kbd></td><td>縮小頁面。</td></tr>
+                        <tr><td><kbd>Ctrl + 0</kbd></td><td>重設頁面縮放。</td></tr>
+                        <tr><td><kbd>F5</kbd></td><td>重新整理目前頁面。</td></tr>
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -1827,14 +1854,14 @@ function RenderSettingsPage(tab) {
         const seconds = Clamp(Math.round(value), Config.MinTimeoutSec, Config.MaxTimeoutSec);
         localStorage.setItem(Config.StorageKeys.TimeoutSec, String(seconds));
         event.target.value = seconds;
-        ShowToast(`代理逾時已設為 ${seconds} 秒`);
+        ShowToast(`連線逾時已設為 ${seconds} 秒`);
     });
 
     // 載入選項：變更即儲存
     tab.ViewEl.querySelectorAll("[data-flag]").forEach(input => {
         input.addEventListener("change", () => {
             SetFlag(input.dataset.flag, input.checked);
-            ShowToast("已儲存，下次載入頁面時生效");
+            ShowToast("已儲存，重新整理網頁後生效");
         });
     });
 }
