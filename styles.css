@@ -1434,3 +1434,100 @@ body::before {
         width: 130px;
     }
 }
+
+/* ============================================================
+ *  設定頁置中版面
+ *  標題、摘要、狀態與操作按鈕置中；輸入內容與開關說明保留靠左，
+ *  避免長網址、金鑰及多行文字難以閱讀。
+ * ============================================================ */
+
+.SettingsHeader {
+    justify-content: center;
+    text-align: center;
+}
+
+.SettingsHeader > div:last-child {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.InternalPage > .Card > h2,
+.InternalPage > .Card > .CardIntro,
+.InternalPage > .Card > .CardSummary,
+.InternalPage > .Card > .CardNote {
+    text-align: center;
+}
+
+.InternalPage > .Card > h2 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+}
+
+.InternalPage > .Card > .ButtonRow {
+    justify-content: center;
+    align-items: center;
+}
+
+.SettingStatus {
+    justify-content: center;
+    min-height: 42px;
+    text-align: center;
+}
+
+.SettingStatus .StatusBadge {
+    margin-left: 0;
+}
+
+/* 單一數值欄位（連線逾時）置中呈現。 */
+.ShortInput {
+    display: block;
+    margin-right: auto;
+    margin-left: auto;
+    text-align: center;
+}
+
+.ShortInput + .FieldHint {
+    text-align: center;
+}
+
+/* 快捷鍵內容在每一格中水平、垂直置中。 */
+.KeyTable td {
+    vertical-align: middle;
+    text-align: center;
+}
+
+.KeyTable td:last-child {
+    text-align: center;
+}
+
+/* 輸入欄位與開關仍保留自然閱讀方向。 */
+.FieldLabel,
+.FieldHint,
+.ToggleRow,
+.InputRow .SettingInput,
+#ProxyInput {
+    text-align: left;
+}
+
+.ToggleRow {
+    align-items: center;
+}
+
+@media (max-width: 620px) {
+    .SettingsHeader {
+        flex-direction: column;
+    }
+
+    .InternalPage > .Card > .ButtonRow {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .InternalPage > .Card > .ButtonRow .ActionButton {
+        width: 100%;
+    }
+}
