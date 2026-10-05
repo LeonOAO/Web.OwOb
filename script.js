@@ -3,13 +3,14 @@
  *  架構：
  *    1. 設定與狀態
  *    2. 工具函式
- *    3. 分頁管理（建立 / 切換 / 關閉 / 還原）
- *    4. 導覽（網址解析 / 上下頁 / 重新整理）
- *    5. 內部頁面（owob://start、settings、history）
- *    6. 外部頁面（經由自架 CORS 代理載入）
- *    7. iframe 內連結 / 表單攔截（postMessage）
- *    8. 主題 / 歷史紀錄 / 隱藏分頁
- *    9. 事件綁定與初始化
+ *    3. Cookie 罐（保存目標網站 Cookie，讓驗證 / 登入狀態可延續）
+ *    4. 分頁管理（建立 / 切換 / 關閉 / 還原）
+ *    5. 導覽（網址解析 / 上下頁 / 重新整理）
+ *    6. 內部頁面（owob://start、settings、history）
+ *    7. 外部頁面（經由自架 CORS 代理載入，支援 GET / POST）
+ *    8. iframe 內連結 / 表單攔截（postMessage）
+ *    9. 主題 / 歷史紀錄 / 隱藏分頁
+ *   10. 事件綁定與初始化
  * ============================================================ */
 
 "use strict";
@@ -45,7 +46,8 @@ const Config = {
         Engine:       "OwOb.SearchEngine",
         History:      "OwOb.History",
         OpenTabs:     "OwOb.OpenTabs",
-        ActiveTab:    "OwOb.ActiveTab"
+        ActiveTab:    "OwOb.ActiveTab",
+        Cookies:      "OwOb.Cookies"
     },
 
     // 首頁捷徑
@@ -99,9 +101,11 @@ function EscapeHtml(text) {
 
 /** 顯示短暫提示 */
 let ToastTimer = null;
+
 function ShowToast(message) {
     Dom.Toast.textContent = message;
     Dom.Toast.classList.add("Show");
+
     clearTimeout(ToastTimer);
     ToastTimer = setTimeout(() => Dom.Toast.classList.remove("Show"), 2600);
 }
@@ -162,20 +166,162 @@ function ResolveInput(input) {
     }
 
     const looksLikeDomain = /^[\w-]+(\.[\w-]+)+(:\d+)?(\/.*)?$/.test(text) && !/\s/.test(text);
-
     if (looksLikeDomain) {
         return "https://" + text;
     }
 
     const engine = localStorage.getItem(Config.StorageKeys.Engine) || "DuckDuckGo";
     const base = Config.SearchEngines[engine] || Config.SearchEngines.DuckDuckGo;
-
     return base + encodeURIComponent(text);
 }
 
 
 /* ============================================================
- *  3. 分頁管理
+ *  3. Cookie 罐
+ *     代理會移除 Set-Cookie，改以 X-Proxy-Set-Cookie 回傳。
+ *     這裡把 Cookie 存進 localStorage，下次請求同網域時
+ *     以 X-Proxy-Cookie 送回代理，讓 DuckDuckGo 驗證結果可延續。
+ *
+ *     結構：{ "<網域>": { "<名稱>": { Value, Expires, HostOnly } } }
+ *     （簡化實作：不比對 Path，同網域 Cookie 一律送出）
+ * ============================================================ */
+
+/** 讀取 Cookie 罐，並順便清除已過期項目 */
+function LoadCookieJar() {
+    const jar = LoadJson(Config.StorageKeys.Cookies, {});
+    const now = Date.now();
+
+    Object.keys(jar).forEach(domain => {
+        Object.keys(jar[domain]).forEach(name => {
+            const expires = jar[domain][name].Expires;
+            if (expires !== null && expires <= now) {
+                delete jar[domain][name];
+            }
+        });
+
+        if (Object.keys(jar[domain]).length === 0) {
+            delete jar[domain];
+        }
+    });
+
+    return jar;
+}
+
+/**
+ * 解析一筆 Set-Cookie 並寫入 Cookie 罐
+ * @param {object} jar     Cookie 罐
+ * @param {string} host    設定此 Cookie 的主機
+ * @param {string} cookie  Set-Cookie 原始字串
+ */
+function ApplySetCookie(jar, host, cookie) {
+    const parts = String(cookie).split(";");
+    const pair  = parts.shift();
+    const index = pair.indexOf("=");
+
+    if (index <= 0) return;
+
+    const name  = pair.slice(0, index).trim();
+    const value = pair.slice(index + 1).trim();
+
+    let domain   = host.toLowerCase();
+    let hostOnly = true;
+    let expires  = null;      // null = 工作階段 Cookie
+
+    let rejected = false;
+
+    parts.forEach(part => {
+        const [rawKey, ...rest] = part.split("=");
+        const key = rawKey.trim().toLowerCase();
+        const val = rest.join("=").trim();
+
+        if (key === "domain" && val) {
+            const cleaned = val.replace(/^\./, "").toLowerCase();
+
+            // 只接受主機本身或其上層網域；不符合時整筆捨棄，避免跨站寫入
+            if (domain === cleaned || domain.endsWith("." + cleaned)) {
+                domain   = cleaned;
+                hostOnly = false;
+            } else {
+                rejected = true;
+            }
+        } else if (key === "max-age" && val) {
+            expires = Date.now() + Number(val) * 1000;
+        } else if (key === "expires" && val && expires === null) {
+            const time = Date.parse(val);
+            if (!Number.isNaN(time)) expires = time;
+        }
+    });
+
+    if (rejected) return;
+
+    jar[domain] = jar[domain] || {};
+
+    if (expires !== null && expires <= Date.now()) {
+        delete jar[domain][name];       // 目標網站要求刪除
+    } else {
+        jar[domain][name] = { Value: value, Expires: expires, HostOnly: hostOnly };
+    }
+}
+
+/** 儲存代理回傳的 Cookie（X-Proxy-Set-Cookie） */
+function StoreProxyCookies(headerValue) {
+    if (!headerValue) return;
+
+    let list;
+    try {
+        list = JSON.parse(decodeURIComponent(headerValue));
+    } catch {
+        return;
+    }
+
+    if (!Array.isArray(list)) return;
+
+    const jar = LoadCookieJar();
+    list.forEach(item => {
+        if (item && typeof item.Host === "string" && typeof item.Cookie === "string") {
+            ApplySetCookie(jar, item.Host, item.Cookie);
+        }
+    });
+    SaveJson(Config.StorageKeys.Cookies, jar);
+}
+
+/** 取得要送給指定網址的 Cookie 字串 */
+function GetCookieHeader(url) {
+    let host;
+    try {
+        host = new URL(url).hostname.toLowerCase();
+    } catch {
+        return "";
+    }
+
+    const jar   = LoadCookieJar();
+    const pairs = [];
+
+    Object.keys(jar).forEach(domain => {
+        const isExact  = host === domain;
+        const isParent = host.endsWith("." + domain);
+
+        if (!isExact && !isParent) return;
+
+        Object.entries(jar[domain]).forEach(([name, item]) => {
+            if (isExact || !item.HostOnly) {
+                pairs.push(`${name}=${item.Value}`);
+            }
+        });
+    });
+
+    return pairs.join("; ");
+}
+
+/** 計算目前 Cookie 總數（設定頁顯示用） */
+function CountCookies() {
+    const jar = LoadCookieJar();
+    return Object.values(jar).reduce((sum, items) => sum + Object.keys(items).length, 0);
+}
+
+
+/* ============================================================
+ *  4. 分頁管理
  * ============================================================ */
 
 /** 建立新分頁 */
@@ -250,7 +396,6 @@ function CloseTab(id) {
     if (index === -1) return;
 
     const tab = State.Tabs[index];
-
     if (tab.Abort) tab.Abort.abort();
 
     tab.TabEl.remove();
@@ -291,6 +436,7 @@ function UpdateTabHeader(tab) {
 /** 儲存開啟中的分頁，下次開啟時還原 */
 function SaveOpenTabs() {
     SaveJson(Config.StorageKeys.OpenTabs, State.Tabs.map(GetTabUrl));
+
     const activeIndex = State.Tabs.findIndex(tab => tab.Id === State.ActiveId);
     localStorage.setItem(Config.StorageKeys.ActiveTab, String(Math.max(activeIndex, 0)));
 }
@@ -313,16 +459,17 @@ function RestoreTabs() {
 
 
 /* ============================================================
- *  4. 導覽
+ *  5. 導覽
  * ============================================================ */
 
 /**
  * 導覽至指定網址
- * @param {object}  tab       目標分頁
- * @param {string}  url       已解析的網址
- * @param {boolean} pushState 是否寫入分頁歷史（上下頁時為 false）
+ * @param {object}       tab       目標分頁
+ * @param {string}       url       已解析的網址
+ * @param {boolean}      pushState 是否寫入分頁歷史（上下頁時為 false）
+ * @param {object|null}  postData  POST 表單資料 { Body, Referer }；GET 時為 null
  */
-function Navigate(tab, url, pushState = true) {
+function Navigate(tab, url, pushState = true, postData = null) {
     if (pushState) {
         tab.History = tab.History.slice(0, tab.Index + 1);
         tab.History.push(url);
@@ -337,7 +484,7 @@ function Navigate(tab, url, pushState = true) {
     if (IsInternalUrl(url)) {
         RenderInternalPage(tab, url);
     } else {
-        LoadExternalPage(tab, url);
+        LoadExternalPage(tab, url, postData);
         AddHistoryRecord(url);
     }
 
@@ -349,12 +496,14 @@ function Navigate(tab, url, pushState = true) {
 function NavigateFromInput(input) {
     const tab = GetActiveTab();
     if (!tab) return;
+
     Navigate(tab, ResolveInput(input));
 }
 
 function GoBack() {
     const tab = GetActiveTab();
     if (!tab || tab.Index <= 0) return;
+
     tab.Index--;
     Navigate(tab, GetTabUrl(tab), false);
 }
@@ -362,6 +511,7 @@ function GoBack() {
 function GoForward() {
     const tab = GetActiveTab();
     if (!tab || tab.Index >= tab.History.length - 1) return;
+
     tab.Index++;
     Navigate(tab, GetTabUrl(tab), false);
 }
@@ -369,6 +519,8 @@ function GoForward() {
 function Reload() {
     const tab = GetActiveTab();
     if (!tab) return;
+
+    // 重新整理一律以 GET 重新載入（不重送 POST 表單）
     Navigate(tab, GetTabUrl(tab), false);
 }
 
@@ -417,7 +569,7 @@ function SetLoading(tab, loading) {
 
 
 /* ============================================================
- *  5. 內部頁面
+ *  6. 內部頁面
  * ============================================================ */
 
 function RenderInternalPage(tab, url) {
@@ -460,13 +612,11 @@ function RenderStartPage(tab) {
     tab.ViewEl.innerHTML = `
         <div class="StartPage">
             <h1 class="StartLogo">OwOb</h1>
-
             <form class="StartSearch" autocomplete="off">
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input type="text" placeholder="搜尋或輸入網址（Ctrl+K）" spellcheck="false">
                 <select title="搜尋引擎">${engineOptions}</select>
             </form>
-
             <div class="Shortcuts">${shortcuts}</div>
         </div>
     `;
@@ -523,6 +673,14 @@ function RenderSettingsPage(tab) {
             </div>
 
             <div class="Card">
+                <h2>Cookie</h2>
+                <p>目前保存 ${CountCookies()} 筆網站 Cookie（例如 DuckDuckGo 驗證通過的紀錄）。</p>
+                <div class="ButtonRow">
+                    <button class="ActionButton Danger" data-action="clear-cookies">清除 Cookie</button>
+                </div>
+            </div>
+
+            <div class="Card">
                 <h2>瀏覽紀錄</h2>
                 <p>目前共 ${LoadJson(Config.StorageKeys.History, []).length} 筆紀錄。</p>
                 <div class="ButtonRow">
@@ -550,12 +708,13 @@ function RenderSettingsPage(tab) {
     `;
 
     const actions = {
-        "light":      () => { ApplyTheme("light"); RenderSettingsPage(tab); },
-        "dark":       () => { ApplyTheme("dark");  RenderSettingsPage(tab); },
-        "test-proxy": () => TestProxy(),
-        "history":    () => Navigate(tab, "owob://history"),
-        "clear":      () => { ClearAllData(); RenderSettingsPage(tab); },
-        "cloak":      () => OpenCloaked()
+        "light":         () => { ApplyTheme("light"); RenderSettingsPage(tab); },
+        "dark":          () => { ApplyTheme("dark");  RenderSettingsPage(tab); },
+        "test-proxy":    () => TestProxy(),
+        "clear-cookies": () => { localStorage.removeItem(Config.StorageKeys.Cookies); ShowToast("已清除 Cookie"); RenderSettingsPage(tab); },
+        "history":       () => Navigate(tab, "owob://history"),
+        "clear":         () => { ClearAllData(); RenderSettingsPage(tab); },
+        "cloak":         () => OpenCloaked()
     };
 
     tab.ViewEl.querySelectorAll("[data-action]").forEach(button => {
@@ -623,10 +782,16 @@ function RenderErrorPage(tab, title, detail, retryUrl) {
 
 
 /* ============================================================
- *  6. 外部頁面（經由代理載入）
+ *  7. 外部頁面（經由代理載入）
  * ============================================================ */
 
-async function LoadExternalPage(tab, url) {
+/**
+ * 經由代理載入外部頁面
+ * @param {object}      tab       目標分頁
+ * @param {string}      url       目標網址
+ * @param {object|null} postData  POST 資料 { Body, Referer }；null 表示 GET
+ */
+async function LoadExternalPage(tab, url, postData = null) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort("timeout"), Config.FetchTimeoutMs);
 
@@ -635,12 +800,37 @@ async function LoadExternalPage(tab, url) {
     SetLoading(tab, true);
 
     try {
-        const response = await fetch(Config.ProxyBase + encodeURIComponent(url), {
+        /* ---------- 組合代理請求 ---------- */
+        const headers = {};
+
+        const cookieHeader = GetCookieHeader(url);
+        if (cookieHeader) {
+            headers["X-Proxy-Cookie"] = cookieHeader;
+        }
+
+        const requestOptions = {
+            method: "GET",
+            headers,
             signal: controller.signal
-        });
+        };
+
+        if (postData) {
+            requestOptions.method = "POST";
+            requestOptions.body = postData.Body;
+            headers["Content-Type"] = "application/x-www-form-urlencoded";
+
+            if (postData.Referer && /^https?:\/\//i.test(postData.Referer)) {
+                headers["X-Proxy-Referer"] = postData.Referer;
+            }
+        }
+
+        const response = await fetch(Config.ProxyBase + encodeURIComponent(url), requestOptions);
 
         const contentType = response.headers.get("Content-Type") || "";
         const finalUrl = response.headers.get("X-Final-URL") || url;
+
+        // 先保存目標網站設定的 Cookie（驗證頁的通過紀錄就在這裡）
+        StoreProxyCookies(response.headers.get("X-Proxy-Set-Cookie"));
 
         // 代理回傳的錯誤（JSON 格式）
         if (!response.ok && contentType.includes("application/json")) {
@@ -667,7 +857,6 @@ async function LoadExternalPage(tab, url) {
         if (!response.ok) {
             ShowToast(`網站回應 HTTP ${response.status}`);
         }
-
     } catch (error) {
         if (controller.signal.aborted && controller.signal.reason !== "timeout") {
             return;   // 使用者主動切換頁面，不顯示錯誤
@@ -675,10 +864,9 @@ async function LoadExternalPage(tab, url) {
 
         const detail = controller.signal.reason === "timeout"
             ? `連線逾時（超過 ${Config.FetchTimeoutMs / 1000} 秒）。`
-            : `${error.message}\n\n可能原因：\n• 代理的 ALLOWED_ORIGINS 未包含目前網站來源（${location.origin}）\n• 目標網站封鎖了代理伺服器\n• 網路連線異常`;
+            : `${error.message}\n\n可能原因：\n• 代理的 ALLOWED_ORIGINS 未包含目前網站來源（${location.origin}）\n• 代理尚未更新為支援 POST / Cookie 的版本\n• 目標網站封鎖了代理伺服器\n• 網路連線異常`;
 
         RenderErrorPage(tab, "無法載入此網頁", `${url}\n\n${detail}`, url);
-
     } finally {
         clearTimeout(timer);
         if (tab.Abort === controller) tab.Abort = null;
@@ -758,20 +946,23 @@ async function TestProxy() {
 
 
 /* ============================================================
- *  7. iframe 內連結 / 表單攔截
+ *  8. iframe 內連結 / 表單攔截
  * ============================================================ */
 
 /**
  * 產生注入 iframe 的腳本
- * 點擊連結或送出 GET 表單時，以 postMessage 通知 OwOb 導覽
+ *  - 點擊連結：通知 OwOb 導覽（或開新分頁）
+ *  - GET 表單：組成查詢字串後導覽
+ *  - POST 表單：序列化為 urlencoded 後交給 OwOb 經代理送出
+ *    （DuckDuckGo 驗證頁與 HTML 版搜尋框都是 POST 表單）
  */
 function BuildInterceptorScript(tabId) {
     return `
 (function () {
     var TabId = ${tabId};
 
-    function Send(type, url) {
-        parent.postMessage({ OwOb: true, Type: type, TabId: TabId, Url: url }, "*");
+    function Send(type, url, body) {
+        parent.postMessage({ OwOb: true, Type: type, TabId: TabId, Url: url, Body: body || "" }, "*");
     }
 
     // 連結點擊
@@ -787,20 +978,49 @@ function BuildInterceptorScript(tabId) {
         Send(newTab ? "OpenTab" : "Navigate", link.href);
     }, true);
 
-    // 表單送出（僅支援 GET）
+    // 表單送出（GET / POST）
     document.addEventListener("submit", function (event) {
         var form = event.target;
         event.preventDefault();
 
-        if ((form.method || "get").toLowerCase() !== "get") {
-            Send("Unsupported", "POST 表單無法經由代理送出");
+        // 收集表單資料（含被按下的 submit 按鈕名稱與值）
+        var submitter = event.submitter || null;
+        var data;
+        try {
+            data = new FormData(form, submitter);
+        } catch (error) {
+            data = new FormData(form);
+            if (submitter && submitter.name) data.append(submitter.name, submitter.value || "");
+        }
+
+        // 轉為 urlencoded；不支援檔案上傳
+        var params = new URLSearchParams();
+        var hasFile = false;
+        data.forEach(function (value, key) {
+            if (typeof value === "string") {
+                params.append(key, value);
+            } else if (value && value.size > 0) {
+                hasFile = true;
+            }
+        });
+
+        if (hasFile) {
+            Send("Unsupported", "含檔案上傳的表單無法經由代理送出");
             return;
         }
 
-        var action = new URL(form.getAttribute("action") || location.href, document.baseURI);
-        var params = new URLSearchParams(new FormData(form));
-        action.search = params.toString();
-        Send("Navigate", action.href);
+        // srcdoc 的 location 是 about:srcdoc，因此以 <base> 網址為基準
+        var actionAttr = (submitter && submitter.getAttribute("formaction")) || form.getAttribute("action");
+        var action = new URL(actionAttr || document.baseURI, document.baseURI);
+
+        var methodAttr = (submitter && submitter.getAttribute("formmethod")) || form.getAttribute("method") || "get";
+
+        if (methodAttr.toLowerCase() === "post") {
+            Send("Post", action.href, params.toString());
+        } else {
+            action.search = params.toString();
+            Send("Navigate", action.href);
+        }
     }, true);
 })();`;
 }
@@ -823,9 +1043,20 @@ window.addEventListener("message", event => {
         case "Navigate":
             if (/^https?:\/\//i.test(data.Url)) Navigate(tab, data.Url);
             break;
+
         case "OpenTab":
             if (/^https?:\/\//i.test(data.Url)) CreateTab(data.Url, true);
             break;
+
+        case "Post":
+            if (/^https?:\/\//i.test(data.Url) && typeof data.Body === "string") {
+                Navigate(tab, data.Url, true, {
+                    Body:    data.Body,
+                    Referer: GetTabUrl(tab)
+                });
+            }
+            break;
+
         case "Unsupported":
             ShowToast(data.Url);
             break;
@@ -834,7 +1065,7 @@ window.addEventListener("message", event => {
 
 
 /* ============================================================
- *  8. 主題 / 歷史紀錄 / 隱藏分頁
+ *  9. 主題 / 歷史紀錄 / 隱藏分頁
  * ============================================================ */
 
 /** 套用主題（預設亮色） */
@@ -863,7 +1094,7 @@ function AddHistoryRecord(url) {
     SaveJson(Config.StorageKeys.History, records.slice(0, Config.MaxHistory));
 }
 
-/** 清除所有本機資料（保留主題設定） */
+/** 清除所有本機資料（保留主題設定；Cookie 一併清除） */
 function ClearAllData() {
     const theme = localStorage.getItem(Config.StorageKeys.Theme);
 
@@ -871,8 +1102,7 @@ function ClearAllData() {
     sessionStorage.clear();
 
     if (theme) localStorage.setItem(Config.StorageKeys.Theme, theme);
-
-    ShowToast("已清除瀏覽紀錄與分頁資料");
+    ShowToast("已清除瀏覽紀錄、分頁與 Cookie");
 }
 
 /** 在 about:blank 視窗中開啟 OwOb */
@@ -890,12 +1120,13 @@ function OpenCloaked() {
     const frame = win.document.createElement("iframe");
     frame.src = location.href;
     frame.style.cssText = "border:none;width:100vw;height:100vh;display:block";
+
     win.document.body.appendChild(frame);
 }
 
 
 /* ============================================================
- *  9. 事件綁定與初始化
+ * 10. 事件綁定與初始化
  * ============================================================ */
 
 function BindEvents() {
