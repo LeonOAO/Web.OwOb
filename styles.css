@@ -1783,3 +1783,80 @@ body::before {
         text-align: center;
     }
 }
+
+/* ============================================================
+ *  連線逾時：簡潔設定列（移除巢狀大卡片）
+ * ============================================================ */
+
+.TimeoutSetting {
+    display: grid;
+    grid-template-columns: minmax(110px, 1fr) auto;
+    align-items: center;
+    gap: 20px;
+    width: min(540px, 100%);
+    min-height: 0;
+    margin: 4px auto 20px;
+    padding: 14px 4px;
+    border: none;
+    border-top: 1px solid var(--Divider);
+    border-bottom: 1px solid var(--Divider);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.TimeoutLabel {
+    padding-left: 6px;
+    font-size: 14px;
+    font-weight: 650;
+    text-align: left;
+}
+
+.TimeoutValueArea {
+    display: grid;
+    justify-items: end;
+    gap: 4px;
+}
+
+.TimeoutControl {
+    gap: 6px;
+}
+
+.TimeoutStep {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: var(--BgInput);
+}
+
+.TimeoutControl .ShortInput {
+    width: 58px;
+    height: 32px;
+    background: var(--BgInput);
+}
+
+.TimeoutSetting .FieldHint {
+    padding-right: 28px;
+    font-size: 11.5px;
+    text-align: right;
+}
+
+@media (max-width: 520px) {
+    .TimeoutSetting {
+        grid-template-columns: 1fr;
+        justify-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 14px 4px;
+    }
+
+    .TimeoutLabel {
+        padding-left: 0;
+        text-align: center;
+    }
+
+    .TimeoutSetting .FieldHint {
+        padding-right: 0;
+        text-align: center;
+    }
+}

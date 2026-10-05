@@ -202,6 +202,30 @@ function GetTabUrl(tab) {
     return tab.History[tab.Index] || Config.HomeUrl;
 }
 
+/** 將內部實際網址轉為提供給使用者閱讀的網址 */
+function GetDisplayUrl(url) {
+    const value = String(url);
+    const match = value.match(/^owob:\/\/([^/?#]+)/i);
+    if (!match) return value;
+
+    const pageNames = {
+        start:     "Start",
+        settings:  "Settings",
+        history:   "History",
+        bookmarks: "Bookmarks",
+        cookies:   "Cookies"
+    };
+    const page = pageNames[match[1].toLowerCase()] || match[1];
+    return `Browser://${page}`;
+}
+
+/** 將使用者輸入的 Browser:// 內部網址轉回實際路由 */
+function NormalizeInternalInput(input) {
+    const value = String(input).trim();
+    const match = value.match(/^browser:\/\/([^/?#]+)/i);
+    return match ? `owob://${match[1].toLowerCase()}` : value;
+}
+
 /** 是否為內部網址 */
 function IsInternalUrl(url) {
     return String(url).toLowerCase().startsWith("owob://");
@@ -292,7 +316,7 @@ function UnwrapRedirectUrl(url) {
  *   其他                → 使用 Bing 搜尋
  */
 function ResolveInput(input) {
-    const text = String(input).trim();
+    const text = NormalizeInternalInput(input);
 
     if (!text) {
         return Config.HomeUrl;
@@ -1340,7 +1364,7 @@ function RefreshToolbar() {
 
     // 使用者正在輸入時不覆蓋網址列
     if (document.activeElement !== Dom.AddressInput) {
-        Dom.AddressInput.value = url === Config.HomeUrl ? "" : url;
+        Dom.AddressInput.value = url === Config.HomeUrl ? "" : GetDisplayUrl(url);
     }
 
     Dom.BackButton.disabled    = tab.Index <= 0;
@@ -2642,7 +2666,9 @@ function RenderRawInFrame(tab, url) {
 /** 建立沙箱 iframe，並套用分頁縮放 */
 function CreateFrame(tab) {
     const frame = document.createElement("iframe");
-    frame.setAttribute("sandbox", "allow-scripts allow-forms allow-popups allow-modals allow-downloads");
+    // 不授予 allow-popups：所有新視窗行為都由 iframe 代理程式攔截，
+    // 再交回 OwO Simple Browser 內部建立分頁。
+    frame.setAttribute("sandbox", "allow-scripts allow-forms allow-modals allow-downloads");
     frame.setAttribute("referrerpolicy", "no-referrer");
     ApplyFrameZoom(frame, tab.Zoom);
     return frame;
@@ -2707,6 +2733,29 @@ function OwObFrameAgent(Options) {
         return ShouldProxy(absolute) ? MakeProxyUrl(Options.ProxyBase, Options.ProxyKey, absolute) : url;
     }
 
+    /* ---------- 1. 新視窗攔截 ---------- */
+
+    /**
+     * 攔截網頁腳本的 window.open()，避免跳到外層真實瀏覽器。
+     * 有有效網址時，一律交回 OwO Simple Browser 建立內部分頁。
+     * 回傳一個最小相容物件，避免網站因檢查回傳值而中斷後續流程。
+     */
+    window.open = function (url) {
+        var absolute = ToAbsolute(url);
+        if (absolute && /^https?:\/\//i.test(absolute)) {
+            Send({ Type: "OpenTab", Url: absolute });
+        }
+
+        return {
+            closed: false,
+            opener: window,
+            close: function () { this.closed = true; },
+            focus: function () {},
+            blur: function () {},
+            postMessage: function () {}
+        };
+    };
+
     /* ---------- 1. 連結點擊 ---------- */
 
     document.addEventListener("click", function (event) {
@@ -2717,8 +2766,11 @@ function OwObFrameAgent(Options) {
         if (href.charAt(0) === "#" || /^(javascript|mailto|tel|data|blob):/i.test(href)) return;
 
         event.preventDefault();
+        event.stopPropagation();
+        var absolute = ToAbsolute(link.getAttribute("href") || link.href);
+        if (!absolute || !/^https?:\/\//i.test(absolute)) return;
         var newTab = link.target === "_blank" || event.ctrlKey || event.metaKey || event.button === 1;
-        Send({ Type: newTab ? "OpenTab" : "Navigate", Url: link.href });
+        Send({ Type: newTab ? "OpenTab" : "Navigate", Url: absolute });
     }, true);
 
     /* ---------- 1. 表單送出（GET / POST） ---------- */
