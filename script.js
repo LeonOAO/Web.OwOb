@@ -958,7 +958,14 @@ async function LoadExternalPage(tab, url, postData = null) {
         }
 
         if (contentType.includes("text/html") || contentType.includes("application/xhtml")) {
-            const html = await response.text();
+            const rawHtml = await response.text();
+
+            // 外部 CSS 改經代理抓回並內嵌，避免被目標網站的防盜連 / CORP 擋掉
+            const html = await InlineStylesheets(rawHtml, finalUrl, controller.signal);
+
+            // 抓 CSS 期間使用者已切換頁面則捨棄
+            if (GetTabUrl(tab) !== finalUrl && GetTabUrl(tab) !== url) return;
+
             RenderHtmlInFrame(tab, html, finalUrl);
         } else {
             // 圖片、PDF、純文字等非 HTML 內容：直接以代理網址顯示
@@ -995,6 +1002,114 @@ async function LoadExternalPage(tab, url, postData = null) {
         RefreshToolbar();
         SaveOpenTabs();
     }
+}
+
+/* ---------- 外部樣式表內嵌 ----------
+ * 沙箱 iframe 直接向原網站要 CSS 時，常被以下機制擋下而變成無樣式頁面：
+ *   - 防盜連（檢查 Referer，而 iframe 設定了 no-referrer）
+ *   - Cross-Origin-Resource-Policy（iframe 來源為 null）
+ * 因此先經代理抓回 CSS，把其中 url() / @import 轉成絕對網址後，
+ * 以 <style> 內嵌到 HTML，抓取失敗則保留原本的 <link>。
+ */
+
+// 單一頁面最多內嵌幾個樣式表、單一樣式表逾時（毫秒）
+const MaxInlineStylesheets = 20;
+const StylesheetTimeoutMs  = 8000;
+
+/** 取得 HTML 標籤屬性值 */
+function GetTagAttribute(tag, name) {
+    const match = tag.match(new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i"));
+    return match ? DecodeEntities(match[1] ?? match[2] ?? match[3] ?? "") : null;
+}
+
+/** 將 CSS 內的相對網址轉為絕對網址 */
+function AbsolutizeCss(css, cssUrl) {
+    const resolve = value => {
+        const text = value.trim();
+        if (!text || /^(data:|#|about:|blob:)/i.test(text)) return text;
+
+        try {
+            return new URL(text, cssUrl).toString();
+        } catch {
+            return text;
+        }
+    };
+
+    return css
+        // url(...)、url("...")、url('...')
+        .replace(/url\(\s*(["']?)([^"')]*)\1\s*\)/gi, (match, quote, value) => `url("${resolve(value)}")`)
+        // @import "..." / @import '...'
+        .replace(/@import\s+(["'])([^"']+)\1/gi, (match, quote, value) => `@import "${resolve(value)}"`);
+}
+
+/** 經代理抓取單一樣式表；失敗回傳 null */
+async function FetchStylesheet(cssUrl, pageUrl, pageSignal) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), StylesheetTimeoutMs);
+    const onPageAbort = () => controller.abort();
+    pageSignal.addEventListener("abort", onPageAbort);
+
+    try {
+        const response = await fetch(Config.ProxyBase + encodeURIComponent(cssUrl), {
+            headers: { "X-Proxy-Referer": pageUrl },
+            signal:  controller.signal
+        });
+
+        if (!response.ok) return null;
+
+        const type = response.headers.get("Content-Type") || "";
+        if (type && !/css|text\/plain|octet-stream/i.test(type)) return null;
+
+        return AbsolutizeCss(await response.text(), cssUrl);
+    } catch {
+        return null;
+    } finally {
+        clearTimeout(timer);
+        pageSignal.removeEventListener("abort", onPageAbort);
+    }
+}
+
+/** 將 HTML 內的 <link rel="stylesheet"> 換成內嵌 <style> */
+async function InlineStylesheets(html, pageUrl, pageSignal) {
+    const linkTags = (html.match(/<link\b[^>]*>/gi) || [])
+        .filter(tag => /(^|\s)stylesheet(\s|$)/i.test(GetTagAttribute(tag, "rel") || ""))
+        .slice(0, MaxInlineStylesheets);
+
+    if (linkTags.length === 0) return html;
+
+    const results = await Promise.all(linkTags.map(async tag => {
+        const href = GetTagAttribute(tag, "href");
+        if (!href) return null;
+
+        let cssUrl;
+        try {
+            cssUrl = new URL(href, pageUrl).toString();   // 支援 //images.ptt.cc/... 這類寫法
+        } catch {
+            return null;
+        }
+
+        if (!/^https?:\/\//i.test(cssUrl)) return null;
+
+        const css = await FetchStylesheet(cssUrl, pageUrl, pageSignal);
+        if (css === null) return null;
+
+        const media = GetTagAttribute(tag, "media");
+        const mediaAttr = media ? ` media="${EscapeHtml(media)}"` : "";
+
+        // 避免 CSS 內容提前結束 <style> 標籤
+        const safeCss = css.replace(/<\/style/gi, "<\\/style");
+
+        return `<style data-owob-href="${EscapeHtml(cssUrl)}"${mediaAttr}>\n${safeCss}\n</style>`;
+    }));
+
+    let output = html;
+    linkTags.forEach((tag, index) => {
+        if (results[index]) {
+            output = output.replace(tag, () => results[index]);
+        }
+    });
+
+    return output;
 }
 
 /**
