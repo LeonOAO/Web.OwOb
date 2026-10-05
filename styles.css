@@ -1860,3 +1860,169 @@ body::before {
         text-align: center;
     }
 }
+
+/* ============================================================
+ *  連線逾時：最終對齊修正
+ *  標籤與控制器以內容寬度置中，不再用 1fr 將右側推到卡片邊緣。
+ * ============================================================ */
+
+.TimeoutSetting {
+    grid-template-columns: auto auto;
+    justify-content: center;
+    column-gap: 34px;
+    row-gap: 0;
+    width: min(520px, 100%);
+    padding: 14px 12px;
+}
+
+.TimeoutLabel {
+    min-width: 82px;
+    padding-left: 0;
+    text-align: center;
+}
+
+.TimeoutValueArea {
+    min-width: 195px;
+    justify-items: center;
+}
+
+.TimeoutControl {
+    justify-content: center;
+}
+
+.TimeoutSetting .FieldHint {
+    padding-right: 0;
+    text-align: center;
+}
+
+@media (max-width: 520px) {
+    .TimeoutSetting {
+        grid-template-columns: 1fr;
+        row-gap: 10px;
+    }
+
+    .TimeoutLabel,
+    .TimeoutValueArea {
+        min-width: 0;
+    }
+}
+
+/* ============================================================
+ *  連線逾時：提示文字間距修正
+ * ============================================================ */
+
+.TimeoutValueArea {
+    gap: 9px;
+}
+
+.TimeoutSetting .FieldHint {
+    margin-top: 1px;
+    line-height: 1.5;
+}
+
+/* 提示文字使用完整 margin 覆寫，避免舊版 -7px 上邊距抵銷 grid gap。 */
+.TimeoutSetting .FieldHint {
+    margin: 0;
+}
+
+/* 使用較高選擇器權重，完整覆蓋設定頁原有的 -7px 提示上邊距。 */
+.Card .TimeoutSetting p.FieldHint {
+    margin: 0;
+}
+
+/* ============================================================
+ *  連線逾時：控制列與提示文字共用同一置中軸線
+ * ============================================================ */
+
+.TimeoutValueArea {
+    width: 210px;
+    min-width: 210px;
+    display: grid;
+    grid-template-rows: 32px 20px;
+    justify-items: stretch;
+    align-items: center;
+    row-gap: 10px;
+}
+
+.TimeoutControl {
+    width: 100%;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.Card .TimeoutSetting p.FieldHint {
+    width: 100%;
+    min-height: 20px;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--TextSub);
+    line-height: 20px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.TimeoutLabel {
+    align-self: center;
+}
+
+@media (max-width: 520px) {
+    .TimeoutValueArea {
+        width: min(210px, 100%);
+        min-width: 0;
+    }
+}
+
+/* ============================================================
+ *  連線逾時：提示文字改與「減少、數值、增加」三項對齊
+ *  單位「秒」不納入提示文字的置中基準，避免視覺重心偏右。
+ * ============================================================ */
+
+.TimeoutControl {
+    display: grid;
+    grid-template-columns: 30px 58px 30px 22px;
+    align-items: center;
+    justify-content: center;
+    column-gap: 6px;
+}
+
+.TimeoutControl .TimeoutStep,
+.TimeoutControl .ShortInput {
+    justify-self: center;
+}
+
+.TimeoutUnit {
+    justify-self: start;
+}
+
+.Card .TimeoutSetting p.FieldHint {
+    width: 130px;
+    justify-self: center;
+    /* 右側多了「秒」欄位，提示往左補償其視覺重量。 */
+    transform: translateX(-14px);
+}
+
+@media (max-width: 520px) {
+    .Card .TimeoutSetting p.FieldHint {
+        transform: none;
+    }
+}
+
+/* ============================================================
+ *  連線逾時：提示文字視覺重心微調
+ *  幾何中心不等於中文字形的視覺中心，因此向右補償 5px。
+ * ============================================================ */
+
+.Card .TimeoutSetting p.FieldHint {
+    transform: translateX(-9px);
+}
+
+@media (max-width: 520px) {
+    .Card .TimeoutSetting p.FieldHint {
+        transform: none;
+    }
+}
