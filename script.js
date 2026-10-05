@@ -2554,8 +2554,12 @@ function RewriteHtmlResources(html, baseUrl) {
             const useful = /(?:stylesheet|preload|prefetch|modulepreload|icon)/.test(rel);
             const scriptLike = /(?:script|worker)/.test(as) || rel.includes("modulepreload");
             if (!useful || (scriptLike ? !proxyScripts : !proxyMedia)) return match;
-            return match.replace(/(\shref\s*=\s*)(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/i,
+            let rewritten = match.replace(/(\shref\s*=\s*)(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/i,
                 (all, prefix, dq, sq, bare) => `${prefix}"${EscapeHtml(MapResourceUrl(DecodeEntities(dq ?? sq ?? bare ?? ""), baseUrl))}"`);
+            if (/(?:preload|modulepreload)/.test(rel) && !/\scrossorigin\s*=/i.test(rewritten)) {
+                rewritten = rewritten.replace(/>$/, ' crossorigin="use-credentials">');
+            }
+            return rewritten;
         }
         return proxyMedia ? RewriteTagAttributes(match, baseUrl) : match;
     });
@@ -2581,7 +2585,9 @@ function RenderHtmlInFrame(tab, html, baseUrl) {
         ProxyKey:       GetProxyKey(),
         ProxyResources: GetFlag("ProxyResources"),
         ProxyScripts:   GetFlag("ProxyScripts"),
-        ProxyRequests:  GetFlag("ProxyRequests")
+        ProxyRequests:  GetFlag("ProxyRequests"),
+        BaseUrl:        baseUrl,
+        CookieString:   GetSiteCookieJar(baseUrl).map(item => `${item.Name}=${item.Value}`).join("; ")
     };
 
     const injected = `
@@ -2700,6 +2706,68 @@ function OwObFrameAgent(Options) {
     } catch (error) {
         ProxyOrigin = "";
     }
+
+    /* ---------- 沙箱相容層 ---------- */
+
+    // srcdoc 必須維持 opaque origin，避免網頁腳本取得父頁權限；以虛擬 Cookie 提供讀寫相容性。
+    var VirtualCookie = String(Options.CookieString || "");
+    try {
+        Object.defineProperty(document, "cookie", {
+            configurable: true,
+            get: function () { return VirtualCookie; },
+            set: function (value) {
+                var part = String(value || "").split(";", 1)[0];
+                var name = part.split("=", 1)[0].trim();
+                if (!name) return;
+                var items = VirtualCookie ? VirtualCookie.split(/;\s*/) : [];
+                items = items.filter(function (item) { return item.split("=", 1)[0].trim() !== name; });
+                items.push(part);
+                VirtualCookie = items.join("; ");
+            }
+        });
+    } catch (error) {}
+
+    // 網站若嘗試註冊 Service Worker，回傳無作用的相容物件，避免沙箱 SecurityError 中斷初始化。
+    try {
+        var ServiceWorkerShim = {
+            controller: null,
+            ready: Promise.resolve(null),
+            register: function () { return Promise.resolve({ scope: Options.BaseUrl || "" }); },
+            getRegistration: function () { return Promise.resolve(undefined); },
+            getRegistrations: function () { return Promise.resolve([]); },
+            addEventListener: function () {},
+            removeEventListener: function () {}
+        };
+        Object.defineProperty(navigator, "serviceWorker", {
+            configurable: true,
+            get: function () { return ServiceWorkerShim; }
+        });
+    } catch (error) {}
+
+    // opaque origin 會讓網站以 location.origin（"null"）當 URL base；自動改用原頁面網址。
+    try {
+        var NativeURL = window.URL;
+        window.URL = new Proxy(NativeURL, {
+            construct: function (Target, args) {
+                if (args.length > 1 && (!args[1] || args[1] === "null" || args[1] === "about:srcdoc")) {
+                    args[1] = Options.BaseUrl;
+                }
+                return Reflect.construct(Target, args);
+            },
+            apply: function (Target, thisArg, args) {
+                return Reflect.apply(Target, thisArg, args);
+            }
+        });
+    } catch (error) {}
+
+    // 跨來源 Resource Timing 欄位可能空白；度量失敗時忽略遙測，不影響主要頁面功能。
+    try {
+        var NativeMeasure = performance.measure.bind(performance);
+        performance.measure = function () {
+            try { return NativeMeasure.apply(performance, arguments); }
+            catch (error) { return null; }
+        };
+    } catch (error) {}
 
     /** 傳訊息給 OwOb */
     function Send(message) {
@@ -3598,12 +3666,12 @@ function BindEvents() {
 document.addEventListener("DOMContentLoaded", () => {
     localStorage.removeItem("OwOb.SearchEngine");   // 移除舊版搜尋引擎選擇
 
-    // v6 相容性遷移：舊版可能把外部腳本代理保存為關閉，造成 srcdoc 直接連外。
-    if (localStorage.getItem("OwOb.CompatibilityVersion") !== "6") {
+    // v7 相容性遷移：舊版可能把外部腳本代理保存為關閉，造成 srcdoc 直接連外。
+    if (localStorage.getItem("OwOb.CompatibilityVersion") !== "7") {
         localStorage.setItem(Config.StorageKeys.ProxyScripts, "1");
         localStorage.setItem(Config.StorageKeys.ProxyResources, "1");
         localStorage.setItem(Config.StorageKeys.ProxyRequests, "1");
-        localStorage.setItem("OwOb.CompatibilityVersion", "6");
+        localStorage.setItem("OwOb.CompatibilityVersion", "7");
     }
 
     ApplyTheme(localStorage.getItem(Config.StorageKeys.Theme) || "light");
