@@ -1704,13 +1704,17 @@ function RenderSettingsPage(tab) {
 
                 <div class="TimeoutSetting">
                     <label class="TimeoutLabel" for="TimeoutInput">連線逾時</label>
-                    <div class="TimeoutControl">
-                        <input id="TimeoutInput" class="SettingInput ShortInput" type="number"
-                               min="${Config.MinTimeoutSec}" max="${Config.MaxTimeoutSec}" step="1"
-                               value="${GetTimeoutSec()}">
-                        <span class="TimeoutUnit">秒</span>
+                    <div class="TimeoutValueArea">
+                        <div class="TimeoutControl">
+                            <button class="TimeoutStep" type="button" data-timeout-step="-1" aria-label="減少一秒">−</button>
+                            <input id="TimeoutInput" class="SettingInput ShortInput" type="number"
+                                   min="${Config.MinTimeoutSec}" max="${Config.MaxTimeoutSec}" step="1"
+                                   value="${GetTimeoutSec()}">
+                            <button class="TimeoutStep" type="button" data-timeout-step="1" aria-label="增加一秒">＋</button>
+                            <span class="TimeoutUnit">秒</span>
+                        </div>
+                        <p class="FieldHint">可設定 ${Config.MinTimeoutSec} 至 ${Config.MaxTimeoutSec} 秒。</p>
                     </div>
-                    <p class="FieldHint">可設定 ${Config.MinTimeoutSec} 至 ${Config.MaxTimeoutSec} 秒。</p>
                 </div>
 
                 ${checkbox("ProxyResources", "圖片與影音使用代理", "可改善圖片或影音無法載入的情況，但會增加代理請求數量。")}
@@ -1850,8 +1854,19 @@ function RenderSettingsPage(tab) {
         });
     });
 
+    // 逾時：加減按鈕調整後立即觸發既有儲存流程
+    const timeoutInput = tab.ViewEl.querySelector("#TimeoutInput");
+    tab.ViewEl.querySelectorAll("[data-timeout-step]").forEach(button => {
+        button.addEventListener("click", () => {
+            const current = Number(timeoutInput.value) || GetTimeoutSec();
+            const step = Number(button.dataset.timeoutStep);
+            timeoutInput.value = Clamp(current + step, Config.MinTimeoutSec, Config.MaxTimeoutSec);
+            timeoutInput.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+    });
+
     // 逾時：變更即儲存
-    tab.ViewEl.querySelector("#TimeoutInput").addEventListener("change", event => {
+    timeoutInput.addEventListener("change", event => {
         const value = Number(event.target.value);
         if (!Number.isFinite(value) || value <= 0) {
             event.target.value = GetTimeoutSec();

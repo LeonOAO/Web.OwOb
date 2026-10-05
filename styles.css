@@ -1655,3 +1655,131 @@ body::before {
         text-align: center;
     }
 }
+
+/* ============================================================
+ *  連線逾時：單列精簡控制器
+ * ============================================================ */
+
+.TimeoutSetting {
+    display: grid;
+    grid-template-columns: minmax(110px, 1fr) auto;
+    align-items: center;
+    gap: 18px;
+    width: 100%;
+    min-height: 70px;
+    margin: 2px 0 18px;
+    padding: 10px 14px;
+    border-radius: 13px;
+    background: var(--BgInput);
+    border: 1px solid var(--Border);
+    box-shadow: var(--Edge);
+}
+
+.TimeoutLabel {
+    color: var(--TextMain);
+    font-size: 14px;
+    font-weight: 650;
+    text-align: left;
+}
+
+.TimeoutValueArea {
+    display: grid;
+    justify-items: end;
+    gap: 5px;
+}
+
+.TimeoutControl {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+}
+
+.TimeoutStep {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid var(--Border);
+    border-radius: 9px;
+    background: var(--BgCard);
+    box-shadow: var(--Edge);
+    color: var(--TextMain);
+    cursor: pointer;
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1;
+    transition: border-color 0.18s, background 0.18s, transform 0.15s;
+}
+
+.TimeoutStep:hover {
+    border-color: var(--Accent);
+    background: var(--BgHover);
+    color: var(--Accent);
+    transform: translateY(-1px);
+}
+
+.TimeoutStep:active {
+    transform: translateY(0);
+}
+
+.TimeoutControl .ShortInput {
+    width: 66px;
+    height: 34px;
+    margin: 0;
+    padding: 5px 7px;
+    border-radius: 9px;
+    text-align: center;
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+.TimeoutControl .ShortInput::-webkit-inner-spin-button,
+.TimeoutControl .ShortInput::-webkit-outer-spin-button {
+    margin: 0;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.TimeoutUnit {
+    min-width: 22px;
+    color: var(--TextSub);
+    font-size: 13px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.TimeoutSetting .FieldHint {
+    margin: 0;
+    color: var(--TextSub);
+    font-size: 12px;
+    line-height: 1.4;
+    text-align: right;
+}
+
+@media (max-width: 520px) {
+    .TimeoutSetting {
+        grid-template-columns: 1fr;
+        justify-items: center;
+        gap: 10px;
+        padding: 14px;
+    }
+
+    .TimeoutLabel {
+        text-align: center;
+    }
+
+    .TimeoutValueArea {
+        justify-items: center;
+    }
+
+    .TimeoutControl {
+        justify-content: center;
+    }
+
+    .TimeoutSetting .FieldHint {
+        text-align: center;
+    }
+}
