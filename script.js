@@ -2841,13 +2841,36 @@ function OwObFrameAgent(Options) {
         if (!element || !ResourceRules[element.tagName]) return false;
         if (element.tagName === "SCRIPT") {
             var type = String(element.getAttribute("type") || "").toLowerCase();
-            return Options.ProxyScripts && type !== "module";
+            return Options.ProxyScripts;
         }
         return Options.ProxyResources;
     }
 
+    /** 安全改寫 data:text/javascript 內明確以引號或反引號包住的絕對網址。 */
+    function RewriteDataScript(value) {
+        var text = String(value == null ? "" : value);
+        if (!/^data:text\/javascript(?:;charset=[^;,]+)?(?:;base64)?,/i.test(text)) return text;
+
+        var comma = text.indexOf(",");
+        if (comma < 0) return text;
+        var header = text.slice(0, comma + 1);
+        var payload = text.slice(comma + 1);
+        var base64 = /;base64,/i.test(header);
+
+        try {
+            var source = base64 ? decodeURIComponent(escape(atob(payload))) : decodeURIComponent(payload);
+            source = source.replace(/(["'`])(https?:\/\/[^"'`\\\s]+)\1/g, function (match, quote, url) {
+                return quote + ToProxy(url) + quote;
+            });
+            return header + (base64 ? btoa(unescape(encodeURIComponent(source))) : encodeURIComponent(source));
+        } catch (error) {
+            return text;
+        }
+    }
+
     /** 依屬性類型改寫值 */
     function MapAttribute(name, value) {
+        if (/^data:text\/javascript/i.test(String(value || ""))) return RewriteDataScript(value);
         return /srcset$/i.test(name) ? RewriteSrcset(value, ToProxy) : ToProxy(value);
     }
 
@@ -3574,6 +3597,15 @@ function BindEvents() {
 /** 初始化（只使用 DOMContentLoaded，不覆寫 window.onload） */
 document.addEventListener("DOMContentLoaded", () => {
     localStorage.removeItem("OwOb.SearchEngine");   // 移除舊版搜尋引擎選擇
+
+    // v6 相容性遷移：舊版可能把外部腳本代理保存為關閉，造成 srcdoc 直接連外。
+    if (localStorage.getItem("OwOb.CompatibilityVersion") !== "6") {
+        localStorage.setItem(Config.StorageKeys.ProxyScripts, "1");
+        localStorage.setItem(Config.StorageKeys.ProxyResources, "1");
+        localStorage.setItem(Config.StorageKeys.ProxyRequests, "1");
+        localStorage.setItem("OwOb.CompatibilityVersion", "6");
+    }
+
     ApplyTheme(localStorage.getItem(Config.StorageKeys.Theme) || "light");
     BindEvents();
     RestoreTabs();

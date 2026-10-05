@@ -1,5 +1,5 @@
 ﻿/* ============================================================
- *  OwOb Proxy - Cloudflare Worker（相容性代理）v5
+ *  OwOb Proxy - Cloudflare Worker（相容性代理）v6
  *
  *  用法：
  *      GET  https://owob-proxy.kkwan812.workers.dev/?url=<已編碼的目標網址>
@@ -505,17 +505,16 @@ function RewriteTextResource(text, contentType, finalUrl, requestUrl) {
             return BuildNestedProxyUrl(requestUrl, absolute.toString());
         } catch { return value; }
     };
+
+    // JavaScript 原文不再使用正規表示式改寫，避免破壞壓縮碼、模板字串與 data script 語法。
     if (/(?:javascript|ecmascript|module)/i.test(contentType) || /\.(?:m?js|cjs)(?:$|[?#])/i.test(finalUrl)) {
-        return text
-            .replace(/(\b(?:import|export)\s+(?:[^'";]+?\s+from\s+)?)(["'])([^"']+)\2/g,
-                (m, prefix, quote, value) => `${prefix}${quote}${map(value)}${quote}`)
-            .replace(/(\bimport\s*\(\s*)(["'])([^"']+)\2(\s*\))/g,
-                (m, prefix, quote, value, suffix) => `${prefix}${quote}${map(value)}${quote}${suffix}`);
+        return text;
     }
+
     if (/text\/css/i.test(contentType) || /\.css(?:$|[?#])/i.test(finalUrl)) {
         return text
-            .replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/gi, (m, quote, value) => `url("${map(value)}")`)
-            .replace(/@import\s+(["'])([^"']+)\1/gi, (m, quote, value) => `@import "${map(value)}"`);
+            .replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/gi, (match, quote, value) => `url("${map(value)}")`)
+            .replace(/@import\s+(["'])([^"']+)\1/gi, (match, quote, value) => `@import "${map(value)}"`);
     }
     return text;
 }
@@ -589,7 +588,7 @@ export default {
         // 沒帶 url 參數 → 健康檢查
         if (!target) {
             return JsonResponse(200, "OwOb Proxy 運作中", origin, {
-                version:     "5",
+                version:     "6",
                 usage:       "/?url=<encoded url>[&key=<access key>]",
                 keyRequired: Boolean(GetAccessKey(env)),
                 allowedOrigins,
@@ -637,7 +636,7 @@ export default {
                 headers.set("X-Proxy-Set-Cookie", encodeURIComponent(JSON.stringify(result.SetCookies)));
             }
 
-            headers.set("X-Proxy-Compatibility", "resource-rewrite-v5");
+            headers.set("X-Proxy-Compatibility", "resource-rewrite-v6");
             if (request.method === "HEAD") {
                 return new Response(null, { status: upstream.status, statusText: upstream.statusText, headers });
             }
