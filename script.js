@@ -1702,11 +1702,16 @@ function RenderSettingsPage(tab) {
                 <h2>網頁載入</h2>
                 <p class="CardIntro">調整網頁載入方式與連線等待時間。</p>
 
-                <label class="FieldLabel" for="TimeoutInput">連線逾時</label>
-                <input id="TimeoutInput" class="SettingInput ShortInput" type="number"
-                       min="${Config.MinTimeoutSec}" max="${Config.MaxTimeoutSec}" step="1"
-                       value="${GetTimeoutSec()}">
-                <p class="FieldHint">可設定 ${Config.MinTimeoutSec} 至 ${Config.MaxTimeoutSec} 秒。</p>
+                <div class="TimeoutSetting">
+                    <label class="TimeoutLabel" for="TimeoutInput">連線逾時</label>
+                    <div class="TimeoutControl">
+                        <input id="TimeoutInput" class="SettingInput ShortInput" type="number"
+                               min="${Config.MinTimeoutSec}" max="${Config.MaxTimeoutSec}" step="1"
+                               value="${GetTimeoutSec()}">
+                        <span class="TimeoutUnit">秒</span>
+                    </div>
+                    <p class="FieldHint">可設定 ${Config.MinTimeoutSec} 至 ${Config.MaxTimeoutSec} 秒。</p>
+                </div>
 
                 ${checkbox("ProxyResources", "圖片與影音使用代理", "可改善圖片或影音無法載入的情況，但會增加代理請求數量。")}
                 ${checkbox("ProxyRequests",  "動態內容使用代理",   "可改善部分網頁的動態內容無法載入的情況。")}
@@ -1767,23 +1772,25 @@ function RenderSettingsPage(tab) {
             <div class="Card">
                 <h2>鍵盤快捷鍵</h2>
                 <p class="CardIntro">使用鍵盤快速執行常用操作。</p>
-                <table class="KeyTable">
-                    <tbody>
-                        <tr><td><kbd>Ctrl + K</kbd></td><td>聚焦首頁搜尋框。</td></tr>
-                        <tr><td><kbd>Ctrl + L</kbd></td><td>聚焦網址列。</td></tr>
-                        <tr><td><kbd>Ctrl + F</kbd></td><td>在頁面中尋找文字。</td></tr>
-                        <tr><td><kbd>Ctrl + D</kbd></td><td>加入或移除書籤。</td></tr>
-                        <tr><td><kbd>Alt + T</kbd></td><td>新增分頁。</td></tr>
-                        <tr><td><kbd>Alt + W</kbd></td><td>關閉目前分頁。</td></tr>
-                        <tr><td><kbd>Alt + Shift + T</kbd></td><td>重新開啟最近關閉的分頁。</td></tr>
-                        <tr><td><kbd>Alt + ←</kbd></td><td>返回上一頁。</td></tr>
-                        <tr><td><kbd>Alt + →</kbd></td><td>前往下一頁。</td></tr>
-                        <tr><td><kbd>Ctrl + +</kbd></td><td>放大頁面。</td></tr>
-                        <tr><td><kbd>Ctrl + -</kbd></td><td>縮小頁面。</td></tr>
-                        <tr><td><kbd>Ctrl + 0</kbd></td><td>重設頁面縮放。</td></tr>
-                        <tr><td><kbd>F5</kbd></td><td>重新整理目前頁面。</td></tr>
-                    </tbody>
-                </table>
+                <div class="ShortcutGrid">
+                    <div class="ShortcutColumn">
+                        <div class="ShortcutRow"><kbd>Ctrl + K</kbd><span>聚焦首頁搜尋框。</span></div>
+                        <div class="ShortcutRow"><kbd>Ctrl + L</kbd><span>聚焦網址列。</span></div>
+                        <div class="ShortcutRow"><kbd>Ctrl + F</kbd><span>在頁面中尋找文字。</span></div>
+                        <div class="ShortcutRow"><kbd>Ctrl + D</kbd><span>加入或移除書籤。</span></div>
+                        <div class="ShortcutRow"><kbd>Alt + T</kbd><span>新增分頁。</span></div>
+                        <div class="ShortcutRow"><kbd>Alt + W</kbd><span>關閉目前分頁。</span></div>
+                        <div class="ShortcutRow"><kbd>Alt + Shift + T</kbd><span>重新開啟最近關閉的分頁。</span></div>
+                    </div>
+                    <div class="ShortcutColumn">
+                        <div class="ShortcutRow"><kbd>Alt + ←</kbd><span>返回上一頁。</span></div>
+                        <div class="ShortcutRow"><kbd>Alt + →</kbd><span>前往下一頁。</span></div>
+                        <div class="ShortcutRow"><kbd>Ctrl + +</kbd><span>放大頁面。</span></div>
+                        <div class="ShortcutRow"><kbd>Ctrl + -</kbd><span>縮小頁面。</span></div>
+                        <div class="ShortcutRow"><kbd>Ctrl + 0</kbd><span>重設頁面縮放。</span></div>
+                        <div class="ShortcutRow"><kbd>F5</kbd><span>重新整理目前頁面。</span></div>
+                    </div>
+                </div>
             </div>
         </div>
     `);

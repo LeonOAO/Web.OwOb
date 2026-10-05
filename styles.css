@@ -1531,3 +1531,127 @@ body::before {
         width: 100%;
     }
 }
+
+
+/* ============================================================
+ *  網頁載入與快捷鍵：精緻化版面
+ * ============================================================ */
+
+.TimeoutSetting {
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+    width: min(330px, 100%);
+    margin: 2px auto 22px;
+    padding: 15px 18px;
+    border-radius: 15px;
+    background: var(--BgInput);
+    border: 1px solid var(--Border);
+    box-shadow: var(--Edge);
+}
+
+.TimeoutLabel {
+    color: var(--TextMain);
+    font-size: 14px;
+    font-weight: 650;
+    text-align: center;
+}
+
+.TimeoutControl {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+}
+
+.TimeoutControl .ShortInput {
+    width: 108px;
+    height: 40px;
+    margin: 0;
+    padding: 8px 10px;
+    text-align: center;
+}
+
+.TimeoutUnit {
+    color: var(--TextSub);
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.TimeoutSetting .FieldHint {
+    margin: 0;
+    color: var(--TextSub);
+    font-size: 12.5px;
+    text-align: center;
+}
+
+.ShortcutGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.ShortcutColumn {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+}
+
+.ShortcutRow {
+    display: grid;
+    grid-template-columns: minmax(105px, auto) minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    min-height: 48px;
+    padding: 9px 12px;
+    border-radius: 12px;
+    background: var(--BgInput);
+    border: 1px solid var(--Border);
+    box-shadow: var(--Edge);
+}
+
+.ShortcutRow kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 27px;
+    padding: 3px 9px;
+    border-radius: 8px;
+    background: var(--BgCard);
+    border: 1px solid var(--Border);
+    box-shadow: var(--Edge), 0 2px 5px rgba(0, 0, 0, 0.08);
+    color: var(--TextMain);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 650;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.ShortcutRow span {
+    color: var(--TextSub);
+    font-size: 13px;
+    line-height: 1.45;
+    text-align: left;
+}
+
+@media (max-width: 760px) {
+    .ShortcutGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 430px) {
+    .TimeoutSetting {
+        width: 100%;
+    }
+
+    .ShortcutRow {
+        grid-template-columns: 1fr;
+        justify-items: center;
+    }
+
+    .ShortcutRow span {
+        text-align: center;
+    }
+}
