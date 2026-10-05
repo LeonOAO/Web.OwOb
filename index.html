@@ -1,21 +1,52 @@
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <link rel="icon" href="https://leonowo-6369d.web.app/images/favico.ico">
-    
-    <script src="wOvOw.js"></script>
-    
-    <script>
-      if (window.Zero007Auth && window.Zero007Auth.isAuthenticated()) {
-          window.location.replace("./OwOy/");
-      }
-    </script>
-    
-    <title>Redirecting...</title>
-  </head>
-  <body>
-    驗證中，網頁跳轉中... 
-    若沒有自動跳轉，請點擊 <a href="./OwOy/">此處</a>。
-  </body>
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OwOb Browser</title>
+
+    <!-- 圖示字型 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- 主樣式（亮色 / 深色主題皆由 body class 切換） -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="theme-light">
+
+    <!-- ==================== 分頁列 ==================== -->
+    <header class="TabBar">
+        <div id="TabList" class="TabList"></div>
+        <button id="AddTabButton" class="AddTabButton" title="新增分頁 (Ctrl+T)">
+            <i class="fa-solid fa-plus"></i>
+        </button>
+    </header>
+
+    <!-- ==================== 工具列 ==================== -->
+    <nav class="ToolBar">
+        <button id="BackButton"    class="ToolButton" title="上一頁"><i class="fa-solid fa-arrow-left"></i></button>
+        <button id="ForwardButton" class="ToolButton" title="下一頁"><i class="fa-solid fa-arrow-right"></i></button>
+        <button id="ReloadButton"  class="ToolButton" title="重新整理"><i class="fa-solid fa-rotate-right"></i></button>
+        <button id="HomeButton"    class="ToolButton" title="首頁"><i class="fa-solid fa-house"></i></button>
+
+        <form id="AddressForm" class="AddressBar" autocomplete="off">
+            <i id="AddressIcon" class="fa-solid fa-magnifying-glass AddressIcon"></i>
+            <input id="AddressInput" type="text" placeholder="輸入網址或搜尋內容" spellcheck="false">
+        </form>
+
+        <button id="ThemeButton"    class="ToolButton" title="切換深色/亮色"><i class="fa-solid fa-moon"></i></button>
+        <button id="SettingsButton" class="ToolButton" title="設定"><i class="fa-solid fa-gear"></i></button>
+    </nav>
+
+    <!-- 載入進度條 -->
+    <div id="LoadingBar" class="LoadingBar"></div>
+
+    <!-- ==================== 分頁內容區 ==================== -->
+    <main id="ViewArea" class="ViewArea"></main>
+
+    <!-- 提示訊息 -->
+    <div id="Toast" class="Toast"></div>
+
+    <script src="script.js"></script>
+</body>
 </html>

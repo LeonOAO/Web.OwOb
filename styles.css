@@ -1,0 +1,548 @@
+/* ============================================================
+ *  OwOb Browser - 樣式表
+ *  主題：body.theme-light（預設）/ body.theme-dark
+ * ============================================================ */
+
+
+/* ---------- 主題色彩變數 ---------- */
+
+body.theme-light {
+    --BgMain:       #f6f8f7;
+    --BgBar:        #e6eeec;
+    --BgTabBar:     linear-gradient(145deg, #2f4c46, #237a57);
+    --BgTab:        #3f5f57;
+    --BgTabActive:  #f6f8f7;
+    --BgInput:      #ffffff;
+    --BgCard:       #ffffff;
+    --BgHover:      #dbe6e2;
+    --TextMain:     #1f2a27;
+    --TextSub:      #5d6b67;
+    --TextTab:      #d9e8e3;
+    --TextTabActive:#1f2a27;
+    --Accent:       #1fae6b;
+    --Border:       #cfdcd8;
+}
+
+body.theme-dark {
+    --BgMain:       #1a1b1e;
+    --BgBar:        #2a2c2f;
+    --BgTabBar:     #101112;
+    --BgTab:        #26282b;
+    --BgTabActive:  #2a2c2f;
+    --BgInput:      #17181a;
+    --BgCard:       #26282b;
+    --BgHover:      #33363a;
+    --TextMain:     #e8eaed;
+    --TextSub:      #9aa0a6;
+    --TextTab:      #9aa0a6;
+    --TextTabActive:#f79104;
+    --Accent:       #f79104;
+    --Border:       #3a3d41;
+}
+
+
+/* ---------- 基本設定 ---------- */
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    height: 100%;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    font-family: "Segoe UI", "Microsoft JhengHei", Arial, sans-serif;
+    background: var(--BgMain);
+    color: var(--TextMain);
+    overflow: hidden;
+}
+
+button {
+    font-family: inherit;
+}
+
+
+/* ---------- 分頁列 ---------- */
+
+.TabBar {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    padding: 8px 10px 0;
+    background: var(--BgTabBar);
+}
+
+.TabList {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.Tab {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 200px;
+    min-width: 120px;
+    padding: 8px 10px;
+    border-radius: 10px 10px 0 0;
+    background: var(--BgTab);
+    color: var(--TextTab);
+    font-size: 13.5px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.Tab:hover {
+    filter: brightness(1.1);
+}
+
+.Tab.Active {
+    background: var(--BgTabActive);
+    color: var(--TextTabActive);
+}
+
+.Tab.Active::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 3px;
+    border-radius: 10px 10px 0 0;
+    background: var(--Accent);
+}
+
+.TabTitle {
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.TabSpinner {
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--Accent);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: Spin 0.8s linear infinite;
+    flex-shrink: 0;
+}
+
+.TabClose {
+    border: none;
+    background: transparent;
+    color: inherit;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.TabClose:hover {
+    background: rgba(127, 127, 127, 0.3);
+}
+
+.AddTabButton {
+    border: none;
+    background: transparent;
+    color: #ffffff;
+    width: 32px;
+    height: 32px;
+    margin-bottom: 3px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.AddTabButton:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+
+/* ---------- 工具列 ---------- */
+
+.ToolBar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    background: var(--BgBar);
+    border-bottom: 1px solid var(--Border);
+}
+
+.ToolButton {
+    border: none;
+    background: transparent;
+    color: var(--TextSub);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background 0.2s, color 0.2s;
+}
+
+.ToolButton:hover:not(:disabled) {
+    background: var(--BgHover);
+    color: var(--Accent);
+}
+
+.ToolButton:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.AddressBar {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 6px;
+    padding: 0 16px;
+    height: 38px;
+    border-radius: 999px;
+    background: var(--BgInput);
+    border: 2px solid transparent;
+    transition: border 0.2s;
+}
+
+.AddressBar:focus-within {
+    border-color: var(--Accent);
+}
+
+.AddressIcon {
+    color: var(--TextSub);
+    font-size: 14px;
+}
+
+.AddressIcon.Secure {
+    color: var(--Accent);
+}
+
+.AddressBar input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--TextMain);
+    font-size: 15px;
+}
+
+
+/* ---------- 載入進度條 ---------- */
+
+.LoadingBar {
+    height: 3px;
+    width: 0;
+    background: var(--Accent);
+    transition: width 0.3s ease, opacity 0.4s ease;
+    opacity: 0;
+}
+
+.LoadingBar.Running {
+    width: 75%;
+    opacity: 1;
+    transition: width 8s cubic-bezier(0.1, 0.7, 0.3, 1);
+}
+
+.LoadingBar.Done {
+    width: 100%;
+    opacity: 0;
+}
+
+
+/* ---------- 內容區 ---------- */
+
+.ViewArea {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+}
+
+.TabView {
+    position: absolute;
+    inset: 0;
+    display: none;
+    overflow: auto;
+}
+
+.TabView.Active {
+    display: block;
+}
+
+.TabView iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: #ffffff;
+}
+
+
+/* ---------- 首頁 ---------- */
+
+.StartPage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 28px;
+    padding: 20px;
+}
+
+.StartLogo {
+    margin: 0;
+    font-size: 64px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--Accent);
+}
+
+.StartSearch {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: min(620px, 92%);
+    padding: 14px 20px;
+    border-radius: 999px;
+    background: var(--BgCard);
+    border: 2px solid var(--Border);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.StartSearch:focus-within {
+    border-color: var(--Accent);
+}
+
+.StartSearch input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--TextMain);
+    font-size: 17px;
+}
+
+.StartSearch select {
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--TextSub);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.Shortcuts {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 14px;
+}
+
+.Shortcut {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 96px;
+    padding: 14px 6px;
+    border: none;
+    border-radius: 14px;
+    background: var(--BgCard);
+    color: var(--TextMain);
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.2s, transform 0.2s;
+}
+
+.Shortcut:hover {
+    background: var(--BgHover);
+    transform: translateY(-2px);
+}
+
+.Shortcut i {
+    font-size: 22px;
+    color: var(--Accent);
+}
+
+
+/* ---------- 設定頁 / 內部頁面 ---------- */
+
+.InternalPage {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 36px 24px;
+}
+
+.InternalPage h1 {
+    margin: 0 0 24px;
+    padding-bottom: 10px;
+    border-bottom: 3px solid var(--Accent);
+    font-size: 28px;
+}
+
+.Card {
+    margin-bottom: 18px;
+    padding: 18px 20px;
+    border-radius: 12px;
+    background: var(--BgCard);
+    border: 1px solid var(--Border);
+}
+
+.Card h2 {
+    margin: 0 0 8px;
+    font-size: 18px;
+}
+
+.Card p {
+    margin: 0 0 14px;
+    color: var(--TextSub);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.Card code {
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: var(--BgHover);
+    font-size: 13px;
+    word-break: break-all;
+}
+
+.ButtonRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.ActionButton {
+    padding: 9px 16px;
+    border: none;
+    border-radius: 8px;
+    background: var(--Accent);
+    color: #ffffff;
+    font-size: 14px;
+    cursor: pointer;
+    transition: filter 0.2s;
+}
+
+.ActionButton:hover {
+    filter: brightness(1.1);
+}
+
+.ActionButton.Danger {
+    background: #e5484d;
+}
+
+.HistoryList {
+    max-height: 320px;
+    overflow: auto;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.HistoryList li {
+    display: flex;
+    gap: 12px;
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--Border);
+    font-size: 13.5px;
+}
+
+.HistoryList time {
+    color: var(--TextSub);
+    flex-shrink: 0;
+}
+
+.HistoryList a {
+    color: var(--TextMain);
+    text-decoration: none;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.HistoryList a:hover {
+    color: var(--Accent);
+}
+
+
+/* ---------- 錯誤頁 ---------- */
+
+.ErrorPage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 12px;
+    padding: 20px;
+    text-align: center;
+}
+
+.ErrorPage i {
+    font-size: 54px;
+    color: #e5484d;
+}
+
+.ErrorPage h2 {
+    margin: 0;
+}
+
+.ErrorPage pre {
+    max-width: 680px;
+    padding: 12px;
+    border-radius: 8px;
+    background: var(--BgCard);
+    color: var(--TextSub);
+    font-size: 12.5px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    text-align: left;
+}
+
+
+/* ---------- 提示訊息 ---------- */
+
+.Toast {
+    position: fixed;
+    left: 50%;
+    bottom: 28px;
+    transform: translate(-50%, 20px);
+    padding: 10px 18px;
+    border-radius: 10px;
+    background: #222;
+    color: #fff;
+    font-size: 14px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s;
+    z-index: 9999;
+}
+
+.Toast.Show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+
+/* ---------- 動畫 ---------- */
+
+@keyframes Spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
