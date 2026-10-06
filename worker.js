@@ -667,12 +667,17 @@ export default {
         const allowedOrigins = GetAllowedOrigins(env);
 
         /* ---------- 來源檢查 ---------- */
-        if (!IsOriginAllowed(origin, allowedOrigins)) {
+        // 同源反向代理頁面會以 Worker 自己的 Origin 請求動態腳本、模組與 API。
+        // 這些請求屬於 Worker 內部路徑，應直接允許；其他外部來源仍依 ALLOWED_ORIGINS 檢查。
+        const requestOrigin = new URL(request.url).origin;
+        const isWorkerSelfOrigin = origin === requestOrigin;
+
+        if (!isWorkerSelfOrigin && !IsOriginAllowed(origin, allowedOrigins)) {
             return JsonResponse(
                 403,
                 `來源未被允許：${origin}（請將此來源加入 ALLOWED_ORIGINS）`,
                 origin,
-                { allowedOrigins }
+                { allowedOrigins, requestOrigin }
             );
         }
 
@@ -698,7 +703,7 @@ export default {
             let pageUrl;
             try { pageUrl = new URL(requestUrl.searchParams.get("page")); if (!/^https?:$/.test(pageUrl.protocol)) throw new Error(); }
             catch { return new Response("throw new Error('Invalid OwO agent page URL');", { status: 400, headers: { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-store", ...BuildCorsHeaders(origin) } }); }
-            return new Response(BuildSameOriginCompatibilityAgent(pageUrl.toString(), requestUrl), { status: 200, headers: { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-store, no-cache, must-revalidate", "X-Content-Type-Options": "nosniff", "X-OwOb-Worker-Version": "9.2.0", ...BuildCorsHeaders(origin) } });
+            return new Response(BuildSameOriginCompatibilityAgent(pageUrl.toString(), requestUrl), { status: 200, headers: { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-store, no-cache, must-revalidate", "X-Content-Type-Options": "nosniff", "X-OwOb-Worker-Version": "9.2.1", ...BuildCorsHeaders(origin) } });
         }
 
         /* ---------- 存取金鑰檢查（預檢請求不帶金鑰，故放在預檢之後） ---------- */
@@ -713,7 +718,7 @@ export default {
         // 沒帶 url 參數且不是同源路徑 → 健康檢查
         if (!target && !sameOriginMode) {
             return JsonResponse(200, "OwOb Proxy 運作中", origin, {
-                version:     "9.2.0",
+                version:     "9.2.1",
                 usage:       "/?url=<encoded url> 或 /__owo_proxy__/https/example.com/path",
                 keyRequired: Boolean(GetAccessKey(env)),
                 allowedOrigins,
@@ -758,7 +763,7 @@ export default {
             Object.entries(BuildCorsHeaders(origin)).forEach(([key, value]) => headers.set(key, value));
             headers.set("X-Final-URL",    result.FinalUrl);
             headers.set("X-Proxy-Status", String(upstream.status));
-            headers.set("X-OwOb-Worker-Version", "9.2.0");
+            headers.set("X-OwOb-Worker-Version", "9.2.1");
 
             if (result.SetCookies.length > 0) {
                 headers.set("X-Proxy-Set-Cookie", encodeURIComponent(JSON.stringify(result.SetCookies)));
