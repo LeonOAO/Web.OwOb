@@ -2810,6 +2810,29 @@ function OwObFrameAgent(Options) {
         try { window.URL = CompatibleURL; } catch (error) { /* 原生 URL 保持可用 */ }
     }
 
+    /** Performance.measure 在代理資源缺少跨來源 timing 欄位時改為無害降級。 */
+    if (window.performance && typeof window.performance.measure === "function") {
+        var NativePerformanceMeasure = window.performance.measure.bind(window.performance);
+        try {
+            window.performance.measure = function () {
+                try {
+                    return NativePerformanceMeasure.apply(null, arguments);
+                } catch (error) {
+                    if (error && (error.name === "InvalidAccessError" || error.name === "SyntaxError")) {
+                        try {
+                            var name = arguments.length > 0 ? String(arguments[0]) : "owob-measure";
+                            window.performance.mark(name + "-owob-fallback");
+                        } catch (ignored) { /* 指標不是頁面功能必要條件 */ }
+                        return undefined;
+                    }
+                    throw error;
+                }
+            };
+        } catch (error) {
+            /* 個別引擎的 performance.measure 為唯讀時維持原實作。 */
+        }
+    }
+
     /* ---------- 共用 ---------- */
 
     var ProxyOrigin = "";
@@ -2824,6 +2847,45 @@ function OwObFrameAgent(Options) {
         message.OwOb  = true;
         message.TabId = Options.TabId;
         parent.postMessage(message, "*");
+    }
+
+    /**
+     * data:text/javascript 模組會在建立後才執行，其中的 import() 不經 DOM src
+     * 攔截。解碼其本文後，將靜態與動態模組指定符改成代理網址，再重新編碼。
+     */
+    function RewriteDataJavaScriptUrl(url) {
+        var text = String(url == null ? "" : url);
+        var match = text.match(/^data:(text|application)\/(?:javascript|ecmascript)([^,]*),(.*)$/is);
+        if (!match) return url;
+
+        var metadata = match[2] || "";
+        var encoded  = match[3] || "";
+        var isBase64 = /;base64/i.test(metadata);
+        var source;
+
+        try {
+            source = isBase64 ? atob(encoded) : decodeURIComponent(encoded);
+        } catch (error) {
+            return url;
+        }
+
+        var rewritten = source.replace(
+            /(\b(?:import\s*\(\s*|import\s+|(?:import|export)\b[^;]*?\bfrom\s*))(["'`])([^"'`$]+)\2/g,
+            function (whole, prefix, quote, value) {
+                var absolute = ToAbsolute(value);
+                var next = absolute && ShouldProxy(absolute)
+                    ? MakeProxyUrl(Options.ProxyBase, Options.ProxyKey, absolute)
+                    : value;
+                return prefix + quote + next + quote;
+            }
+        );
+
+        if (rewritten === source) return url;
+        try {
+            return "data:" + match[1] + "/javascript;charset=utf-8," + encodeURIComponent(rewritten);
+        } catch (error) {
+            return url;
+        }
     }
 
     /** 轉為絕對網址；失敗回傳 null */
@@ -2845,6 +2907,9 @@ function OwObFrameAgent(Options) {
     /** 將網址轉為代理網址；不需轉換時回傳原值 */
     function ToProxy(url) {
         var text = String(url == null ? "" : url).trim();
+        if (/^data:(?:text|application)\/(?:javascript|ecmascript)/i.test(text)) {
+            return RewriteDataJavaScriptUrl(text);
+        }
         if (!text || /^(data:|blob:|about:|javascript:|#)/i.test(text)) return url;
         var absolute = ToAbsolute(text);
         return ShouldProxy(absolute) ? MakeProxyUrl(Options.ProxyBase, Options.ProxyKey, absolute) : url;
