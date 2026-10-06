@@ -3516,7 +3516,7 @@ function BindEvents() {
         }
 
         const handled = HandleShortcut({
-            Key:   event.key.toLowerCase(),
+            Key:   String(event.key || "").toLowerCase(),
             Ctrl:  event.ctrlKey || event.metaKey,
             Alt:   event.altKey,
             Shift: event.shiftKey
