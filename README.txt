@@ -1,4 +1,4 @@
-OwO Simple Browser v8.2 - GitHub Pages + Cloudflare Worker Origin Mode
+OwO Simple Browser v8.3 - GitHub Pages + Cloudflare Worker Origin Mode
 
 部署：
 1. GitHub Pages：上傳 index.html、styles.css、script.js。
@@ -32,3 +32,11 @@ v8.2 修正：
 - /browse?solution=... 會從 Referer 還原上一個目標網址並套用 challenge 查詢。
 - 未改寫的相對資源路徑會依 Referer 中的原目標網站還原，不再直接回傳 Worker 404。
 - Worker 版本標頭更新為 origin-mode-v8.2。
+
+
+v8.3 修正：
+- 移除 iframe 的 allow-popups-to-escape-sandbox，阻止目標網站直接在外層瀏覽器開啟真實網址。
+- 強化 window.open 攔截，改由 OwO 內部分頁處理。
+- 同時攔截 click 與 auxclick，包含 Ctrl、Shift 與滑鼠中鍵。
+- 攔截連結後停止後續事件傳遞，避免網站腳本再次開啟外部分頁。
+- Worker 版本標頭更新為 origin-mode-v8.3。
