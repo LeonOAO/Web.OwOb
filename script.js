@@ -1,5 +1,5 @@
 ﻿/* ============================================================
- *  OwO Simple Browser - 主程式 v7
+ *  OwO Simple Browser - 主程式 v8
  *
  *  架構：
  *     1. 設定與狀態
@@ -3084,33 +3084,80 @@ function OwObFrameAgent(Options) {
         var requestInfo = detail.request || {};
         var method = String(requestInfo.method || element.getAttribute("method") || "GET").toUpperCase();
         var headers = new Headers(requestInfo.headers || {});
-        var init = {
-            method: method,
-            headers: headers,
-            credentials: "include"
-        };
+        var maxAttempts = 3;
+        var retryDelays = [0, 450, 900];
+        var originalHtml = element.innerHTML;
 
-        if (method !== "GET" && method !== "HEAD" && requestInfo.body != null) {
-            if (typeof requestInfo.body === "string" || requestInfo.body instanceof FormData ||
-                requestInfo.body instanceof URLSearchParams || requestInfo.body instanceof Blob) {
-                init.body = requestInfo.body;
-            } else {
-                init.body = JSON.stringify(requestInfo.body);
-                if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+        function BuildRequestInit(attempt) {
+            var attemptHeaders = new Headers(headers);
+            attemptHeaders.set("X-Reddit-Retry", "attempt=" + attempt + ", max=" + (maxAttempts - 1));
+
+            var init = {
+                method: method,
+                headers: attemptHeaders,
+                credentials: "include",
+                cache: "no-store"
+            };
+
+            if (method !== "GET" && method !== "HEAD" && requestInfo.body != null) {
+                if (typeof requestInfo.body === "string" || requestInfo.body instanceof FormData ||
+                    requestInfo.body instanceof URLSearchParams || requestInfo.body instanceof Blob) {
+                    init.body = requestInfo.body;
+                } else {
+                    init.body = JSON.stringify(requestInfo.body);
+                    if (!attemptHeaders.has("Content-Type")) attemptHeaders.set("Content-Type", "application/json");
+                }
             }
+
+            return init;
+        }
+
+        function IsTemporaryErrorHtml(html) {
+            var text = String(html || "");
+            return !text.trim() ||
+                /載入下一頁時發生錯誤|請再試一次|shreddit-feed-page-error|feed-page-error|partial-error/i.test(text);
+        }
+
+        function Delay(milliseconds) {
+            return new Promise(function (resolve) { setTimeout(resolve, milliseconds); });
+        }
+
+        function RequestAttempt(attempt) {
+            return Delay(retryDelays[attempt] || 0)
+                .then(function () {
+                    return window.fetch(corrected, BuildRequestInit(attempt));
+                })
+                .then(function (response) {
+                    return response.text().then(function (body) {
+                        if (!response.ok) {
+                            throw new Error("Partial request failed: " + response.status + " " + body.slice(0, 300));
+                        }
+
+                        if (IsTemporaryErrorHtml(body)) {
+                            throw new Error("Partial server returned a temporary error page.");
+                        }
+
+                        return body;
+                    });
+                })
+                .catch(function (error) {
+                    if (attempt + 1 < maxAttempts) {
+                        console.warn("[OwO Partial] 第 " + (attempt + 1) + " 次載入未完成，立即重試", error);
+                        return RequestAttempt(attempt + 1);
+                    }
+                    throw error;
+                });
         }
 
         element.setAttribute("data-owob-partial-loading", "true");
+        element.removeAttribute("data-owob-partial-error");
 
-        var task = window.fetch(corrected, init)
-            .then(function (response) {
-                if (!response.ok) {
-                    return response.text().then(function (body) {
-                        throw new Error("Partial request failed: " + response.status + " " + body.slice(0, 300));
-                    });
-                }
-                return response.text();
-            })
+        // 重試期間維持原本的 Reddit 載入動畫，不插入上游暫時性錯誤頁。
+        if (!element.querySelector("shreddit-feed-page-loading")) {
+            element.innerHTML = originalHtml || '<shreddit-feed-page-loading page-type="community"></shreddit-feed-page-loading>';
+        }
+
+        var task = RequestAttempt(0)
             .then(function (html) {
                 var range = document.createRange();
                 range.selectNode(element);
@@ -3121,14 +3168,13 @@ function OwObFrameAgent(Options) {
                 }
 
                 element.replaceWith(fragment);
-                Send({ Type: "Toast", Message: "已載入更多內容" });
             })
             .catch(function (error) {
                 element.removeAttribute("hasbeenloaded");
                 element.removeAttribute("data-owob-partial-loading");
                 element.setAttribute("data-owob-partial-error", String(error && error.message || error));
                 try { element._isLoading = false; } catch (ignored) {}
-                console.error("[OwO Partial] 動態內容載入失敗", error, corrected);
+                console.error("[OwO Partial] 三次動態內容載入均失敗", error, corrected);
             })
             .finally(function () {
                 OwObPartialRequests.delete(element);
