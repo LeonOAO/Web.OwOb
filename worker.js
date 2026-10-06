@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwOb Proxy - Cloudflare Worker（CORS 代理）v8
+ *  OwOb Proxy - Cloudflare Worker（CORS / 同源反向代理）v9
  *
  *  用法：
  *      GET  https://owob-proxy.kkwan812.workers.dev/?url=<已編碼的目標網址>
@@ -255,7 +255,7 @@ function SafeEqual(a, b) {
 /** 驗證請求是否附上正確金鑰（查詢參數 key 或標頭 X-Proxy-Key） */
 function IsKeyValid(request, requestUrl, accessKey) {
     if (!accessKey) return true;
-    const provided = requestUrl.searchParams.get("key") || request.headers.get("X-Proxy-Key") || "";
+    const provided = requestUrl.searchParams.get("key") || requestUrl.searchParams.get("_owo_key") || request.headers.get("X-Proxy-Key") || "";
     return SafeEqual(provided, accessKey);
 }
 
@@ -555,7 +555,48 @@ function RewriteJavaScriptResponse(code, sourceUrl, requestUrl) {
 }
 
 /* ============================================================
- *  7. 主要處理流程
+ *  7. 同源反向代理路徑模式
+ * ============================================================ */
+const SameOriginPrefix = "/__owo_proxy__/";
+function ParseSameOriginTarget(requestUrl) {
+    const rest = requestUrl.pathname.slice(SameOriginPrefix.length);
+    const protocolEnd = rest.indexOf("/");
+    const protocol = rest.slice(0, protocolEnd);
+    const hostAndPath = rest.slice(protocolEnd + 1);
+    const pathStart = hostAndPath.indexOf("/");
+    const host = pathStart < 0 ? hostAndPath : hostAndPath.slice(0, pathStart);
+    const path = pathStart < 0 ? "/" : hostAndPath.slice(pathStart);
+    if (!/^(?:http|https)$/.test(protocol) || !host) throw new ProxyError(400, "同源代理路徑格式錯誤");
+    const target = new URL(`${protocol}://${host}${path}`);
+    requestUrl.searchParams.forEach((value, key) => { if (key !== "_owo_key") target.searchParams.append(key, value); });
+    return target;
+}
+function BuildSameOriginPath(requestUrl, value, baseUrl) {
+    const target = new URL(value, baseUrl);
+    const result = new URL(requestUrl.origin);
+    result.pathname = `${SameOriginPrefix}${target.protocol.slice(0, -1)}/${target.host}${target.pathname}`;
+    result.search = target.search;
+    const key = requestUrl.searchParams.get("_owo_key");
+    if (key) result.searchParams.set("_owo_key", key);
+    result.hash = target.hash;
+    return result.toString();
+}
+function RewriteSameOriginHtml(html, sourceUrl, requestUrl) {
+    const map = value => /^(?:data:|blob:|javascript:|mailto:|tel:|#)/i.test(value) ? value : BuildSameOriginPath(requestUrl, value, sourceUrl);
+    let output = String(html).replace(/\s(src|href|action|formaction|poster)\s*=\s*(["'])(.*?)\2/gi,
+        (all, name, quote, value) => ` ${name}=${quote}${map(value)}${quote}`);
+    const base = `<base href="${BuildSameOriginPath(requestUrl, sourceUrl, sourceUrl)}">`;
+    return /<head[^>]*>/i.test(output) ? output.replace(/<head[^>]*>/i, tag => tag + base) : base + output;
+}
+function RewriteSameOriginCss(css, sourceUrl, requestUrl) {
+    return String(css).replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/gi, (all, quote, value) => {
+        if (/^(?:data:|blob:|#)/i.test(value)) return all;
+        try { return `url("${BuildSameOriginPath(requestUrl, value, sourceUrl)}")`; } catch { return all; }
+    });
+}
+
+/* ============================================================
+ *  8. 主要處理流程
  * ============================================================ */
 
 /** 由前端請求標頭建立 Cookie 罐 */
@@ -609,13 +650,14 @@ export default {
         }
 
         /* ---------- 解析目標網址 ---------- */
-        const target = requestUrl.searchParams.get("url");
+        const sameOriginMode = requestUrl.pathname.startsWith(SameOriginPrefix);
+        const target = sameOriginMode ? null : requestUrl.searchParams.get("url");
 
-        // 沒帶 url 參數 → 健康檢查
-        if (!target) {
+        // 沒帶 url 參數且不是同源路徑 → 健康檢查
+        if (!target && !sameOriginMode) {
             return JsonResponse(200, "OwOb Proxy 運作中", origin, {
-                version:     "8.0.0",
-                usage:       "/?url=<encoded url>[&key=<access key>]",
+                version:     "9.0.0",
+                usage:       "/?url=<encoded url> 或 /__owo_proxy__/https/example.com/path",
                 keyRequired: Boolean(GetAccessKey(env)),
                 allowedOrigins,
                 time:    new Date().toISOString()
@@ -624,9 +666,9 @@ export default {
 
         let targetUrl;
         try {
-            targetUrl = new URL(target);
-        } catch {
-            return JsonResponse(400, `網址格式錯誤：${target}`, origin);
+            targetUrl = sameOriginMode ? ParseSameOriginTarget(requestUrl) : new URL(target);
+        } catch (error) {
+            return JsonResponse(400, error.message || `網址格式錯誤：${target}`, origin);
         }
 
         /* ---------- 轉送請求 ---------- */
@@ -659,14 +701,24 @@ export default {
             Object.entries(BuildCorsHeaders(origin)).forEach(([key, value]) => headers.set(key, value));
             headers.set("X-Final-URL",    result.FinalUrl);
             headers.set("X-Proxy-Status", String(upstream.status));
-            headers.set("X-OwOb-Worker-Version", "8.0.0");
+            headers.set("X-OwOb-Worker-Version", "9.0.0");
 
             if (result.SetCookies.length > 0) {
                 headers.set("X-Proxy-Set-Cookie", encodeURIComponent(JSON.stringify(result.SetCookies)));
             }
 
             let responseBody = request.method === "HEAD" ? null : upstream.body;
-            if (request.method !== "HEAD" && IsJavaScriptResponse(headers, result.FinalUrl)) {
+            const responseType = String(headers.get("Content-Type") || "").toLowerCase();
+            if (sameOriginMode && request.method !== "HEAD" && responseType.includes("text/html")) {
+                responseBody = RewriteSameOriginHtml(await upstream.text(), result.FinalUrl, requestUrl);
+                headers.delete("Content-Encoding");
+                headers.set("Content-Type", "text/html; charset=utf-8");
+                headers.set("Cache-Control", "no-store");
+            } else if (sameOriginMode && request.method !== "HEAD" && responseType.includes("text/css")) {
+                responseBody = RewriteSameOriginCss(await upstream.text(), result.FinalUrl, requestUrl);
+                headers.delete("Content-Encoding");
+                headers.set("Content-Type", "text/css; charset=utf-8");
+            } else if (request.method !== "HEAD" && IsJavaScriptResponse(headers, result.FinalUrl)) {
                 const source = await upstream.text();
                 responseBody = RewriteJavaScriptResponse(source, result.FinalUrl, requestUrl);
                 headers.delete("Content-Encoding");

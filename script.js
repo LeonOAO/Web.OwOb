@@ -1,5 +1,5 @@
-﻿/* ============================================================
- *  OwO Simple Browser - 主程式 v16
+/* ============================================================
+ *  OwO Simple Browser - 主程式 v17
  *
  *  架構：
  *     1. 設定與狀態
@@ -108,6 +108,7 @@ const Dom = {
     ForwardButton:   document.getElementById("ForwardButton"),
     ReloadButton:    document.getElementById("ReloadButton"),
     HomeButton:      document.getElementById("HomeButton"),
+    ProxyModeButton: document.getElementById("ProxyModeButton"),
     ThemeButton:     document.getElementById("ThemeButton"),
     SettingsButton:  document.getElementById("SettingsButton"),
     AddressForm:     document.getElementById("AddressForm"),
@@ -478,6 +479,30 @@ function MakeProxyUrl(base, key, url) {
 /** 組合目前設定下的代理網址 */
 function BuildProxyUrl(url) {
     return MakeProxyUrl(GetProxyBase(), GetProxyKey(), url);
+}
+
+/** 組合同源反向代理路徑。需要搭配 v21 worker.js 部署。 */
+function BuildSameOriginProxyUrl(url) {
+    const target = new URL(url);
+    const proxy = new URL(GetProxyBase());
+    const protocolName = target.protocol.replace(":", "");
+    proxy.pathname = `/__owo_proxy__/${protocolName}/${target.host}${target.pathname}`;
+    proxy.search = target.search;
+    if (GetProxyKey()) proxy.searchParams.set("_owo_key", GetProxyKey());
+    proxy.hash = target.hash;
+    return proxy.toString();
+}
+
+function ToggleCurrentTabLoadMode() {
+    const tab = GetActiveTab();
+    if (!tab || IsInternalUrl(GetTabUrl(tab))) {
+        ShowToast("內部頁面不使用代理載入模式");
+        return;
+    }
+    tab.LoadMode = tab.LoadMode === "same-origin" ? "standard" : "same-origin";
+    RefreshToolbar();
+    ShowToast(tab.LoadMode === "same-origin" ? "已切換：同源反向代理模式" : "已切換：標準代理模式");
+    Navigate(tab, GetTabUrl(tab), false);
 }
 
 /** 取得代理伺服器來源（協定 + 主機） */
@@ -1073,6 +1098,7 @@ function CreateTab(url = Config.HomeUrl, activate = true, options = {}) {
         Loading:  false,
         Zoom:     options.Zoom || 1,
         HasAgent: false,
+        LoadMode: options.LoadMode === "same-origin" ? "same-origin" : "standard",
         TabEl:    tabEl,
         ViewEl:   viewEl,
         Abort:    null
@@ -1390,6 +1416,19 @@ function RefreshToolbar() {
 
     const url        = GetTabUrl(tab);
     const isInternal = IsInternalUrl(url);
+
+    if (Dom.ProxyModeButton) {
+        const sameOrigin = !isInternal && tab.LoadMode === "same-origin";
+        Dom.ProxyModeButton.disabled = isInternal;
+        Dom.ProxyModeButton.classList.toggle("Active", sameOrigin);
+        Dom.ProxyModeButton.title = isInternal
+            ? "內部頁面不使用代理載入模式"
+            : sameOrigin
+                ? "目前：同源反向代理模式。按一下切回標準模式"
+                : "目前：標準代理模式。按一下切換同源反向代理模式";
+        const badge = Dom.ProxyModeButton.querySelector(".ProxyModeBadge");
+        if (badge) badge.textContent = sameOrigin ? "同源" : "標準";
+    }
 
     // 使用者正在輸入時不覆蓋網址列
     if (document.activeElement !== Dom.AddressInput) {
@@ -2351,6 +2390,30 @@ async function LoadExternalPage(tab, url, postData = null) {
     tab.Title = "載入中…";
     SetLoading(tab, true);
 
+    if (!postData && tab.LoadMode === "same-origin") {
+        try {
+            const frame = CreateFrame(tab, true);
+            frame.src = BuildSameOriginProxyUrl(url);
+            frame.addEventListener("load", () => {
+                if (tab.Abort === controller) tab.Abort = null;
+                clearTimeout(timer);
+                SetLoading(tab, false);
+                tab.Title = GetHostname(url) || "同源代理頁面";
+                UpdateTabHeader(tab);
+                RefreshToolbar();
+            }, { once: true });
+            SetTabContent(tab, frame, true);
+            tab.HasAgent = false;
+            return;
+        } catch (error) {
+            clearTimeout(timer);
+            if (tab.Abort === controller) tab.Abort = null;
+            SetLoading(tab, false);
+            RenderErrorPage(tab, "同源反向代理模式無法啟動", `${url}\n\n${error.message}\n\n請確認已部署 v21 worker.js，或切回標準模式。`, url);
+            return;
+        }
+    }
+
     try {
         /* ---------- 組合代理請求 ---------- */
         const headers = {};
@@ -2802,11 +2865,15 @@ function RenderRawInFrame(tab, url) {
 }
 
 /** 建立沙箱 iframe，並套用分頁縮放 */
-function CreateFrame(tab) {
+function CreateFrame(tab, sameOriginMode = false) {
     const frame = document.createElement("iframe");
-    // 不授予 allow-popups：所有新視窗行為都由 iframe 代理程式攔截，
-    // 再交回 OwO Simple Browser 內部建立分頁。
-    frame.setAttribute("sandbox", "allow-scripts allow-forms allow-modals allow-downloads");
+    // 同源反向代理頁面需要正常 Cookie / Storage / frame 通訊；標準 srcdoc 模式維持原隔離。
+    frame.setAttribute(
+        "sandbox",
+        sameOriginMode
+            ? "allow-scripts allow-forms allow-modals allow-downloads allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+            : "allow-scripts allow-forms allow-modals allow-downloads"
+    );
     frame.setAttribute("referrerpolicy", "no-referrer");
     ApplyFrameZoom(frame, tab.Zoom);
     return frame;
@@ -4194,6 +4261,7 @@ function BindEvents() {
     Dom.BackButton.addEventListener("click", GoBack);
     Dom.ForwardButton.addEventListener("click", GoForward);
     Dom.ReloadButton.addEventListener("click", Reload);
+    Dom.ProxyModeButton.addEventListener("click", ToggleCurrentTabLoadMode);
     Dom.ThemeButton.addEventListener("click", ToggleTheme);
     Dom.BookmarkButton.addEventListener("click", () => ToggleBookmark());
     Dom.ZoomButton.addEventListener("click", () => ChangeZoom(0));
