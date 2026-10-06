@@ -2341,8 +2341,24 @@ async function LoadExternalPage(tab, url, postData = null) {
         const frame = CreateFrame(tab);
         frame.src = BuildContentPageUrl(url, tab.Id);
         frame.addEventListener("load", () => {
-            if (GetTabUrl(tab) === url) SetLoading(tab, false);
+            if (GetTabUrl(tab) === url) {
+                SetLoading(tab, false);
+                if (!tab.Title || tab.Title === "載入中…") {
+                    tab.Title = GetHostname(url) || "網頁";
+                    UpdateTabHeader(tab);
+                    UpdateHistoryTitle(url, tab.Title);
+                }
+            }
         }, { once: true });
+        setTimeout(() => {
+            if (GetTabUrl(tab) === url && tab.Loading) {
+                SetLoading(tab, false);
+                if (!tab.Title || tab.Title === "載入中…") {
+                    tab.Title = GetHostname(url) || "網頁";
+                    UpdateTabHeader(tab);
+                }
+            }
+        }, 8000);
         frame.addEventListener("error", () => {
             if (GetTabUrl(tab) === url) {
                 SetLoading(tab, false);
