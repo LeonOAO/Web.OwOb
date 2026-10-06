@@ -644,7 +644,7 @@ var nativeDispatch=EventTarget.prototype.dispatchEvent;EventTarget.prototype.dis
  return nativeDispatch.call(this,event);
 };
 window.__OwOSameOriginCompatibility={version:"1.0.0",absolute:absolute,proxy:proxy};
-})(${config});<\\/script>`;
+})(${config});<\/script>`;
 }
 
 function RewriteSameOriginHtml(html, sourceUrl, requestUrl) {
@@ -731,7 +731,7 @@ export default {
         // 沒帶 url 參數且不是同源路徑 → 健康檢查
         if (!target && !sameOriginMode) {
             return JsonResponse(200, "OwOb Proxy 運作中", origin, {
-                version:     "9.1.0",
+                version:     "9.1.1",
                 usage:       "/?url=<encoded url> 或 /__owo_proxy__/https/example.com/path",
                 keyRequired: Boolean(GetAccessKey(env)),
                 allowedOrigins,
@@ -776,7 +776,7 @@ export default {
             Object.entries(BuildCorsHeaders(origin)).forEach(([key, value]) => headers.set(key, value));
             headers.set("X-Final-URL",    result.FinalUrl);
             headers.set("X-Proxy-Status", String(upstream.status));
-            headers.set("X-OwOb-Worker-Version", "9.1.0");
+            headers.set("X-OwOb-Worker-Version", "9.1.1");
 
             if (result.SetCookies.length > 0) {
                 headers.set("X-Proxy-Set-Cookie", encodeURIComponent(JSON.stringify(result.SetCookies)));
