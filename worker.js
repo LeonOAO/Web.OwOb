@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwOb Proxy - Cloudflare Worker（CORS 代理）v7
+ *  OwOb Proxy - Cloudflare Worker（CORS 代理）v8
  *
  *  用法：
  *      GET  https://owob-proxy.kkwan812.workers.dev/?url=<已編碼的目標網址>
@@ -614,7 +614,7 @@ export default {
         // 沒帶 url 參數 → 健康檢查
         if (!target) {
             return JsonResponse(200, "OwOb Proxy 運作中", origin, {
-                version:     "7.0.0",
+                version:     "8.0.0",
                 usage:       "/?url=<encoded url>[&key=<access key>]",
                 keyRequired: Boolean(GetAccessKey(env)),
                 allowedOrigins,
@@ -659,7 +659,7 @@ export default {
             Object.entries(BuildCorsHeaders(origin)).forEach(([key, value]) => headers.set(key, value));
             headers.set("X-Final-URL",    result.FinalUrl);
             headers.set("X-Proxy-Status", String(upstream.status));
-            headers.set("X-OwOb-Worker-Version", "7.0.0");
+            headers.set("X-OwOb-Worker-Version", "8.0.0");
 
             if (result.SetCookies.length > 0) {
                 headers.set("X-Proxy-Set-Cookie", encodeURIComponent(JSON.stringify(result.SetCookies)));

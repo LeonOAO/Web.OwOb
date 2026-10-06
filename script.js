@@ -2637,6 +2637,7 @@ function RenderHtmlInFrame(tab, html, baseUrl) {
     const agentOptions = {
         TabId:          tab.Id,
         PageUrl:        baseUrl,
+        CookieJar:      GetSiteCookieJar(baseUrl),
         ProxyBase:      GetProxyBase(),
         ProxyKey:       GetProxyKey(),
         ProxyResources: GetFlag("ProxyResources"),
@@ -2781,6 +2782,12 @@ function OwObFrameAgent(Options) {
     var OwObSessionStorage = CreateMemoryStorage();
     var OwObLocalStorage   = CreateMemoryStorage();
     var OwObCookies        = Object.create(null);
+    var OwObCookieJar      = Array.isArray(Options.CookieJar) ? Options.CookieJar.slice() : [];
+    OwObCookieJar.forEach(function (item) {
+        if (item && item.Name && item.Value != null) {
+            OwObCookies[String(item.Name)] = String(item.Value);
+        }
+    });
 
     function InstallWindowValue(name, value) {
         try {
@@ -2812,7 +2819,21 @@ function OwObFrameAgent(Options) {
                 if (equal <= 0) return;
                 var name = pair.slice(0, equal).trim();
                 var data = pair.slice(equal + 1).trim();
-                if (name) OwObCookies[name] = data;
+                if (name) {
+                    OwObCookies[name] = data;
+                    var host = "";
+                    try { host = new URL(Options.PageUrl).hostname; } catch (error) { host = ""; }
+                    var found = false;
+                    OwObCookieJar.forEach(function (item) {
+                        if (item && item.Name === name && item.Domain === host) {
+                            item.Value = data;
+                            found = true;
+                        }
+                    });
+                    if (!found && host) {
+                        OwObCookieJar.push({ Domain: host, Name: name, Value: data, HostOnly: true });
+                    }
+                }
             }
         });
     } catch (error) {
@@ -3196,6 +3217,9 @@ function OwObFrameAgent(Options) {
                         sourceHeaders.set("X-Proxy-Headers", encodeURIComponent(JSON.stringify(forwarded)));
                     }
                     sourceHeaders.set("X-Proxy-Referer", Options.PageUrl);
+                    if (OwObCookieJar.length > 0) {
+                        sourceHeaders.set("X-Proxy-Cookie-Jar", encodeURIComponent(JSON.stringify(OwObCookieJar)));
+                    }
                     nextInit.headers = sourceHeaders;
 
                     if (input instanceof Request) {
@@ -3203,7 +3227,11 @@ function OwObFrameAgent(Options) {
                     } else {
                         input = proxiedUrl;
                     }
-                    return NativeFetch.call(this, input, nextInit);
+                    return NativeFetch.call(this, input, nextInit).then(function (response) {
+                        var setCookies = response.headers.get("X-Proxy-Set-Cookie");
+                        if (setCookies) Send({ Type: "Cookies", Value: setCookies });
+                        return response;
+                    });
                 } catch (error) {
                     return NativeFetch.call(this, input, init);
                 }
@@ -3355,6 +3383,10 @@ window.addEventListener("message", event => {
                     Referer: GetTabUrl(tab)
                 });
             }
+            break;
+
+        case "Cookies":
+            if (typeof data.Value === "string") StoreProxyCookies(data.Value);
             break;
 
         case "Toast":
