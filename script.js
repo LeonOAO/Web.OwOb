@@ -1,5 +1,5 @@
 ﻿/* ============================================================
- *  OwO Simple Browser - 主程式 v8
+ *  OwO Simple Browser - 主程式 v9
  *
  *  架構：
  *     1. 設定與狀態
@@ -3556,7 +3556,106 @@ function OwObFrameAgent(Options) {
             FindText  = "";
             FindIndex = 0;
             ClearSelection();
+        } else if (data.Type === "HumanVerificationReload") {
+            Send({ Type: "Navigate", Url: Options.PageUrl });
         }
+    });
+
+    /* ---------- 5. 真人驗證模式 ---------- */
+
+    var HumanVerificationModeActive = false;
+    var HumanVerificationScanTimer = 0;
+
+    function IsHumanVerificationPage() {
+        var title = String(document.title || "").toLowerCase();
+        var text = String(document.body && document.body.innerText || "").slice(0, 18000).toLowerCase();
+        var hasCaptchaElement = Boolean(document.querySelector(
+            '.g-recaptcha, iframe[src*="recaptcha"], script[src*="recaptcha"], [data-sitekey], [class*="captcha"], [id*="captcha"]'
+        ));
+        var hasChallengeText = /prove your humanity|verify you are human|complete the challenge|i am not a robot|我不是機器人|真人驗證|證明您是真人|網域無效|invalid domain for site key/.test(title + " " + text);
+        return hasCaptchaElement && hasChallengeText;
+    }
+
+    function EscapeVerificationText(value) {
+        return String(value == null ? "" : value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+    }
+
+    function ShowHumanVerificationMode() {
+        if (HumanVerificationModeActive || !document.body) return;
+        HumanVerificationModeActive = true;
+
+        var originalUrl = ToAbsolute(Options.PageUrl) || Options.PageUrl;
+        var panel = document.createElement("div");
+        panel.id = "owob-human-verification-mode";
+        panel.setAttribute("role", "dialog");
+        panel.setAttribute("aria-modal", "true");
+        panel.innerHTML =
+            '<div class="owob-human-card">' +
+                '<div class="owob-human-icon" aria-hidden="true">✓</div>' +
+                '<h1>需要真人驗證</h1>' +
+                '<p>驗證元件需要在原始網站網域中執行。請開啟原始網站，由您親自完成驗證，再返回 OwO Simple Browser 重新載入。</p>' +
+                '<div class="owob-human-url">' + EscapeVerificationText(originalUrl) + '</div>' +
+                '<div class="owob-human-actions">' +
+                    '<button type="button" data-action="open">在原始網站完成驗證</button>' +
+                    '<button type="button" class="secondary" data-action="reload">驗證完成，重新載入</button>' +
+                '</div>' +
+                '<p class="owob-human-note">OwO 不會代替您完成驗證，也不會讀取驗證內容。</p>' +
+            '</div>';
+
+        var style = document.createElement("style");
+        style.id = "owob-human-verification-style";
+        style.textContent =
+            '#owob-human-verification-mode{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:24px;background:rgba(15,23,42,.64);backdrop-filter:blur(14px);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#172033}' +
+            '.owob-human-card{width:min(560px,calc(100vw - 48px));box-sizing:border-box;padding:34px;border:1px solid rgba(255,255,255,.64);border-radius:26px;background:rgba(255,255,255,.94);box-shadow:0 30px 90px rgba(15,23,42,.32);text-align:center}' +
+            '.owob-human-icon{width:64px;height:64px;margin:0 auto 18px;display:grid;place-items:center;border-radius:20px;background:linear-gradient(135deg,#ff5a1f,#ff8a3d);color:white;font-size:34px;font-weight:800;box-shadow:0 14px 30px rgba(255,90,31,.28)}' +
+            '.owob-human-card h1{margin:0 0 12px;font-size:28px;line-height:1.2}' +
+            '.owob-human-card p{margin:0 auto 18px;max-width:470px;color:#526078;font-size:15px;line-height:1.7}' +
+            '.owob-human-url{padding:11px 14px;margin:18px 0;border:1px solid #dbe3ef;border-radius:12px;background:#f7f9fc;color:#334155;font-size:12px;word-break:break-all}' +
+            '.owob-human-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:12px}' +
+            '.owob-human-actions button{min-width:210px;padding:13px 18px;border:0;border-radius:13px;background:#ff4500;color:white;font:700 15px/1.2 inherit;cursor:pointer;box-shadow:0 10px 24px rgba(255,69,0,.22)}' +
+            '.owob-human-actions button.secondary{background:#e8edf5;color:#263246;box-shadow:none}' +
+            '.owob-human-actions button:hover{filter:brightness(.96);transform:translateY(-1px)}' +
+            '.owob-human-card .owob-human-note{margin:18px 0 0;font-size:12px;color:#7a879b}';
+
+        document.head.appendChild(style);
+        document.body.appendChild(panel);
+
+        panel.addEventListener("click", function (event) {
+            var button = event.target && event.target.closest && event.target.closest("button[data-action]");
+            if (!button) return;
+
+            if (button.getAttribute("data-action") === "open") {
+                Send({ Type: "OpenExternal", Url: originalUrl });
+                button.textContent = "原始網站已開啟";
+            } else {
+                button.disabled = true;
+                button.textContent = "正在重新載入…";
+                Send({ Type: "Navigate", Url: Options.PageUrl });
+            }
+        });
+    }
+
+    function ScheduleHumanVerificationScan() {
+        clearTimeout(HumanVerificationScanTimer);
+        HumanVerificationScanTimer = setTimeout(function () {
+            if (IsHumanVerificationPage()) ShowHumanVerificationMode();
+        }, 180);
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", ScheduleHumanVerificationScan, { once: true });
+    } else {
+        ScheduleHumanVerificationScan();
+    }
+
+    new MutationObserver(ScheduleHumanVerificationScan).observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        characterData: true
     });
 
     /* ---------- 5. 快捷鍵轉送 ---------- */
@@ -3601,6 +3700,15 @@ window.addEventListener("message", event => {
 
         case "OpenTab":
             if (IsWebUrl(data.Url)) CreateTab(data.Url, true, { AfterId: tab.Id });
+            break;
+
+        case "OpenExternal":
+            if (IsWebUrl(data.Url)) {
+                const externalWindow = window.open(data.Url, "_blank", "noopener,noreferrer");
+                if (!externalWindow) {
+                    ShowToast("瀏覽器已封鎖新視窗，請允許彈出式視窗後再試一次");
+                }
+            }
             break;
 
         case "Post":
