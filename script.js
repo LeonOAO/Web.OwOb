@@ -1,5 +1,5 @@
 ﻿/* ============================================================
- *  OwO Simple Browser - 主程式 v4
+ *  OwO Simple Browser - 主程式 v5
  *
  *  架構：
  *     1. 設定與狀態
@@ -2967,9 +2967,49 @@ function OwObFrameAgent(Options) {
     }
 
     /** 轉為絕對網址；失敗回傳 null */
+    /**
+     * 清除 srcdoc 中 location.origin === "null" 所造成的路徑污染。
+     * 例如：
+     * - null/svc/shreddit/...                    -> /svc/shreddit/...
+     * - /r/community/null/svc/shreddit/...       -> /svc/shreddit/...
+     * - https://host/r/community/null/svc/...    -> https://host/svc/...
+     */
+    function CleanNullPathPollution(url) {
+        var value = String(url == null ? "" : url).trim();
+        if (!value) return value;
+
+        value = value.replace(/^null(?=\/)/i, "");
+
+        try {
+            var parsed = new NativeURL(value, Options.PageUrl);
+            var polluted = parsed.pathname.match(/\/null(\/(?:svc|api|graphql)(?:\/|$).*)/i);
+            if (polluted) {
+                parsed.pathname = polluted[1];
+                return parsed.href;
+            }
+        } catch (error) {
+            /* 相對網址交由下方字串清理。 */
+        }
+
+        return value
+            .replace(/^.*?\/null(?=\/(?:svc|api|graphql)(?:\/|\?|$))/i, "")
+            .replace(/\/null(?=\/(?:svc|api|graphql)(?:\/|\?|$))/i, "");
+    }
+
     function ToAbsolute(url) {
         try {
-            return new URL(url, document.baseURI).href;
+            var cleaned = CleanNullPathPollution(url);
+            var pageUrl = new NativeURL(Options.PageUrl);
+
+            if (/^\/\//.test(cleaned)) {
+                return pageUrl.protocol + cleaned;
+            }
+
+            if (cleaned.charAt(0) === "/") {
+                return new NativeURL(cleaned, pageUrl.origin).href;
+            }
+
+            return new NativeURL(cleaned, document.baseURI || Options.PageUrl).href;
         } catch (error) {
             return null;
         }
@@ -2992,6 +3032,22 @@ function OwObFrameAgent(Options) {
         var absolute = ToAbsolute(text);
         return ShouldProxy(absolute) ? MakeProxyUrl(Options.ProxyBase, Options.ProxyKey, absolute) : url;
     }
+
+
+    /**
+     * Reddit faceplate-partial 會在 programmatic loading 時發出 faceplate-request。
+     * srcdoc 的原生 origin 為 "null"，部分元件會把 resource 組成 null/svc/...；
+     * 在捕捉階段先改回原網站的絕對網址，避免代理最終請求 /r/.../null/svc/...。
+     */
+    document.addEventListener("faceplate-request", function (event) {
+        var detail = event && event.detail;
+        if (!detail || typeof detail.resource !== "string") return;
+
+        var corrected = ToAbsolute(detail.resource);
+        if (corrected && corrected !== detail.resource) {
+            detail.resource = corrected;
+        }
+    }, true);
 
     /* ---------- 1. 新視窗攔截 ---------- */
 
