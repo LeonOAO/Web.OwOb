@@ -496,9 +496,38 @@ function ShouldProxyUrl(absoluteUrl) {
     return !proxyOrigin || !absoluteUrl.startsWith(proxyOrigin + "/");
 }
 
+/** 將初始 HTML 內 data: JavaScript 模組的 import/export 改為代理網址。 */
+function RewriteDataJavaScriptResource(value, baseUrl) {
+    const text  = String(value || "");
+    const match = text.match(/^data:(text|application)\/(?:javascript|ecmascript)([^,]*),(.*)$/is);
+    if (!match) return value;
+
+    const metadata = match[2] || "";
+    let source;
+    try {
+        if (/;base64/i.test(metadata)) {
+            const binary = atob(match[3] || "");
+            const bytes  = Uint8Array.from(binary, character => character.charCodeAt(0));
+            source = new TextDecoder().decode(bytes);
+        } else {
+            source = decodeURIComponent(match[3] || "");
+        }
+    } catch {
+        return value;
+    }
+
+    const rewritten = RewriteJavaScriptUrls(source, baseUrl);
+    return rewritten === source
+        ? value
+        : `data:${match[1]}/javascript;charset=utf-8,${encodeURIComponent(rewritten)}`;
+}
+
 /** 將頁面中的資源網址（可能為相對路徑）轉為代理網址；不需轉換時回傳原值 */
 function MapResourceUrl(value, baseUrl) {
     const text = String(value).trim();
+    if (/^data:(?:text|application)\/(?:javascript|ecmascript)/i.test(text)) {
+        return RewriteDataJavaScriptResource(text, baseUrl);
+    }
     if (!text || /^(data:|blob:|about:|javascript:|#)/i.test(text)) {
         return value;
     }
@@ -2814,22 +2843,24 @@ function OwObFrameAgent(Options) {
     if (window.performance && typeof window.performance.measure === "function") {
         var NativePerformanceMeasure = window.performance.measure.bind(window.performance);
         try {
-            window.performance.measure = function () {
+            var CompatiblePerformanceMeasure = function () {
                 try {
                     return NativePerformanceMeasure.apply(null, arguments);
                 } catch (error) {
                     if (error && (error.name === "InvalidAccessError" || error.name === "SyntaxError")) {
-                        try {
-                            var name = arguments.length > 0 ? String(arguments[0]) : "owob-measure";
-                            window.performance.mark(name + "-owob-fallback");
-                        } catch (ignored) { /* 指標不是頁面功能必要條件 */ }
                         return undefined;
                     }
                     throw error;
                 }
             };
+            Object.defineProperty(window.performance, "measure", {
+                configurable: true,
+                writable:     true,
+                value:        CompatiblePerformanceMeasure
+            });
         } catch (error) {
-            /* 個別引擎的 performance.measure 為唯讀時維持原實作。 */
+            try { window.performance.measure = CompatiblePerformanceMeasure; }
+            catch (ignored) { /* 個別引擎保持原實作 */ }
         }
     }
 
@@ -3130,6 +3161,15 @@ function OwObFrameAgent(Options) {
                 }
                 return NativeFetch.call(this, input, init);
             };
+        }
+
+        if (navigator && typeof navigator.sendBeacon === "function") {
+            var NativeSendBeacon = navigator.sendBeacon.bind(navigator);
+            try {
+                navigator.sendBeacon = function (url, data) {
+                    return NativeSendBeacon(ToProxy(String(url)), data);
+                };
+            } catch (error) { /* 唯讀實作維持原樣 */ }
         }
 
         var NativeOpen = XMLHttpRequest.prototype.open;
