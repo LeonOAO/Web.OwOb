@@ -308,20 +308,6 @@ function UnwrapRedirectUrl(url) {
     return IsWebUrl(target) ? target : url;
 }
 
-
-/** 解開 Worker 代理包裝及常見搜尋引擎追蹤網址。 */
-function NormalizeNavigatedUrl(url) {
-    let value = DecodeEntities(String(url || ""));
-    try {
-        let parsed = new URL(value);
-        const workerOrigin = GetContentWorkerRoot() ? new URL(GetContentWorkerRoot()).origin : "";
-        for (let depth = 0; depth < 8 && parsed.origin === workerOrigin && parsed.searchParams.has("url"); depth++) {
-            parsed = new URL(DecodeEntities(parsed.searchParams.get("url")));
-        }
-        value = parsed.toString();
-    } catch {}
-    return UnwrapRedirectUrl(value);
-}
 /**
  * 將使用者輸入轉為可導覽的網址
  *   owob://xxx         → 內部頁面
@@ -492,30 +478,6 @@ function MakeProxyUrl(base, key, url) {
 /** 組合目前設定下的代理網址 */
 function BuildProxyUrl(url) {
     return MakeProxyUrl(GetProxyBase(), GetProxyKey(), url);
-}
-
-/** 取得 Origin Mode Worker 根網址，兼容舊版儲存的 ?url= 代理格式。 */
-function GetContentWorkerRoot() {
-    try {
-        const parsed = new URL(GetProxyBase());
-        parsed.search = "";
-        parsed.hash = "";
-        return parsed.toString().replace(/\/$/, "");
-    } catch {
-        return "";
-    }
-}
-
-/** 組合 Origin Mode 內容頁網址。 */
-function BuildContentPageUrl(url, tabId) {
-    const root = GetContentWorkerRoot();
-    const target = new URL(root + "/browse");
-    target.searchParams.set("mode", "page");
-    target.searchParams.set("url", url);
-    target.searchParams.set("tab", String(tabId));
-    const key = GetProxyKey();
-    if (key) target.searchParams.set("key", key);
-    return target.toString();
 }
 
 /** 取得代理伺服器來源（協定 + 主機） */
@@ -2330,46 +2292,111 @@ function RenderErrorPage(tab, title, detail, retryUrl) {
  * @param {object|null} postData  POST 資料 { Body, Referer }；null 表示 GET
  */
 async function LoadExternalPage(tab, url, postData = null) {
-    if (postData) {
-        ShowToast("表單將由內容頁直接送出");
-    }
+    const timeoutMs  = GetTimeoutMs();
+    const controller = new AbortController();
+    const timer      = setTimeout(() => controller.abort("timeout"), timeoutMs);
 
+    tab.Abort = controller;
     tab.Title = "載入中…";
     SetLoading(tab, true);
 
     try {
-        const frame = CreateFrame(tab);
-        frame.src = BuildContentPageUrl(url, tab.Id);
-        frame.addEventListener("load", () => {
-            if (GetTabUrl(tab) === url) {
-                SetLoading(tab, false);
-                if (!tab.Title || tab.Title === "載入中…") {
-                    tab.Title = GetHostname(url) || "網頁";
-                    UpdateTabHeader(tab);
-                    UpdateHistoryTitle(url, tab.Title);
-                }
+        /* ---------- 組合代理請求 ---------- */
+        const headers = {};
+        const siteJar = GetSiteCookieJar(url);
+        if (siteJar.length > 0) {
+            headers["X-Proxy-Cookie-Jar"] = encodeURIComponent(JSON.stringify(siteJar));
+        }
+
+        const requestOptions = {
+            method: "GET",
+            headers,
+            signal: controller.signal
+        };
+
+        if (postData) {
+            requestOptions.method   = "POST";
+            requestOptions.body     = postData.Body;
+            headers["Content-Type"] = "application/x-www-form-urlencoded";
+            if (postData.Referer && IsWebUrl(postData.Referer)) {
+                headers["X-Proxy-Referer"] = postData.Referer;
             }
-        }, { once: true });
-        setTimeout(() => {
-            if (GetTabUrl(tab) === url && tab.Loading) {
-                SetLoading(tab, false);
-                if (!tab.Title || tab.Title === "載入中…") {
-                    tab.Title = GetHostname(url) || "網頁";
-                    UpdateTabHeader(tab);
-                }
-            }
-        }, 8000);
-        frame.addEventListener("error", () => {
-            if (GetTabUrl(tab) === url) {
-                SetLoading(tab, false);
-                RenderErrorPage(tab, "無法載入此網頁", url, url);
-            }
-        }, { once: true });
-        SetTabContent(tab, frame, true);
-        tab.HasAgent = true;
+        }
+
+        const response    = await fetch(BuildProxyUrl(url), requestOptions);
+        const contentType = response.headers.get("Content-Type") || "";
+        const finalUrl    = response.headers.get("X-Final-URL") || url;
+
+        // 先保存目標網站設定的 Cookie（驗證頁的通過紀錄就在這裡）
+        StoreProxyCookies(response.headers.get("X-Proxy-Set-Cookie"));
+
+        // 代理回傳的錯誤（JSON 格式）
+        if (!response.ok && contentType.includes("application/json")) {
+            const data = await response.json().catch(() => ({}));
+            const error = new Error(`代理錯誤 ${response.status}：${data.message || response.statusText}`);
+            error.Status = response.status;
+            throw error;
+        }
+
+        // 已被切到其他網址，捨棄結果
+        if (GetTabUrl(tab) !== url) return;
+
+        // 轉址後更新分頁網址與瀏覽紀錄（不新增上下頁紀錄）
+        if (finalUrl !== url) {
+            tab.History[tab.Index] = finalUrl;
+            ReplaceHistoryUrl(url, finalUrl);
+        }
+
+        if (contentType.includes("text/html") || contentType.includes("application/xhtml")) {
+            const rawHtml = await response.text();
+
+            // 外部 CSS 改經代理抓回並內嵌，避免被目標網站的防盜連 / CORP 擋掉
+            const inlined = await InlineStylesheets(rawHtml, finalUrl, controller.signal);
+
+            // 抓 CSS 期間使用者已切換頁面則捨棄
+            if (GetTabUrl(tab) !== finalUrl && GetTabUrl(tab) !== url) return;
+
+            // 圖片、影音、字型（及選用的腳本）改經代理
+            const html = RewriteHtmlResources(inlined, finalUrl);
+            RenderHtmlInFrame(tab, html, finalUrl);
+        } else {
+            // 圖片、PDF、純文字等非 HTML 內容：直接以代理網址顯示
+            RenderRawInFrame(tab, finalUrl);
+        }
+
+        UpdateHistoryTitle(finalUrl, tab.Title);
+
+        if (!response.ok) {
+            ShowToast(`網站回應 HTTP ${response.status}`);
+        }
     } catch (error) {
+        if (controller.signal.aborted && controller.signal.reason !== "timeout") {
+            return;   // 使用者主動切換頁面，不顯示錯誤
+        }
+
+        // 依錯誤類型顯示對應說明：
+        //   逾時           → 連線逾時
+        //   代理回傳 401    → 金鑰問題
+        //   代理回傳其他錯誤 → 直接顯示代理訊息（代理本身可連線，不是 CORS 問題）
+        //   其他（TypeError: Failed to fetch）→ 代理無法連線或 CORS 被擋
+        let detail;
+        if (controller.signal.reason === "timeout") {
+            detail = `連線逾時（超過 ${timeoutMs / 1000} 秒）。\n\n可至設定頁調整「代理逾時」。`;
+        } else if (error.Status === 401) {
+            detail = `${error.message}\n\n代理伺服器要求存取金鑰，請至設定頁填入正確的「代理金鑰」。`;
+        } else if (String(error.message).startsWith("代理錯誤")) {
+            detail = `${error.message}\n\n可改用「直接開啟原網址」，或至設定頁更換代理伺服器。`;
+        } else {
+            detail = `${error.message}\n\n可能原因：\n• 代理的 ALLOWED_ORIGINS 未包含目前網站來源（${location.origin}）\n• 代理尚未更新為最新版本\n• 網路連線異常`;
+        }
+
+        RenderErrorPage(tab, "無法載入此網頁", `${url}\n\n${detail}`, url);
+    } finally {
+        clearTimeout(timer);
+        if (tab.Abort === controller) tab.Abort = null;
         SetLoading(tab, false);
-        RenderErrorPage(tab, "無法載入此網頁", `${url}\n\n${error.message}`, url);
+        if (tab.Id === State.ActiveId) RefreshToolbar();
+        SaveOpenTabs();
     }
 }
 
@@ -2639,11 +2666,10 @@ function RenderRawInFrame(tab, url) {
 /** 建立沙箱 iframe，並套用分頁縮放 */
 function CreateFrame(tab) {
     const frame = document.createElement("iframe");
-    // 內容頁位於獨立 Cloudflare Worker origin，可安全提供正常 Cookie / Storage origin。
-    // 不授予 allow-popups：新視窗一律交回 OwO 內部分頁處理。
-    frame.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms allow-modals allow-downloads");
-    frame.setAttribute("referrerpolicy", "unsafe-url");
-    frame.dataset.tabId = String(tab.Id);
+    // 不授予 allow-popups：所有新視窗行為都由 iframe 代理程式攔截，
+    // 再交回 OwO Simple Browser 內部建立分頁。
+    frame.setAttribute("sandbox", "allow-scripts allow-forms allow-modals allow-downloads");
+    frame.setAttribute("referrerpolicy", "no-referrer");
     ApplyFrameZoom(frame, tab.Zoom);
     return frame;
 }
@@ -3032,12 +3058,9 @@ function OwObFrameAgent(Options) {
 
 window.addEventListener("message", event => {
     const data = event.data;
-    if (!data || (data.OwOb !== true && data.OwOContent !== true)) return;
+    if (!data || data.OwOb !== true) return;
 
-    const tab = GetTabById(data.TabId) || State.Tabs.find(item => {
-        const candidate = item.ViewEl.querySelector("iframe");
-        return candidate && event.source === candidate.contentWindow;
-    });
+    const tab = GetTabById(data.TabId);
     if (!tab) return;
 
     // 確認訊息確實來自該分頁的 iframe
@@ -3045,24 +3068,12 @@ window.addEventListener("message", event => {
     if (!frame || event.source !== frame.contentWindow) return;
 
     switch (data.Type) {
-        case "Title":
-            if (typeof data.Title === "string" && data.Title.trim()) {
-                tab.Title = data.Title.trim();
-                UpdateTabHeader(tab);
-                UpdateHistoryTitle(GetTabUrl(tab), tab.Title);
-            }
-            break;
-
-        case "Loaded":
-            SetLoading(tab, false);
-            break;
-
         case "Navigate":
-            if (IsWebUrl(data.Url)) Navigate(tab, NormalizeNavigatedUrl(data.Url));
+            if (IsWebUrl(data.Url)) Navigate(tab, data.Url);
             break;
 
         case "OpenTab":
-            if (IsWebUrl(data.Url)) CreateTab(NormalizeNavigatedUrl(data.Url), true, { AfterId: tab.Id });
+            if (IsWebUrl(data.Url)) CreateTab(data.Url, true, { AfterId: tab.Id });
             break;
 
         case "Post":
@@ -3136,7 +3147,7 @@ function PostToFrame(tab, message) {
     const frame = tab.ViewEl.querySelector("iframe");
     if (!frame || !frame.contentWindow) return false;
 
-    frame.contentWindow.postMessage({ OwObCommand: true, OwOContent: true, ...message }, "*");
+    frame.contentWindow.postMessage({ OwObCommand: true, ...message }, "*");
     return true;
 }
 
@@ -3546,7 +3557,7 @@ function BindEvents() {
         }
 
         const handled = HandleShortcut({
-            Key:   String(event.key || "").toLowerCase(),
+            Key:   event.key.toLowerCase(),
             Ctrl:  event.ctrlKey || event.metaKey,
             Alt:   event.altKey,
             Shift: event.shiftKey
