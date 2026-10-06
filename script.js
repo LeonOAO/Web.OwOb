@@ -2607,6 +2607,7 @@ function RenderHtmlInFrame(tab, html, baseUrl) {
 
     const agentOptions = {
         TabId:          tab.Id,
+        PageUrl:        baseUrl,
         ProxyBase:      GetProxyBase(),
         ProxyKey:       GetProxyKey(),
         ProxyResources: GetFlag("ProxyResources"),
@@ -2721,6 +2722,93 @@ function CreateFrame(tab) {
 
 function OwObFrameAgent(Options) {
     "use strict";
+
+    /* ---------- 0. 沙箱相容層 ---------- */
+
+    /** 建立符合 Storage 介面的記憶體儲存區。 */
+    function CreateMemoryStorage() {
+        var values = Object.create(null);
+        return {
+            get length() { return Object.keys(values).length; },
+            key: function (index) {
+                var keys = Object.keys(values);
+                return index >= 0 && index < keys.length ? keys[index] : null;
+            },
+            getItem: function (key) {
+                key = String(key);
+                return Object.prototype.hasOwnProperty.call(values, key) ? values[key] : null;
+            },
+            setItem: function (key, value) { values[String(key)] = String(value); },
+            removeItem: function (key) { delete values[String(key)]; },
+            clear: function () { values = Object.create(null); }
+        };
+    }
+
+    /**
+     * about:srcdoc 沒有 same-origin 權限時，原生 cookie / Storage getter 會丟出
+     * SecurityError。以頁面內記憶體實作提供相容介面，讓 CSRF、延遲載入與狀態機
+     * 可以繼續執行，同時不把外部頁面提升為 OwOb 主頁面的同源內容。
+     */
+    var OwObSessionStorage = CreateMemoryStorage();
+    var OwObLocalStorage   = CreateMemoryStorage();
+    var OwObCookies        = Object.create(null);
+
+    function InstallWindowValue(name, value) {
+        try {
+            Object.defineProperty(window, name, {
+                configurable: true,
+                enumerable:   true,
+                get: function () { return value; }
+            });
+        } catch (error) {
+            try { window[name] = value; } catch (ignored) { /* 保持沙箱隔離 */ }
+        }
+    }
+
+    InstallWindowValue("sessionStorage", OwObSessionStorage);
+    InstallWindowValue("localStorage", OwObLocalStorage);
+
+    try {
+        Object.defineProperty(document, "cookie", {
+            configurable: true,
+            enumerable:   true,
+            get: function () {
+                return Object.keys(OwObCookies).map(function (name) {
+                    return name + "=" + OwObCookies[name];
+                }).join("; ");
+            },
+            set: function (value) {
+                var pair = String(value || "").split(";", 1)[0];
+                var equal = pair.indexOf("=");
+                if (equal <= 0) return;
+                var name = pair.slice(0, equal).trim();
+                var data = pair.slice(equal + 1).trim();
+                if (name) OwObCookies[name] = data;
+            }
+        });
+    } catch (error) {
+        /* 個別引擎不允許覆寫時，後續請求仍由 OwOb Cookie 罐處理。 */
+    }
+
+    /** location.origin 在 srcdoc 為 "null"，替 URL(base) 補回實際頁面網址。 */
+    var NativeURL = window.URL;
+    if (typeof NativeURL === "function") {
+        function CompatibleURL(value, base) {
+            if (!(this instanceof CompatibleURL)) return NativeURL(value, base);
+            var actualBase = base;
+            if (actualBase == null || actualBase === "null" || actualBase === "about:srcdoc") {
+                actualBase = Options.PageUrl;
+            }
+            return new NativeURL(value, actualBase);
+        }
+        CompatibleURL.prototype = NativeURL.prototype;
+        Object.getOwnPropertyNames(NativeURL).forEach(function (name) {
+            if (name === "prototype" || name === "length" || name === "name") return;
+            try { Object.defineProperty(CompatibleURL, name, Object.getOwnPropertyDescriptor(NativeURL, name)); }
+            catch (error) { /* 忽略唯讀靜態欄位 */ }
+        });
+        try { window.URL = CompatibleURL; } catch (error) { /* 原生 URL 保持可用 */ }
+    }
 
     /* ---------- 共用 ---------- */
 
