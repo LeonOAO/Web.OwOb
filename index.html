@@ -7,18 +7,35 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ctext y=%2752%27 font-size=%2752%27%3E%F0%9F%A6%89%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-  <div class="app">
-    <header class="tabs"><div id="tabs" class="tab-list"></div><button id="newTab" class="icon" title="新增分頁">＋</button></header>
-    <nav class="toolbar">
-      <button id="back" class="icon">←</button><button id="forward" class="icon">→</button><button id="reload" class="icon">↻</button><button id="home" class="icon">⌂</button>
-      <form id="addressForm" class="address"><span>🔒</span><input id="address" autocomplete="off" spellcheck="false" placeholder="輸入網址或搜尋內容"><button>前往</button></form>
-      <button id="settings" class="icon">⚙</button>
-    </nav>
-    <div id="progress" class="progress"></div>
-    <main id="views" class="views"></main>
+<body class="theme-light">
+  <header class="TabBar">
+    <div id="TabList" class="TabList"></div>
+    <button id="AddTabButton" class="AddTabButton" title="新增分頁">＋</button>
+  </header>
+  <nav class="ToolBar">
+    <button id="BackButton" class="ToolButton" title="上一頁">←</button>
+    <button id="ForwardButton" class="ToolButton" title="下一頁">→</button>
+    <button id="ReloadButton" class="ToolButton" title="重新整理">↻</button>
+    <button id="HomeButton" class="ToolButton" title="首頁">⌂</button>
+    <form id="AddressForm" class="AddressBar">
+      <span id="AddressIcon" class="AddressIcon">🔒</span>
+      <input id="AddressInput" autocomplete="off" spellcheck="false" placeholder="搜尋或輸入網址">
+      <button id="ZoomButton" type="button" class="AddressAction ZoomBadge" title="重設縮放">100%</button>
+      <button id="BookmarkButton" type="button" class="AddressAction" title="加入書籤">☆</button>
+    </form>
+    <button id="ThemeButton" class="ToolButton" title="切換深色模式">◐</button>
+    <button id="SettingsButton" class="ToolButton" title="設定">⚙</button>
+  </nav>
+  <div id="LoadingBar" class="LoadingBar"></div>
+  <main id="ViewArea" class="ViewArea"></main>
+  <div id="FindBar" class="FindBar" hidden>
+    <input id="FindInput" placeholder="在頁面中尋找">
+    <span id="FindStatus" class="FindStatus"></span>
+    <button id="FindPrevButton" class="ToolButton Small">↑</button>
+    <button id="FindNextButton" class="ToolButton Small">↓</button>
+    <button id="FindCloseButton" class="ToolButton Small">×</button>
   </div>
-  <div id="toast" class="toast"></div>
+  <div id="Toast" class="Toast"></div>
   <script src="script.js"></script>
 </body>
 </html>
