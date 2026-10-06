@@ -1,5 +1,5 @@
 ﻿/* ============================================================
- *  OwO Simple Browser - 主程式 v5
+ *  OwO Simple Browser - 主程式 v6
  *
  *  架構：
  *     1. 設定與狀態
@@ -3023,12 +3023,40 @@ function OwObFrameAgent(Options) {
     }
 
     /** 將網址轉為代理網址；不需轉換時回傳原值 */
+    /** 已包裝的代理網址也要修正其 url 參數，避免錯誤目標被 ShouldProxy 略過。 */
+    function RepairExistingProxyUrl(url) {
+        var text = String(url == null ? "" : url).trim();
+        if (!text || !ProxyOrigin || text.indexOf(ProxyOrigin + "/") !== 0) return text;
+
+        try {
+            var proxyUrl = new NativeURL(text);
+            var target = proxyUrl.searchParams.get("url");
+            if (!target) return text;
+
+            var correctedTarget = ToAbsolute(target);
+            if (correctedTarget && correctedTarget !== target) {
+                proxyUrl.searchParams.set("url", correctedTarget);
+                return proxyUrl.href;
+            }
+        } catch (error) {
+            /* 保留原代理網址。 */
+        }
+
+        return text;
+    }
+
     function ToProxy(url) {
         var text = String(url == null ? "" : url).trim();
         if (/^data:(?:text|application)\/(?:javascript|ecmascript)/i.test(text)) {
             return RewriteDataJavaScriptUrl(text);
         }
         if (!text || /^(data:|blob:|about:|javascript:|#)/i.test(text)) return url;
+
+        var repairedProxy = RepairExistingProxyUrl(text);
+        if (repairedProxy !== text || (ProxyOrigin && repairedProxy.indexOf(ProxyOrigin + "/") === 0)) {
+            return repairedProxy;
+        }
+
         var absolute = ToAbsolute(text);
         return ShouldProxy(absolute) ? MakeProxyUrl(Options.ProxyBase, Options.ProxyKey, absolute) : url;
     }
@@ -3048,6 +3076,25 @@ function OwObFrameAgent(Options) {
             detail.resource = corrected;
         }
     }, true);
+
+
+    /**
+     * 在事件進入捕捉／冒泡流程前先修正 detail.resource。
+     * 這可涵蓋比 document 監聽器更早註冊的站內處理器，也避免監聽順序差異。
+     */
+    var NativeDispatchEvent = EventTarget.prototype.dispatchEvent;
+    EventTarget.prototype.dispatchEvent = function (event) {
+        try {
+            if (event && event.type === "faceplate-request" &&
+                event.detail && typeof event.detail.resource === "string") {
+                var correctedResource = ToAbsolute(event.detail.resource);
+                if (correctedResource) event.detail.resource = correctedResource;
+            }
+        } catch (error) {
+            /* 保持原事件派送。 */
+        }
+        return NativeDispatchEvent.call(this, event);
+    };
 
     /* ---------- 1. 新視窗攔截 ---------- */
 
