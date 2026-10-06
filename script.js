@@ -1,5 +1,5 @@
 ﻿/* ============================================================
- *  OwO Simple Browser - 主程式 v6
+ *  OwO Simple Browser - 主程式 v7
  *
  *  架構：
  *     1. 設定與狀態
@@ -3067,13 +3067,91 @@ function OwObFrameAgent(Options) {
      * srcdoc 的原生 origin 為 "null"，部分元件會把 resource 組成 null/svc/...；
      * 在捕捉階段先改回原網站的絕對網址，避免代理最終請求 /r/.../null/svc/...。
      */
+    /**
+     * Reddit 社群動態載入的穩定相容層。
+     * about:srcdoc 會讓站內元件以 location.origin 組出 null/svc/...，而且部分版本
+     * 在事件處理器內已先建立錯誤 Request。此處直接接管 community-more-posts：
+     * 1. 阻止原本錯誤請求。
+     * 2. 以原始頁面 Origin 建立正確網址。
+     * 3. 沿用 OwO Fetch 代理與 Cookie 罐取得 Partial HTML。
+     * 4. 將回應內容替換到目前 faceplate-partial，讓下一個載入元件繼續運作。
+     */
+    var OwObPartialRequests = new WeakMap();
+
+    function ExecuteCommunityPartialRequest(event, element, detail, corrected) {
+        if (OwObPartialRequests.has(element)) return;
+
+        var requestInfo = detail.request || {};
+        var method = String(requestInfo.method || element.getAttribute("method") || "GET").toUpperCase();
+        var headers = new Headers(requestInfo.headers || {});
+        var init = {
+            method: method,
+            headers: headers,
+            credentials: "include"
+        };
+
+        if (method !== "GET" && method !== "HEAD" && requestInfo.body != null) {
+            if (typeof requestInfo.body === "string" || requestInfo.body instanceof FormData ||
+                requestInfo.body instanceof URLSearchParams || requestInfo.body instanceof Blob) {
+                init.body = requestInfo.body;
+            } else {
+                init.body = JSON.stringify(requestInfo.body);
+                if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+            }
+        }
+
+        element.setAttribute("data-owob-partial-loading", "true");
+
+        var task = window.fetch(corrected, init)
+            .then(function (response) {
+                if (!response.ok) {
+                    return response.text().then(function (body) {
+                        throw new Error("Partial request failed: " + response.status + " " + body.slice(0, 300));
+                    });
+                }
+                return response.text();
+            })
+            .then(function (html) {
+                var range = document.createRange();
+                range.selectNode(element);
+                var fragment = range.createContextualFragment(html);
+
+                if (!fragment || !fragment.childNodes.length) {
+                    throw new Error("Partial response did not contain replaceable HTML.");
+                }
+
+                element.replaceWith(fragment);
+                Send({ Type: "Toast", Message: "已載入更多內容" });
+            })
+            .catch(function (error) {
+                element.removeAttribute("hasbeenloaded");
+                element.removeAttribute("data-owob-partial-loading");
+                element.setAttribute("data-owob-partial-error", String(error && error.message || error));
+                try { element._isLoading = false; } catch (ignored) {}
+                console.error("[OwO Partial] 動態內容載入失敗", error, corrected);
+            })
+            .finally(function () {
+                OwObPartialRequests.delete(element);
+            });
+
+        OwObPartialRequests.set(element, task);
+    }
+
     document.addEventListener("faceplate-request", function (event) {
         var detail = event && event.detail;
         if (!detail || typeof detail.resource !== "string") return;
 
         var corrected = ToAbsolute(detail.resource);
-        if (corrected && corrected !== detail.resource) {
-            detail.resource = corrected;
+        if (!corrected) return;
+        detail.resource = corrected;
+
+        var element = event.target;
+        var isCommunityMorePosts = /\/svc\/shreddit\/community-more-posts\//i.test(corrected);
+
+        if (isCommunityMorePosts && element && element.tagName === "FACEPLATE-PARTIAL") {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            ExecuteCommunityPartialRequest(event, element, detail, corrected);
         }
     }, true);
 
