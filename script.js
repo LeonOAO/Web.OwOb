@@ -1,5 +1,5 @@
 ﻿/* ============================================================
- *  OwO Simple Browser - 主程式 v12
+ *  OwO Simple Browser - 主程式 v13
  *
  *  架構：
  *     1. 設定與狀態
@@ -3085,7 +3085,14 @@ function OwObFrameAgent(Options) {
         'faceplate-partial[data-owob-partial-loading="true"] shreddit-feed-page-error,' +
         'faceplate-partial[data-owob-partial-loading="true"] [data-testid*="error"],' +
         'faceplate-partial[data-owob-partial-loading="true"] [class*="feed-page-error"],' +
-        'faceplate-partial[data-owob-partial-loading="true"] [class*="partial-error"]{display:none!important}';
+        'faceplate-partial[data-owob-partial-loading="true"] [class*="partial-error"]{display:none!important}' +
+        '.owob-partial-placeholder{min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#576273;font:500 14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}' +
+        '.owob-partial-spinner{width:42px;height:42px;border:4px solid #ffd8ca;border-top-color:#ff4500;border-radius:50%;animation:owob-partial-spin .8s linear infinite}' +
+        '.owob-partial-loading-text{letter-spacing:.02em}' +
+        '.owob-partial-final-error{color:#202832}' +
+        '.owob-partial-error-title{font-weight:600}' +
+        '.owob-partial-retry{padding:11px 22px;border:0;border-radius:999px;background:#111;color:#fff;font:700 14px/1 system-ui;cursor:pointer}' +
+        '@keyframes owob-partial-spin{to{transform:rotate(360deg)}}';
     (document.head || document.documentElement).appendChild(OwObPartialStyle);
 
     function ExecuteCommunityPartialRequest(event, element, detail, corrected) {
@@ -3096,7 +3103,6 @@ function OwObFrameAgent(Options) {
         var headers = new Headers(requestInfo.headers || {});
         var maxAttempts = 3;
         var retryDelays = [0, 450, 900];
-        var originalHtml = element.innerHTML;
 
         function BuildRequestInit(attempt) {
             var attemptHeaders = new Headers(headers);
@@ -3159,63 +3165,80 @@ function OwObFrameAgent(Options) {
                 });
         }
 
+        /*
+         * Reddit 可能直接替換整個 faceplate-partial，因此只監看其子節點仍會閃出錯誤頁。
+         * v17 改用獨立 OwO 預留區：先隱藏原元件，再以預留區承接載入、成功內容及最終錯誤。
+         */
+        var placeholder = document.createElement("div");
+        placeholder.className = "owob-partial-placeholder";
+        placeholder.setAttribute("role", "status");
+        placeholder.setAttribute("aria-live", "polite");
+        placeholder.innerHTML =
+            '<div class="owob-partial-spinner" aria-hidden="true"></div>' +
+            '<div class="owob-partial-loading-text">正在載入更多內容…</div>';
+
         element.setAttribute("data-owob-partial-loading", "true");
-        element.removeAttribute("data-owob-partial-error");
+        element.style.setProperty("display", "none", "important");
+        element.insertAdjacentElement("beforebegin", placeholder);
 
-        // 重試期間維持原本的 Reddit 載入動畫，不插入上游暫時性錯誤頁。
-        var loadingMarkup = originalHtml || '<shreddit-feed-page-loading page-type="community"></shreddit-feed-page-loading>';
+        function RemoveRedditTemporaryErrorNodes() {
+            var parent = placeholder.parentElement;
+            if (!parent) return;
 
-        function HasTemporaryErrorUi(root) {
-            if (!root) return false;
-            var visibleText = String(root.innerText || root.textContent || "");
-            return Boolean(root.querySelector && root.querySelector(
-                'shreddit-feed-page-error, [data-testid*="error"], [class*="feed-page-error"], [class*="partial-error"]'
-            )) || /載入下一頁時發生錯誤|請再試一次/i.test(visibleText);
+            Array.prototype.slice.call(parent.children).forEach(function (child) {
+                if (child === placeholder || child === element) return;
+                var text = String(child.innerText || child.textContent || "");
+                var isError = /載入下一頁時發生錯誤|請再試一次/i.test(text) ||
+                    (child.matches && child.matches(
+                        'shreddit-feed-page-error, [data-testid*="error"], [class*="feed-page-error"], [class*="partial-error"]'
+                    ));
+                if (isError) child.remove();
+            });
         }
 
-        function RestoreLoadingUi() {
-            if (!element.isConnected || !element.hasAttribute("data-owob-partial-loading")) return;
-            if (HasTemporaryErrorUi(element) || !element.querySelector("shreddit-feed-page-loading")) {
-                element.innerHTML = loadingMarkup;
-            }
+        var parentObserver = new MutationObserver(RemoveRedditTemporaryErrorNodes);
+        if (placeholder.parentElement) {
+            parentObserver.observe(placeholder.parentElement, {
+                childList: true,
+                subtree: false
+            });
         }
 
-        if (!element.querySelector("shreddit-feed-page-loading")) {
-            element.innerHTML = loadingMarkup;
-        }
-
-        // Reddit 元件會在自訂 OwO 請求仍進行時先渲染內建錯誤頁。
-        // 監看目前 Partial，錯誤介面一出現就於下一個畫面更新前恢復載入動畫。
-        var partialUiObserver = new MutationObserver(function () {
-            RestoreLoadingUi();
-        });
-        partialUiObserver.observe(element, {
-            childList: true,
-            subtree: true,
-            characterData: true
-        });
+        RemoveRedditTemporaryErrorNodes();
 
         var task = RequestAttempt(0)
             .then(function (html) {
                 var range = document.createRange();
-                range.selectNode(element);
+                range.selectNode(placeholder);
                 var fragment = range.createContextualFragment(html);
 
                 if (!fragment || !fragment.childNodes.length) {
                     throw new Error("Partial response did not contain replaceable HTML.");
                 }
 
-                element.replaceWith(fragment);
+                parentObserver.disconnect();
+                placeholder.replaceWith(fragment);
+                if (element.isConnected) element.remove();
             })
             .catch(function (error) {
-                element.removeAttribute("hasbeenloaded");
-                element.removeAttribute("data-owob-partial-loading");
-                element.setAttribute("data-owob-partial-error", String(error && error.message || error));
-                try { element._isLoading = false; } catch (ignored) {}
+                parentObserver.disconnect();
+                if (element.isConnected) element.remove();
+
+                placeholder.classList.add("owob-partial-final-error");
+                placeholder.removeAttribute("role");
+                placeholder.innerHTML =
+                    '<div class="owob-partial-error-title">載入下一頁時發生錯誤</div>' +
+                    '<button type="button" class="owob-partial-retry">重試</button>';
+
+                var retryButton = placeholder.querySelector(".owob-partial-retry");
+                retryButton.addEventListener("click", function () {
+                    placeholder.remove();
+                    location.reload();
+                }, { once: true });
+
                 console.error("[OwO Partial] 三次動態內容載入均失敗", error, corrected);
             })
             .finally(function () {
-                partialUiObserver.disconnect();
                 OwObPartialRequests.delete(element);
             });
 
