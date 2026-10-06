@@ -2533,26 +2533,27 @@ function RewriteTagAttributes(tagText, baseUrl) {
  *   - <script src>：依「外部腳本經代理」設定（type="module" 一律不改，避免相對 import 失效）
  *   - 註解、<textarea>、<noscript> 內容與內嵌腳本內容不改，避免破壞字串
  */
-/** 將 JavaScript 的靜態 / 動態模組來源與絕對資源網址改經代理。 */
+/** 將 JavaScript 中可安全辨識的模組與資源字面值改經代理。 */
 function RewriteJavaScriptUrls(code, baseUrl) {
     const map = value => MapResourceUrl(value, baseUrl);
     let output = String(code);
 
-    // import "x"、import ... from "x"、export ... from "x"、import("x")。
+    // 僅處理語法位置明確的 import/export，支援單引號、雙引號及無插值反引號。
+    // 不再全域替換所有 http 字串，避免破壞壓縮腳本中的字串邊界。
     output = output.replace(
-        /(\b(?:import|export)\s+(?:(?:[^;"']*?\sfrom\s*)|\(\s*)?)(["'])([^"']+)\2/g,
+        /(\b(?:import\s*\(\s*|import\s+|(?:import|export)\b[^;]*?\bfrom\s*))(["'`])([^"'`$]+)\2/g,
         (match, prefix, quote, value) => {
             const next = map(value);
             return next === value ? match : `${prefix}${quote}${next}${quote}`;
         }
     );
 
-    // Worker、SharedWorker、importScripts 與其他以完整網址表示的腳本資源。
+    // 常見動態載入器會以字面值設定 script.src，例如 e(`https://...`)。
     output = output.replace(
-        /(["'])(https?:\/\/[^"'\s]+)\1/g,
-        (match, quote, value) => {
+        /(\b(?:src\s*=|setAttribute\(\s*["']src["']\s*,)\s*)(["'`])([^"'`$]+)\2/g,
+        (match, prefix, quote, value) => {
             const next = map(value);
-            return next === value ? match : `${quote}${next}${quote}`;
+            return next === value ? match : `${prefix}${quote}${next}${quote}`;
         }
     );
 
@@ -2857,7 +2858,8 @@ function OwObFrameAgent(Options) {
         TRACK:  ["src"],
         EMBED:  ["src"],
         INPUT:  ["src"],
-        SCRIPT: ["src"]
+        SCRIPT: ["src"],
+        LINK:   ["href"]
     };
 
     var NativeSetAttribute = Element.prototype.setAttribute;
@@ -2865,8 +2867,10 @@ function OwObFrameAgent(Options) {
     /** 此元素是否需要改寫 */
     function IsRewritable(element) {
         if (!element || !ResourceRules[element.tagName]) return false;
-        if (element.tagName === "SCRIPT") {
-            return Options.ProxyScripts;
+        if (element.tagName === "SCRIPT") return Options.ProxyScripts;
+        if (element.tagName === "LINK") {
+            var rel = String(element.getAttribute("rel") || "").toLowerCase();
+            return Options.ProxyScripts && /(?:modulepreload|preload|prefetch)/.test(rel);
         }
         return Options.ProxyResources;
     }
@@ -2927,6 +2931,7 @@ function OwObFrameAgent(Options) {
         HookProperty(window.HTMLEmbedElement,  "src");
         HookProperty(window.HTMLInputElement,  "src");
         HookProperty(window.HTMLScriptElement, "src");
+        HookProperty(window.HTMLLinkElement,   "href");
 
         // 攔截 setAttribute("src", ...)
         Element.prototype.setAttribute = function (name, value) {
@@ -2950,7 +2955,7 @@ function OwObFrameAgent(Options) {
             childList:       true,
             subtree:         true,
             attributes:      true,
-            attributeFilter: ["src", "srcset", "poster"]
+            attributeFilter: ["src", "srcset", "poster", "href", "rel"]
         });
     }
 

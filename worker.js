@@ -512,12 +512,12 @@ function RewriteJavaScriptResponse(code, sourceUrl, requestUrl) {
             return value;
         }
     };
-    let output = String(code);
-    output = output.replace(/(\b(?:import|export)\s+(?:(?:[^;"']*?\sfrom\s*)|\(\s*)?)(["'])([^"']+)\2/g,
-        (match, prefix, quote, value) => `${prefix}${quote}${map(value)}${quote}`);
-    output = output.replace(/(["'])(https?:\/\/[^"'\s]+)\1/g,
-        (match, quote, value) => `${quote}${map(value)}${quote}`);
-    return output;
+
+    // 僅改寫 import/export 的模組指定符。全域 URL 字串替換會破壞大型壓縮腳本。
+    return String(code).replace(
+        /(\b(?:import\s*\(\s*|import\s+|(?:import|export)\b[^;]*?\bfrom\s*))(["'`])([^"'`$]+)\2/g,
+        (match, prefix, quote, value) => `${prefix}${quote}${map(value)}${quote}`
+    );
 }
 
 /* ============================================================
