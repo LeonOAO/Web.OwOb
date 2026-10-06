@@ -485,7 +485,43 @@ async function FetchWithRedirects(startUrl, options) {
 
 
 /* ============================================================
- *  6. 主要處理流程
+ *  6. JavaScript 模組網址改寫
+ * ============================================================ */
+function IsJavaScriptResponse(headers, url) {
+    const type = String(headers.get("Content-Type") || "").toLowerCase();
+    return type.includes("javascript") || type.includes("ecmascript") || /\.(?:m?js)(?:$|[?#])/i.test(String(url));
+}
+function BuildNestedProxyUrl(requestUrl, targetUrl) {
+    const nested = new URL(requestUrl.origin + requestUrl.pathname);
+    nested.searchParams.set("url", targetUrl);
+    const key = requestUrl.searchParams.get("key");
+    if (key) nested.searchParams.set("key", key);
+    return nested.toString();
+}
+function RewriteJavaScriptResponse(code, sourceUrl, requestUrl) {
+    const map = value => {
+        if (!value || /^(?:data:|blob:|javascript:|#)/i.test(value)) return value;
+        try {
+            const absoluteUrl = new URL(value, sourceUrl);
+            const proxyPath   = requestUrl.origin + requestUrl.pathname;
+            if (absoluteUrl.toString().startsWith(proxyPath + "?")) return value;
+            return /^https?:\/\//i.test(absoluteUrl.toString())
+                ? BuildNestedProxyUrl(requestUrl, absoluteUrl.toString())
+                : value;
+        } catch {
+            return value;
+        }
+    };
+    let output = String(code);
+    output = output.replace(/(\b(?:import|export)\s+(?:(?:[^;"']*?\sfrom\s*)|\(\s*)?)(["'])([^"']+)\2/g,
+        (match, prefix, quote, value) => `${prefix}${quote}${map(value)}${quote}`);
+    output = output.replace(/(["'])(https?:\/\/[^"'\s]+)\1/g,
+        (match, quote, value) => `${quote}${map(value)}${quote}`);
+    return output;
+}
+
+/* ============================================================
+ *  7. 主要處理流程
  * ============================================================ */
 
 /** 由前端請求標頭建立 Cookie 罐 */
@@ -592,7 +628,16 @@ export default {
                 headers.set("X-Proxy-Set-Cookie", encodeURIComponent(JSON.stringify(result.SetCookies)));
             }
 
-            return new Response(request.method === "HEAD" ? null : upstream.body, {
+            let responseBody = request.method === "HEAD" ? null : upstream.body;
+            if (request.method !== "HEAD" && IsJavaScriptResponse(headers, result.FinalUrl)) {
+                const source = await upstream.text();
+                responseBody = RewriteJavaScriptResponse(source, result.FinalUrl, requestUrl);
+                headers.delete("Content-Encoding");
+                headers.set("Content-Type", "application/javascript; charset=utf-8");
+                headers.set("Cache-Control", "no-store");
+            }
+
+            return new Response(responseBody, {
                 status:     upstream.status,
                 statusText: upstream.statusText,
                 headers

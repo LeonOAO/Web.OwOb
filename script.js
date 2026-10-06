@@ -74,7 +74,7 @@ const Config = {
     // 載入選項（開關）預設值
     DefaultFlags: {
         ProxyResources: true,    // 圖片、影音、字型經代理載入
-        ProxyScripts:   false,   // 外部腳本經代理載入（可能使部分網站失效）
+        ProxyScripts:   true,    // 外部與模組腳本經代理載入，避免用戶端網路攔截
         ProxyRequests:  true     // 網頁內 fetch / XHR 經代理送出
     },
 
@@ -2533,6 +2533,32 @@ function RewriteTagAttributes(tagText, baseUrl) {
  *   - <script src>：依「外部腳本經代理」設定（type="module" 一律不改，避免相對 import 失效）
  *   - 註解、<textarea>、<noscript> 內容與內嵌腳本內容不改，避免破壞字串
  */
+/** 將 JavaScript 的靜態 / 動態模組來源與絕對資源網址改經代理。 */
+function RewriteJavaScriptUrls(code, baseUrl) {
+    const map = value => MapResourceUrl(value, baseUrl);
+    let output = String(code);
+
+    // import "x"、import ... from "x"、export ... from "x"、import("x")。
+    output = output.replace(
+        /(\b(?:import|export)\s+(?:(?:[^;"']*?\sfrom\s*)|\(\s*)?)(["'])([^"']+)\2/g,
+        (match, prefix, quote, value) => {
+            const next = map(value);
+            return next === value ? match : `${prefix}${quote}${next}${quote}`;
+        }
+    );
+
+    // Worker、SharedWorker、importScripts 與其他以完整網址表示的腳本資源。
+    output = output.replace(
+        /(["'])(https?:\/\/[^"'\s]+)\1/g,
+        (match, quote, value) => {
+            const next = map(value);
+            return next === value ? match : `${quote}${next}${quote}`;
+        }
+    );
+
+    return output;
+}
+
 function RewriteHtmlResources(html, baseUrl) {
     const proxyMedia   = GetFlag("ProxyResources");
     const proxyScripts = GetFlag("ProxyScripts");
@@ -2548,8 +2574,10 @@ function RewriteHtmlResources(html, baseUrl) {
 
         // <script>：只改開始標籤的 src
         if (scriptAttrs !== undefined) {
-            if (!proxyScripts || /\btype\s*=\s*["']?module/i.test(scriptAttrs)) return match;
-            return `<script${RewriteTagAttributes(scriptAttrs, baseUrl)}>${scriptBody}</script>`;
+            if (!proxyScripts) return match;
+            const nextAttrs = RewriteTagAttributes(scriptAttrs, baseUrl);
+            const nextBody  = RewriteJavaScriptUrls(scriptBody, baseUrl);
+            return `<script${nextAttrs}>${nextBody}</script>`;
         }
 
         // 註解、<textarea>、<noscript>：原樣保留
@@ -2838,8 +2866,7 @@ function OwObFrameAgent(Options) {
     function IsRewritable(element) {
         if (!element || !ResourceRules[element.tagName]) return false;
         if (element.tagName === "SCRIPT") {
-            var type = String(element.getAttribute("type") || "").toLowerCase();
-            return Options.ProxyScripts && type !== "module";
+            return Options.ProxyScripts;
         }
         return Options.ProxyResources;
     }
