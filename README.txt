@@ -1,4 +1,4 @@
-OwO Simple Browser v8.4 - 經典介面與 Origin Mode 整合版
+OwO Simple Browser v8.5 - 經典介面與 Origin Mode 整合版
 
 本版保留 Web.OwO_20261006 的玻璃霧化視覺方向與主要使用方式，並套用 v8.3 的 GitHub Pages + Cloudflare Worker 獨立內容來源架構。
 
@@ -15,3 +15,13 @@ OwO Simple Browser v8.4 - 經典介面與 Origin Mode 整合版
 2. Cloudflare Worker 以 worker.js 完整取代現有程式並部署。
 3. OwO 設定頁填入 Worker 根網址，不加入 ?url=。
 4. 若 Worker 有 PROXY_KEY，前端需填入相同金鑰。
+
+
+v8.5 修正：
+- Worker 端遞迴解除巢狀代理網址，最多 8 層。
+- 即使前端或目標網站再次把 /browse 包進 url 參數，也會還原成真正目標網址。
+- Referer 還原與最終轉址同樣套用解除巢狀處理。
+- 移除上游 Location 標頭，避免瀏覽器直接離開 Worker 內容來源。
+- Worker 版本標頭更新為 origin-mode-v8.5。
+
+重要：Cloudflare Worker 必須完整重新部署本壓縮檔內的 worker.js。若回應標頭不是 origin-mode-v8.5，代表仍在執行舊 Worker。
