@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwOb Proxy - Cloudflare Worker（CORS 代理）v4
+ *  OwOb Proxy - Cloudflare Worker（CORS 代理）v7
  *
  *  用法：
  *      GET  https://owob-proxy.kkwan812.workers.dev/?url=<已編碼的目標網址>
@@ -123,7 +123,35 @@ function IsOriginAllowed(origin, allowedOrigins) {
 }
 
 // 預設允許的請求標頭
-const DefaultAllowHeaders = "Content-Type, Accept, Accept-Language, Range, X-Proxy-Cookie, X-Proxy-Cookie-Jar, X-Proxy-Referer, X-Proxy-Key";
+const DefaultAllowHeaders = "Content-Type, Accept, Accept-Language, Range, Authorization, X-Requested-With, X-CSRF-Token, X-Reddit-Compression, X-Proxy-Cookie, X-Proxy-Cookie-Jar, X-Proxy-Referer, X-Proxy-Key, X-Proxy-Headers";
+
+const ForwardRequestHeaders = ["Accept-Language", "Authorization", "X-Requested-With", "X-CSRF-Token", "X-Reddit-Compression"];
+const BlockedForwardHeaders = new Set([
+    "host", "cookie", "origin", "referer", "content-length", "connection",
+    "cf-connecting-ip", "cf-ipcountry", "cf-ray", "x-forwarded-for", "x-forwarded-proto"
+]);
+
+function DecodeForwardHeaders(request) {
+    const output = {};
+    const encoded = request.headers.get("X-Proxy-Headers");
+    if (encoded) {
+        try {
+            const parsed = JSON.parse(decodeURIComponent(encoded));
+            Object.entries(parsed).forEach(([name, value]) => {
+                const lower = String(name).toLowerCase();
+                if (!BlockedForwardHeaders.has(lower) && !lower.startsWith("sec-") &&
+                    !lower.startsWith("proxy-") && typeof value === "string") {
+                    output[name] = value;
+                }
+            });
+        } catch (error) { /* 格式錯誤時沿用基本標頭 */ }
+    }
+    ForwardRequestHeaders.forEach(name => {
+        const value = request.headers.get(name);
+        if (value) output[name] = value;
+    });
+    return output;
+}
 
 /**
  * 建立 CORS 標頭
@@ -134,9 +162,9 @@ const DefaultAllowHeaders = "Content-Type, Accept, Accept-Language, Range, X-Pro
 function BuildCorsHeaders(origin, requestedHeaders = null) {
     const headers = {
         "Access-Control-Allow-Origin":   origin || "*",
-        "Access-Control-Allow-Methods":  "GET, HEAD, POST, OPTIONS",
+        "Access-Control-Allow-Methods":  "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS",
         "Access-Control-Allow-Headers":  requestedHeaders || DefaultAllowHeaders,
-        "Access-Control-Expose-Headers": "Content-Type, Content-Range, Accept-Ranges, X-Final-URL, X-Proxy-Status, X-Proxy-Set-Cookie",
+        "Access-Control-Expose-Headers": "Content-Type, Content-Range, Accept-Ranges, X-Final-URL, X-Proxy-Status, X-Proxy-Set-Cookie, X-OwOb-Worker-Version",
         "Access-Control-Max-Age":        "86400",
         "Vary":                          "Origin"
     };
@@ -416,6 +444,12 @@ async function FetchWithRedirects(startUrl, options) {
         /* ---------- 組合請求標頭 ---------- */
         const headers = new Headers(BrowserHeaders);
 
+        if (options.ForwardHeaders) {
+            Object.entries(options.ForwardHeaders).forEach(([name, value]) => {
+                if (value) headers.set(name, value);
+            });
+        }
+
         if (cookieState) {
             headers.set("Cookie", cookieState);
         }
@@ -432,7 +466,7 @@ async function FetchWithRedirects(startUrl, options) {
             headers.set("Range", options.Range);
         }
 
-        if (method === "POST") {
+        if (!["GET", "HEAD"].includes(method)) {
             headers.set("Content-Type", options.ContentType);
             headers.set("Origin", currentUrl.origin);
         }
@@ -441,7 +475,7 @@ async function FetchWithRedirects(startUrl, options) {
         const response = await fetch(currentUrl.toString(), {
             method,
             headers,
-            body:     method === "POST" ? body : undefined,
+            body:     ["GET", "HEAD"].includes(method) ? undefined : body,
             redirect: "manual"
         });
 
@@ -471,7 +505,7 @@ async function FetchWithRedirects(startUrl, options) {
         const nextUrl = new URL(location, currentUrl);
 
         // 301 / 302 / 303 遇到 POST 時改為 GET（與瀏覽器行為一致）
-        if (response.status === 303 || (method === "POST" && (response.status === 301 || response.status === 302))) {
+        if (response.status === 303 || (!["GET", "HEAD"].includes(method) && (response.status === 301 || response.status === 302))) {
             method = "GET";
             body   = null;
         }
@@ -563,7 +597,7 @@ export default {
         }
 
         /* ---------- 只接受 GET / HEAD / POST ---------- */
-        if (!["GET", "HEAD", "POST"].includes(request.method)) {
+        if (!["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"].includes(request.method)) {
             return JsonResponse(405, `不支援的方法：${request.method}`, origin);
         }
 
@@ -580,7 +614,7 @@ export default {
         // 沒帶 url 參數 → 健康檢查
         if (!target) {
             return JsonResponse(200, "OwOb Proxy 運作中", origin, {
-                version:     "4",
+                version:     "7.0.0",
                 usage:       "/?url=<encoded url>[&key=<access key>]",
                 keyRequired: Boolean(GetAccessKey(env)),
                 allowedOrigins,
@@ -597,7 +631,8 @@ export default {
 
         /* ---------- 轉送請求 ---------- */
         try {
-            const isPost = request.method === "POST";
+            const hasBody = !["GET", "HEAD"].includes(request.method);
+            const forwardHeaders = DecodeForwardHeaders(request);
 
             // 前端主頁面 fetch 的 Accept 為預設「*/*」，此時沿用模擬瀏覽器的 HTML Accept；
             // 圖片等資源請求帶有具體 Accept 時則照實轉送
@@ -605,7 +640,8 @@ export default {
 
             const result = await FetchWithRedirects(targetUrl, {
                 Method:      request.method,
-                Body:        isPost ? await request.arrayBuffer() : null,
+                Body:        hasBody ? await request.arrayBuffer() : null,
+                ForwardHeaders: forwardHeaders,
                 ContentType: request.headers.get("Content-Type") || "application/x-www-form-urlencoded",
                 Jar:         BuildRequestJar(request, targetUrl),
                 Referer:     request.headers.get("X-Proxy-Referer") || "",
@@ -623,6 +659,7 @@ export default {
             Object.entries(BuildCorsHeaders(origin)).forEach(([key, value]) => headers.set(key, value));
             headers.set("X-Final-URL",    result.FinalUrl);
             headers.set("X-Proxy-Status", String(upstream.status));
+            headers.set("X-OwOb-Worker-Version", "7.0.0");
 
             if (result.SetCookies.length > 0) {
                 headers.set("X-Proxy-Set-Cookie", encodeURIComponent(JSON.stringify(result.SetCookies)));

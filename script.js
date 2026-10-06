@@ -2839,6 +2839,32 @@ function OwObFrameAgent(Options) {
         try { window.URL = CompatibleURL; } catch (error) { /* 原生 URL 保持可用 */ }
     }
 
+    /** 沙箱中讀取 navigator.serviceWorker 會直接丟出 SecurityError，提供無害相容物件。 */
+    var OwObServiceWorker = {
+        controller: null,
+        ready: Promise.resolve(null),
+        register: function () { return Promise.resolve(null); },
+        getRegistration: function () { return Promise.resolve(undefined); },
+        getRegistrations: function () { return Promise.resolve([]); },
+        addEventListener: function () {},
+        removeEventListener: function () {},
+        startMessages: function () {}
+    };
+    try {
+        Object.defineProperty(navigator, "serviceWorker", {
+            configurable: true,
+            enumerable:   true,
+            get: function () { return OwObServiceWorker; }
+        });
+    } catch (error) {
+        try {
+            Object.defineProperty(Object.getPrototypeOf(navigator), "serviceWorker", {
+                configurable: true,
+                get: function () { return OwObServiceWorker; }
+            });
+        } catch (ignored) { /* 保持其餘頁面功能 */ }
+    }
+
     /** Performance.measure 在代理資源缺少跨來源 timing 欄位時改為無害降級。 */
     if (window.performance && typeof window.performance.measure === "function") {
         var NativePerformanceMeasure = window.performance.measure.bind(window.performance);
@@ -3150,16 +3176,37 @@ function OwObFrameAgent(Options) {
         if (typeof NativeFetch === "function") {
             window.fetch = function (input, init) {
                 try {
-                    if (typeof input === "string" || input instanceof URL) {
-                        input = ToProxy(String(input));
-                    } else if (input && typeof input.url === "string") {
-                        var proxied = ToProxy(input.url);
-                        if (proxied !== input.url) input = new Request(proxied, input);
+                    var originalUrl = typeof input === "string" || input instanceof URL
+                        ? String(input)
+                        : input && typeof input.url === "string" ? input.url : "";
+                    var proxiedUrl = ToProxy(originalUrl);
+                    var nextInit = Object.assign({}, init || {});
+                    var sourceHeaders = new Headers(
+                        nextInit.headers || (input instanceof Request ? input.headers : undefined)
+                    );
+                    var forwarded = {};
+                    sourceHeaders.forEach(function (value, name) {
+                        var lower = name.toLowerCase();
+                        if (!["host", "cookie", "origin", "referer", "content-length"].includes(lower) &&
+                            !lower.startsWith("sec-") && !lower.startsWith("proxy-")) {
+                            forwarded[name] = value;
+                        }
+                    });
+                    if (Object.keys(forwarded).length > 0) {
+                        sourceHeaders.set("X-Proxy-Headers", encodeURIComponent(JSON.stringify(forwarded)));
                     }
+                    sourceHeaders.set("X-Proxy-Referer", Options.PageUrl);
+                    nextInit.headers = sourceHeaders;
+
+                    if (input instanceof Request) {
+                        input = new Request(proxiedUrl, input);
+                    } else {
+                        input = proxiedUrl;
+                    }
+                    return NativeFetch.call(this, input, nextInit);
                 } catch (error) {
-                    /* 改寫失敗時以原請求送出 */
+                    return NativeFetch.call(this, input, init);
                 }
-                return NativeFetch.call(this, input, init);
             };
         }
 
