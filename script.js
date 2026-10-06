@@ -308,6 +308,20 @@ function UnwrapRedirectUrl(url) {
     return IsWebUrl(target) ? target : url;
 }
 
+
+/** 解開 Worker 代理包裝及常見搜尋引擎追蹤網址。 */
+function NormalizeNavigatedUrl(url) {
+    let value = DecodeEntities(String(url || ""));
+    try {
+        let parsed = new URL(value);
+        const workerOrigin = GetContentWorkerRoot() ? new URL(GetContentWorkerRoot()).origin : "";
+        for (let depth = 0; depth < 8 && parsed.origin === workerOrigin && parsed.searchParams.has("url"); depth++) {
+            parsed = new URL(DecodeEntities(parsed.searchParams.get("url")));
+        }
+        value = parsed.toString();
+    } catch {}
+    return UnwrapRedirectUrl(value);
+}
 /**
  * 將使用者輸入轉為可導覽的網址
  *   owob://xxx         → 內部頁面
@@ -3028,11 +3042,11 @@ window.addEventListener("message", event => {
             break;
 
         case "Navigate":
-            if (IsWebUrl(data.Url)) Navigate(tab, data.Url);
+            if (IsWebUrl(data.Url)) Navigate(tab, NormalizeNavigatedUrl(data.Url));
             break;
 
         case "OpenTab":
-            if (IsWebUrl(data.Url)) CreateTab(data.Url, true, { AfterId: tab.Id });
+            if (IsWebUrl(data.Url)) CreateTab(NormalizeNavigatedUrl(data.Url), true, { AfterId: tab.Id });
             break;
 
         case "Post":
