@@ -1,5 +1,5 @@
 ﻿/* ============================================================
- *  OwO Simple Browser - 主程式 v15
+ *  OwO Simple Browser - 主程式 v16
  *
  *  架構：
  *     1. 設定與狀態
@@ -2314,6 +2314,28 @@ function RenderErrorPage(tab, title, detail, retryUrl) {
  * 12. 外部頁面（經由代理載入）
  * ============================================================ */
 
+const MainDocumentPendingRequests = new Map();
+const MainDocumentHostCooldowns = new Map();
+
+function ParseRetryAfterMilliseconds(value) {
+    if (!value) return 0;
+    const seconds = Number(value);
+    if (Number.isFinite(seconds) && seconds >= 0) return Math.min(seconds * 1000, 60000);
+    const date = Date.parse(value);
+    return Number.isFinite(date) ? Math.max(0, Math.min(date - Date.now(), 60000)) : 0;
+}
+
+function WaitForNavigationDelay(milliseconds, signal) {
+    if (!milliseconds) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(resolve, milliseconds);
+        signal.addEventListener("abort", () => {
+            clearTimeout(timer);
+            reject(new DOMException("Navigation aborted", "AbortError"));
+        }, { once: true });
+    });
+}
+
 /**
  * 經由代理載入外部頁面
  * @param {object}      tab       目標分頁
@@ -2352,7 +2374,63 @@ async function LoadExternalPage(tab, url, postData = null) {
             }
         }
 
-        const response    = await fetch(BuildProxyUrl(url), requestOptions);
+        const proxyUrl = BuildProxyUrl(url);
+        const hostKey = new URL(url).hostname.toLowerCase();
+        const requestKey = `${requestOptions.method}:${url}:${postData ? postData.Body : ""}`;
+        const retryDelays = [0, 3000, 8000];
+
+        let response;
+        let lastRetryDelay = 0;
+
+        for (let attempt = 0; attempt < retryDelays.length; attempt += 1) {
+            const hostCooldownUntil = MainDocumentHostCooldowns.get(hostKey) || 0;
+            const hostWait = Math.max(0, hostCooldownUntil - Date.now());
+            const requestedWait = attempt === 0 ? hostWait : Math.max(hostWait, lastRetryDelay || retryDelays[attempt]);
+
+            if (requestedWait > 0) {
+                tab.Title = `稍候 ${Math.ceil(requestedWait / 1000)} 秒…`;
+                UpdateTabHeader(tab);
+                await WaitForNavigationDelay(requestedWait, controller.signal);
+            }
+
+            let responsePromise = MainDocumentPendingRequests.get(requestKey);
+            if (!responsePromise) {
+                responsePromise = fetch(proxyUrl, requestOptions);
+                if (requestOptions.method === "GET") MainDocumentPendingRequests.set(requestKey, responsePromise);
+            }
+
+            try {
+                response = await responsePromise;
+            } finally {
+                if (MainDocumentPendingRequests.get(requestKey) === responsePromise) {
+                    MainDocumentPendingRequests.delete(requestKey);
+                }
+            }
+
+            if (response.status !== 429) break;
+
+            const retryAfter = ParseRetryAfterMilliseconds(response.headers.get("Retry-After"));
+            lastRetryDelay = retryAfter || (attempt === 0 ? 3000 : 8000);
+            MainDocumentHostCooldowns.set(hostKey, Date.now() + lastRetryDelay);
+
+            // 429 HTML 通常是無法在 srcdoc 中執行的驗證頁，絕不交給 RenderHtmlInFrame。
+            try { await response.body?.cancel(); } catch (ignored) { /* 已讀取或不支援取消 */ }
+        }
+
+        if (response && response.status === 429) {
+            const retryAfter = ParseRetryAfterMilliseconds(response.headers.get("Retry-After"));
+            const cooldownMs = retryAfter || Math.max(lastRetryDelay, 15000);
+            MainDocumentHostCooldowns.set(hostKey, Date.now() + cooldownMs);
+
+            RenderErrorPage(
+                tab,
+                "網站暫時限制請求",
+                `${url}\n\n上游網站回應 HTTP 429。OwO 已停止載入驗證 HTML，以免在沙箱中產生 reCAPTCHA 與 Cookie 錯誤。\n\n請等待約 ${Math.ceil(cooldownMs / 1000)} 秒後再按重試。`,
+                url
+            );
+            return;
+        }
+
         const contentType = response.headers.get("Content-Type") || "";
         const finalUrl    = response.headers.get("X-Final-URL") || url;
 
