@@ -1,4 +1,4 @@
-OwO Simple Browser v8.1 - GitHub Pages + Cloudflare Worker Origin Mode
+OwO Simple Browser v8.2 - GitHub Pages + Cloudflare Worker Origin Mode
 
 部署：
 1. GitHub Pages：上傳 index.html、styles.css、script.js。
@@ -25,3 +25,10 @@ v8.1 修正：
 - 已是 Worker /browse 的絕對或相對網址會直接保留，不再包成巢狀 /browse?url=Worker/browse。
 - 加入資料 URI favicon，消除 GitHub Pages 的 /favicon.ico 404。
 - Worker 版本標頭更新為 origin-mode-v8.1。
+
+
+v8.2 修正：
+- 修正 Bing 等網站以查詢字串啟動 JavaScript challenge 時遺失 url 參數。
+- /browse?solution=... 會從 Referer 還原上一個目標網址並套用 challenge 查詢。
+- 未改寫的相對資源路徑會依 Referer 中的原目標網站還原，不再直接回傳 Worker 404。
+- Worker 版本標頭更新為 origin-mode-v8.2。

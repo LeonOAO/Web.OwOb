@@ -1,4 +1,4 @@
-/** OwO Content Worker v8.1 - GitHub Pages + Cloudflare Worker origin mode */
+/** OwO Content Worker v8.2 - GitHub Pages + Cloudflare Worker origin mode */
 const ALLOW_HEADERS="Content-Type, Range, X-Requested-With";
 function cors(){return{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET,HEAD,POST,OPTIONS","Access-Control-Allow-Headers":ALLOW_HEADERS,"Access-Control-Expose-Headers":"Content-Type,X-OwO-Final-URL,X-OwO-Version"}}
 function json(status,message,extra={}){return new Response(JSON.stringify({ok:false,status,message,...extra}),{status,headers:{...cors(),"Content-Type":"application/json;charset=utf-8"}})}
@@ -14,4 +14,35 @@ const BRIDGE=`<script>(function(){"use strict";function send(x){x.OwOContent=tru
 class Attr{constructor(attr,base,req,mode="resource"){this.attr=attr;this.base=base;this.req=req;this.mode=mode}element(e){const v=e.getAttribute(this.attr);if(!v)return;if(this.attr==="srcset")e.setAttribute(this.attr,srcset(v,this.base,this.req));else{if(e.tagName==="a")e.setAttribute("data-owo-url",new URL(v,this.base).href);e.setAttribute(this.attr,mapUrl(v,this.base,this.req,this.mode))}}}
 class Injector{element(e){e.prepend(BRIDGE,{html:true})}}
 function htmlTransform(response,base,req){let r=new HTMLRewriter().on("head",new Injector());[["a","href","page"],["form","action","page"],["script","src","resource"],["link","href","resource"],["img","src","resource"],["img","srcset","resource"],["source","src","resource"],["source","srcset","resource"],["iframe","src","page"],["video","src","resource"],["video","poster","resource"],["audio","src","resource"],["object","data","resource"]].forEach(x=>r=r.on(x[0],new Attr(x[1],base,req,x[2])));return r.transform(response)}
-export default{async fetch(request,env){const ru=new URL(request.url);if(request.method==="OPTIONS")return new Response(null,{headers:cors()});if(ru.pathname!=="/browse"&&ru.pathname!=="/")return json(404,"找不到端點");if(env.PROXY_KEY&&ru.searchParams.get("key")!==env.PROXY_KEY)return json(401,"代理金鑰錯誤");let target;try{target=safeUrl(ru.searchParams.get("url")||"")}catch(e){return json(400,e.message)}const mode=ru.searchParams.get("mode")||"page";try{const h=new Headers(request.headers);["host","origin","referer","cf-connecting-ip","x-forwarded-for","x-real-ip","cookie"].forEach(x=>h.delete(x));h.set("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140 Safari/537.36 OwOSimpleBrowser/8.1");const ck=cookieForTarget(request.headers.get("Cookie"),target.hostname);if(ck)h.set("Cookie",ck);let body=null;if(!/^(GET|HEAD)$/i.test(request.method))body=await request.arrayBuffer();const upstream=await fetch(target,{method:request.method,headers:h,body,redirect:"follow"});const final=safeUrl(upstream.url);const oh=new Headers(upstream.headers);["content-security-policy","content-security-policy-report-only","x-frame-options","cross-origin-opener-policy","cross-origin-embedder-policy","cross-origin-resource-policy","set-cookie","content-length"].forEach(x=>oh.delete(x));Object.entries(cors()).forEach(([k,v])=>oh.set(k,v));oh.set("X-OwO-Final-URL",final.href);oh.set("X-OwO-Version","origin-mode-v8.1");const getSet=upstream.headers.getSetCookie?upstream.headers.getSetCookie():[];for(const c of getSet){const m=mappedSetCookie(c,final.hostname);if(m)oh.append("Set-Cookie",m)}let out=new Response(request.method==="HEAD"?null:upstream.body,{status:upstream.status,statusText:upstream.statusText,headers:oh});if(mode==="page"&&/text\/html/i.test(oh.get("Content-Type")||""))out=htmlTransform(out,final.href,ru);return out}catch(e){return json(502,"Cloudflare Worker 無法載入目標網站",{detail:String(e&&e.message||e),target:target.href})}}};
+
+function targetFromRequest(request,requestUrl){
+  const explicit=requestUrl.searchParams.get("url");
+  if(explicit)return safeUrl(explicit);
+
+  const referer=request.headers.get("Referer")||"";
+  if(!referer)throw new Error("缺少目標網址");
+
+  let ref;
+  try{ref=new URL(referer)}catch{throw new Error("來源網址格式錯誤")}
+  if(ref.origin!==requestUrl.origin||ref.pathname!=="/browse")throw new Error("缺少目標網址");
+
+  const previous=ref.searchParams.get("url");
+  if(!previous)throw new Error("來源中沒有目標網址");
+  const base=safeUrl(previous);
+
+  // 目標網站的 JS challenge 常以 /browse?solution=... 導覽。
+  // 此時沿用上一個目標頁面的路徑，只以新查詢參數取代原查詢。
+  if(requestUrl.pathname==="/browse"){
+    const next=new URL(base.href);
+    const params=new URLSearchParams(requestUrl.search);
+    params.delete("mode");params.delete("key");params.delete("url");
+    next.search=params.toString();
+    return safeUrl(next.href);
+  }
+
+  // 對未經 HTMLRewriter 改寫的相對路徑，以原目標網站為基準還原。
+  const relative=requestUrl.pathname+requestUrl.search+requestUrl.hash;
+  return safeUrl(new URL(relative,base.origin).href);
+}
+
+export default{async fetch(request,env){const ru=new URL(request.url);if(request.method==="OPTIONS")return new Response(null,{headers:cors()});if(env.PROXY_KEY&&ru.searchParams.get("key")!==env.PROXY_KEY)return json(401,"代理金鑰錯誤");let target;try{target=targetFromRequest(request,ru)}catch(e){return json(400,e.message)}const mode=ru.searchParams.get("mode")||(ru.pathname==="/browse"?"page":"resource");try{const h=new Headers(request.headers);["host","origin","referer","cf-connecting-ip","x-forwarded-for","x-real-ip","cookie"].forEach(x=>h.delete(x));h.set("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140 Safari/537.36 OwOSimpleBrowser/8.2");const ck=cookieForTarget(request.headers.get("Cookie"),target.hostname);if(ck)h.set("Cookie",ck);let body=null;if(!/^(GET|HEAD)$/i.test(request.method))body=await request.arrayBuffer();const upstream=await fetch(target,{method:request.method,headers:h,body,redirect:"follow"});const final=safeUrl(upstream.url);const oh=new Headers(upstream.headers);["content-security-policy","content-security-policy-report-only","x-frame-options","cross-origin-opener-policy","cross-origin-embedder-policy","cross-origin-resource-policy","set-cookie","content-length"].forEach(x=>oh.delete(x));Object.entries(cors()).forEach(([k,v])=>oh.set(k,v));oh.set("X-OwO-Final-URL",final.href);oh.set("X-OwO-Version","origin-mode-v8.2");const getSet=upstream.headers.getSetCookie?upstream.headers.getSetCookie():[];for(const c of getSet){const m=mappedSetCookie(c,final.hostname);if(m)oh.append("Set-Cookie",m)}let out=new Response(request.method==="HEAD"?null:upstream.body,{status:upstream.status,statusText:upstream.statusText,headers:oh});if(mode==="page"&&/text\/html/i.test(oh.get("Content-Type")||""))out=htmlTransform(out,final.href,ru);return out}catch(e){return json(502,"Cloudflare Worker 無法載入目標網站",{detail:String(e&&e.message||e),target:target.href})}}};
