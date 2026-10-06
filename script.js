@@ -1,5 +1,5 @@
 ﻿/* ============================================================
- *  OwO Simple Browser - 主程式 v9
+ *  OwO Simple Browser - 主程式 v10
  *
  *  架構：
  *     1. 設定與狀態
@@ -3078,6 +3078,16 @@ function OwObFrameAgent(Options) {
      */
     var OwObPartialRequests = new WeakMap();
 
+    // CSS 先於 MutationObserver 隱藏暫時性錯誤介面，避免單一畫面閃爍。
+    var OwObPartialStyle = document.createElement("style");
+    OwObPartialStyle.id = "owob-partial-loading-style";
+    OwObPartialStyle.textContent =
+        'faceplate-partial[data-owob-partial-loading="true"] shreddit-feed-page-error,' +
+        'faceplate-partial[data-owob-partial-loading="true"] [data-testid*="error"],' +
+        'faceplate-partial[data-owob-partial-loading="true"] [class*="feed-page-error"],' +
+        'faceplate-partial[data-owob-partial-loading="true"] [class*="partial-error"]{display:none!important}';
+    (document.head || document.documentElement).appendChild(OwObPartialStyle);
+
     function ExecuteCommunityPartialRequest(event, element, detail, corrected) {
         if (OwObPartialRequests.has(element)) return;
 
@@ -3153,9 +3163,37 @@ function OwObFrameAgent(Options) {
         element.removeAttribute("data-owob-partial-error");
 
         // 重試期間維持原本的 Reddit 載入動畫，不插入上游暫時性錯誤頁。
-        if (!element.querySelector("shreddit-feed-page-loading")) {
-            element.innerHTML = originalHtml || '<shreddit-feed-page-loading page-type="community"></shreddit-feed-page-loading>';
+        var loadingMarkup = originalHtml || '<shreddit-feed-page-loading page-type="community"></shreddit-feed-page-loading>';
+
+        function HasTemporaryErrorUi(root) {
+            if (!root) return false;
+            var visibleText = String(root.innerText || root.textContent || "");
+            return Boolean(root.querySelector && root.querySelector(
+                'shreddit-feed-page-error, [data-testid*="error"], [class*="feed-page-error"], [class*="partial-error"]'
+            )) || /載入下一頁時發生錯誤|請再試一次/i.test(visibleText);
         }
+
+        function RestoreLoadingUi() {
+            if (!element.isConnected || !element.hasAttribute("data-owob-partial-loading")) return;
+            if (HasTemporaryErrorUi(element) || !element.querySelector("shreddit-feed-page-loading")) {
+                element.innerHTML = loadingMarkup;
+            }
+        }
+
+        if (!element.querySelector("shreddit-feed-page-loading")) {
+            element.innerHTML = loadingMarkup;
+        }
+
+        // Reddit 元件會在自訂 OwO 請求仍進行時先渲染內建錯誤頁。
+        // 監看目前 Partial，錯誤介面一出現就於下一個畫面更新前恢復載入動畫。
+        var partialUiObserver = new MutationObserver(function () {
+            RestoreLoadingUi();
+        });
+        partialUiObserver.observe(element, {
+            childList: true,
+            subtree: true,
+            characterData: true
+        });
 
         var task = RequestAttempt(0)
             .then(function (html) {
@@ -3177,6 +3215,7 @@ function OwObFrameAgent(Options) {
                 console.error("[OwO Partial] 三次動態內容載入均失敗", error, corrected);
             })
             .finally(function () {
+                partialUiObserver.disconnect();
                 OwObPartialRequests.delete(element);
             });
 
