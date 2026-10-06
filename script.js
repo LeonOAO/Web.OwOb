@@ -1,5 +1,5 @@
 ﻿/* ============================================================
- *  OwO Simple Browser - 主程式 v10
+ *  OwO Simple Browser - 主程式 v12
  *
  *  架構：
  *     1. 設定與狀態
@@ -3607,12 +3607,18 @@ function OwObFrameAgent(Options) {
 
     function IsHumanVerificationPage() {
         var title = String(document.title || "").toLowerCase();
-        var text = String(document.body && document.body.innerText || "").slice(0, 18000).toLowerCase();
+        var text = String(document.body && document.body.innerText || "").slice(0, 24000).toLowerCase();
+        var pageUrl = String(Options.PageUrl || document.baseURI || "").toLowerCase();
+        var combined = title + " " + text;
+
         var hasCaptchaElement = Boolean(document.querySelector(
-            '.g-recaptcha, iframe[src*="recaptcha"], script[src*="recaptcha"], [data-sitekey], [class*="captcha"], [id*="captcha"]'
+            '.g-recaptcha, iframe[src*="recaptcha"], script[src*="recaptcha"], [data-sitekey], [class*="captcha"], [id*="captcha"], form[action*="sorry"], input[name="q"]'
         ));
-        var hasChallengeText = /prove your humanity|verify you are human|complete the challenge|i am not a robot|我不是機器人|真人驗證|證明您是真人|網域無效|invalid domain for site key/.test(title + " " + text);
-        return hasCaptchaElement && hasChallengeText;
+        var hasChallengeText = /prove your humanity|verify you are human|complete the challenge|i am not a robot|我不是機器人|真人驗證|證明您是真人|網域無效|invalid domain for site key|unusual traffic|異常流量|為何顯示此頁/.test(combined);
+        var isKnownChallengeUrl = /:\/\/[^/]*google\.[^/]+\/sorry(?:\/|\?|$)/i.test(pageUrl) ||
+            /\/(?:captcha|challenge|human-verification)(?:\/|\?|$)/i.test(pageUrl);
+
+        return isKnownChallengeUrl || (hasCaptchaElement && hasChallengeText);
     }
 
     function EscapeVerificationText(value) {
@@ -3628,6 +3634,18 @@ function OwObFrameAgent(Options) {
         HumanVerificationModeActive = true;
 
         var originalUrl = ToAbsolute(Options.PageUrl) || Options.PageUrl;
+        try {
+            var challengeUrl = new NativeURL(originalUrl);
+            var continueUrl = challengeUrl.searchParams.get("continue");
+            // 驗證必須在挑戰頁本身完成；保留完整 /sorry/ 網址與 continue 參數。
+            if (!/^https?:$/i.test(challengeUrl.protocol)) originalUrl = Options.PageUrl;
+            if (continueUrl && !/^https?:\/\//i.test(continueUrl)) {
+                challengeUrl.searchParams.delete("continue");
+                originalUrl = challengeUrl.href;
+            }
+        } catch (error) {
+            originalUrl = Options.PageUrl;
+        }
         var panel = document.createElement("div");
         panel.id = "owob-human-verification-mode";
         panel.setAttribute("role", "dialog");
@@ -3636,10 +3654,10 @@ function OwObFrameAgent(Options) {
             '<div class="owob-human-card">' +
                 '<div class="owob-human-icon" aria-hidden="true">✓</div>' +
                 '<h1>需要真人驗證</h1>' +
-                '<p>驗證元件需要在原始網站網域中執行。請開啟原始網站，由您親自完成驗證，再返回 OwO Simple Browser 重新載入。</p>' +
+                '<p>驗證元件拒絕在代理沙箱中執行。按下按鈕後，目前分頁會暫時離開 OwO 並進入原始網站。完成驗證後，請使用瀏覽器的上一頁返回 OwO。</p>' +
                 '<div class="owob-human-url">' + EscapeVerificationText(originalUrl) + '</div>' +
                 '<div class="owob-human-actions">' +
-                    '<button type="button" data-action="open">在原始網站完成驗證</button>' +
+                    '<button type="button" data-action="open">在目前分頁進行驗證</button>' +
                     '<button type="button" class="secondary" data-action="reload">驗證完成，重新載入</button>' +
                 '</div>' +
                 '<p class="owob-human-note">OwO 不會代替您完成驗證，也不會讀取驗證內容。</p>' +
@@ -3668,8 +3686,9 @@ function OwObFrameAgent(Options) {
             if (!button) return;
 
             if (button.getAttribute("data-action") === "open") {
-                Send({ Type: "OpenExternal", Url: originalUrl });
-                button.textContent = "原始網站已開啟";
+                Send({ Type: "VerifyInCurrentTab", Url: originalUrl, ReturnUrl: Options.PageUrl });
+                button.disabled = true;
+                button.textContent = "正在前往原始網站…";
             } else {
                 button.disabled = true;
                 button.textContent = "正在重新載入…";
@@ -3718,6 +3737,26 @@ function OwObFrameAgent(Options) {
 }
 
 /* ============================================================
+ * 真人驗證返回狀態
+ * 使用者在原始網站完成驗證後以瀏覽器「上一頁」返回時，清除一次性標記，
+ * 並保留原 OwO 分頁與網址狀態。真正頁面內容仍由使用者按「驗證完成，重新載入」更新。
+ * ============================================================ */
+try {
+    const humanVerificationReturn = sessionStorage.getItem("OwObHumanVerificationReturn");
+    if (humanVerificationReturn) {
+        const savedVerification = JSON.parse(humanVerificationReturn);
+        if (!savedVerification.SavedAt || Date.now() - savedVerification.SavedAt < 30 * 60 * 1000) {
+            sessionStorage.removeItem("OwObHumanVerificationReturn");
+            setTimeout(() => ShowToast("已返回 OwO，請按「驗證完成，重新載入」檢查驗證狀態"), 500);
+        } else {
+            sessionStorage.removeItem("OwObHumanVerificationReturn");
+        }
+    }
+} catch (error) {
+    /* 狀態資料異常不影響一般瀏覽。 */
+}
+
+/* ============================================================
  * 14. iframe 訊息接收
  * ============================================================ */
 
@@ -3741,12 +3780,21 @@ window.addEventListener("message", event => {
             if (IsWebUrl(data.Url)) CreateTab(data.Url, true, { AfterId: tab.Id });
             break;
 
-        case "OpenExternal":
+        case "VerifyInCurrentTab":
             if (IsWebUrl(data.Url)) {
-                const externalWindow = window.open(data.Url, "_blank", "noopener,noreferrer");
-                if (!externalWindow) {
-                    ShowToast("瀏覽器已封鎖新視窗，請允許彈出式視窗後再試一次");
+                try {
+                    sessionStorage.setItem("OwObHumanVerificationReturn", JSON.stringify({
+                        AppUrl: location.href,
+                        TargetUrl: typeof data.ReturnUrl === "string" ? data.ReturnUrl : GetTabUrl(tab),
+                        TabId: tab.Id,
+                        SavedAt: Date.now()
+                    }));
+                } catch (error) {
+                    /* sessionStorage 不可用時仍可透過瀏覽器上一頁返回。 */
                 }
+
+                // 使用目前最外層分頁直接進入原始網域，讓驗證服務取得正確 Origin、Cookie 與 Storage。
+                window.location.assign(data.Url);
             }
             break;
 
