@@ -1,5 +1,5 @@
 ﻿/* ============================================================
- *  OwO Simple Browser - 主程式 v14
+ *  OwO Simple Browser - 主程式 v15
  *
  *  架構：
  *     1. 設定與狀態
@@ -3483,12 +3483,64 @@ function OwObFrameAgent(Options) {
 
     if (Options.ProxyRequests) {
         var NativeFetch = window.fetch;
+        var OwObPendingGetRequests = new Map();
+        var OwObRecentGetRequests = new Map();
+        var OwObRequestCooldownMs = 850;
+
+        /** 不影響頁面主要內容的遙測、廣告與錯誤回報請求，可直接降噪。 */
+        function IsNonEssentialBackgroundRequest(url) {
+            var absolute = ToAbsolute(url) || String(url || "");
+            return /(?:\/svc\/shreddit\/(?:events|client-errors)|error-tracking\.|w3-reporting\.|pi\.[^/]+\/v4\/p|google-analytics\.|googletagmanager\.|doubleclick\.|\/pagead\/|\/collect(?:\?|$))/i.test(absolute);
+        }
+
+        /** 產生不含資料的成功回應，避免網站因遙測失敗反覆重送。 */
+        function CreateQuietResponse() {
+            return Promise.resolve(new Response("", {
+                status: 204,
+                statusText: "No Content",
+                headers: { "X-OwOb-Suppressed": "1" }
+            }));
+        }
+
+        function GetRequestMethod(input, init) {
+            return String(
+                init && init.method ||
+                input instanceof Request && input.method ||
+                "GET"
+            ).toUpperCase();
+        }
+
         if (typeof NativeFetch === "function") {
             window.fetch = function (input, init) {
                 try {
                     var originalUrl = typeof input === "string" || input instanceof URL
                         ? String(input)
                         : input && typeof input.url === "string" ? input.url : "";
+                    var requestMethod = GetRequestMethod(input, init);
+
+                    if (IsNonEssentialBackgroundRequest(originalUrl)) {
+                        return CreateQuietResponse();
+                    }
+
+                    var absoluteOriginal = ToAbsolute(originalUrl) || originalUrl;
+                    var dedupeKey = requestMethod === "GET" ? absoluteOriginal : "";
+                    var now = Date.now();
+                    var recentAt = dedupeKey ? Number(OwObRecentGetRequests.get(dedupeKey) || 0) : 0;
+
+                    if (dedupeKey && OwObPendingGetRequests.has(dedupeKey)) {
+                        return OwObPendingGetRequests.get(dedupeKey).then(function (response) {
+                            return response.clone();
+                        });
+                    }
+
+                    if (dedupeKey && recentAt && now - recentAt < OwObRequestCooldownMs) {
+                        return new Promise(function (resolve) {
+                            setTimeout(function () {
+                                resolve(window.fetch(input, init));
+                            }, OwObRequestCooldownMs - (now - recentAt));
+                        });
+                    }
+
                     var proxiedUrl = ToProxy(originalUrl);
                     var nextInit = Object.assign({}, init || {});
                     var sourceHeaders = new Headers(
@@ -3516,11 +3568,24 @@ function OwObFrameAgent(Options) {
                     } else {
                         input = proxiedUrl;
                     }
-                    return NativeFetch.call(this, input, nextInit).then(function (response) {
+                    var fetchTask = NativeFetch.call(this, input, nextInit).then(function (response) {
                         var setCookies = response.headers.get("X-Proxy-Set-Cookie");
                         if (setCookies) Send({ Type: "Cookies", Value: setCookies });
                         return response;
                     });
+
+                    if (dedupeKey) {
+                        OwObPendingGetRequests.set(dedupeKey, fetchTask);
+                        fetchTask.finally(function () {
+                            OwObPendingGetRequests.delete(dedupeKey);
+                            OwObRecentGetRequests.set(dedupeKey, Date.now());
+                            setTimeout(function () {
+                                OwObRecentGetRequests.delete(dedupeKey);
+                            }, OwObRequestCooldownMs * 2);
+                        });
+                    }
+
+                    return fetchTask;
                 } catch (error) {
                     return NativeFetch.call(this, input, init);
                 }
@@ -3623,68 +3688,6 @@ function OwObFrameAgent(Options) {
         }
     });
 
-    /* ---------- 5. 原始驗證自動轉接 ---------- */
-
-    var HumanVerificationRedirectScheduled = false;
-    var HumanVerificationScanTimer = 0;
-
-    function IsHumanVerificationPage() {
-        var title = String(document.title || "").toLowerCase();
-        var text = String(document.body && document.body.innerText || "").slice(0, 24000).toLowerCase();
-        var pageUrl = String(Options.PageUrl || document.baseURI || "").toLowerCase();
-        var combined = title + " " + text;
-        var hasCaptchaElement = Boolean(document.querySelector(
-            '.g-recaptcha, iframe[src*="recaptcha"], script[src*="recaptcha"], [data-sitekey], [class*="captcha"], [id*="captcha"], form[action*="sorry"]'
-        ));
-        var hasChallengeText = /prove your humanity|verify you are human|complete the challenge|i am not a robot|我不是機器人|真人驗證|證明您是真人|網域無效|invalid domain for site key|unusual traffic|異常流量|為何顯示此頁/.test(combined);
-        var isKnownChallengeUrl = /:\/\/[^/]*google\.[^/]+\/sorry(?:\/|\?|$)/i.test(pageUrl) ||
-            /\/(?:captcha|challenge|human-verification)(?:\/|\?|$)/i.test(pageUrl);
-        return isKnownChallengeUrl || (hasCaptchaElement && hasChallengeText);
-    }
-
-    function GetOriginalVerificationUrl() {
-        var originalUrl = ToAbsolute(Options.PageUrl) || Options.PageUrl;
-        try {
-            var challengeUrl = new NativeURL(originalUrl);
-            if (!/^https?:$/i.test(challengeUrl.protocol)) return null;
-            return challengeUrl.href;
-        } catch (error) {
-            return null;
-        }
-    }
-
-    function RedirectToOriginalVerification() {
-        if (HumanVerificationRedirectScheduled || !IsHumanVerificationPage()) return;
-
-        var originalUrl = GetOriginalVerificationUrl();
-        if (!originalUrl) return;
-
-        HumanVerificationRedirectScheduled = true;
-        Send({
-            Type: "VerifyInCurrentTab",
-            Url: originalUrl,
-            ReturnUrl: Options.PageUrl,
-            Automatic: true
-        });
-    }
-
-    function ScheduleHumanVerificationScan() {
-        clearTimeout(HumanVerificationScanTimer);
-        HumanVerificationScanTimer = setTimeout(RedirectToOriginalVerification, 120);
-    }
-
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", ScheduleHumanVerificationScan, { once: true });
-    } else {
-        ScheduleHumanVerificationScan();
-    }
-
-    new MutationObserver(ScheduleHumanVerificationScan).observe(document.documentElement, {
-        childList: true,
-        subtree: true,
-        characterData: true
-    });
-
     /* ---------- 5. 快捷鍵轉送 ---------- */
 
     document.addEventListener("keydown", function (event) {
@@ -3703,19 +3706,6 @@ function OwObFrameAgent(Options) {
         event.stopPropagation();
         Send({ Type: "Key", Key: key, Ctrl: ctrl, Alt: alt, Shift: event.shiftKey });
     }, true);
-}
-
-/* ============================================================
- * 原始驗證返回狀態
- * 返回 OwO 時僅清除一次性標記，不再顯示已移除功能的操作提示。
- * ============================================================ */
-try {
-    const humanVerificationReturn = sessionStorage.getItem("OwObHumanVerificationReturn");
-    if (humanVerificationReturn) {
-        sessionStorage.removeItem("OwObHumanVerificationReturn");
-    }
-} catch (error) {
-    /* 狀態資料異常不影響一般瀏覽。 */
 }
 
 /* ============================================================
@@ -3742,32 +3732,6 @@ window.addEventListener("message", event => {
             if (IsWebUrl(data.Url)) CreateTab(data.Url, true, { AfterId: tab.Id });
             break;
 
-        case "VerifyInCurrentTab":
-            if (IsWebUrl(data.Url)) {
-                try {
-                    const redirectKey = "OwObVerificationRedirect:" + data.Url;
-                    const previousRedirect = Number(sessionStorage.getItem(redirectKey) || 0);
-
-                    // 同一挑戰網址 30 秒內只自動轉接一次，避免返回上一頁時立即循環。
-                    if (data.Automatic && previousRedirect && Date.now() - previousRedirect < 30000) {
-                        ShowToast("原始驗證頁剛剛已開啟；若驗證尚未完成，請使用網址列直接前往原始網站");
-                        break;
-                    }
-
-                    sessionStorage.setItem(redirectKey, String(Date.now()));
-                    sessionStorage.setItem("OwObHumanVerificationReturn", JSON.stringify({
-                        AppUrl: location.href,
-                        TargetUrl: typeof data.ReturnUrl === "string" ? data.ReturnUrl : GetTabUrl(tab),
-                        TabId: tab.Id,
-                        SavedAt: Date.now()
-                    }));
-                } catch (error) {
-                    /* sessionStorage 不可用時仍直接前往原始驗證頁。 */
-                }
-
-                window.location.assign(data.Url);
-            }
-            break;
 
         case "Post":
             if (IsWebUrl(data.Url) && typeof data.Body === "string") {
