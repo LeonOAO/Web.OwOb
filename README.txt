@@ -1,4 +1,4 @@
-OwO Simple Browser v8 - GitHub Pages + Cloudflare Worker Origin Mode
+OwO Simple Browser v8.1 - GitHub Pages + Cloudflare Worker Origin Mode
 
 部署：
 1. GitHub Pages：上傳 index.html、styles.css、script.js。
@@ -18,3 +18,10 @@ OwO Simple Browser v8 - GitHub Pages + Cloudflare Worker Origin Mode
 - 目標網站可能拒絕 Cloudflare 資料中心 IP、代理流量或嵌入行為。
 - WebSocket、WebRTC、DRM、CAPTCHA、第三方登入、付款與硬體權限不保證相容。
 - 請遵守目標網站條款與 Cloudflare 使用政策。
+
+
+v8.1 修正：
+- 修正 HTMLRewriter 與 MutationObserver 重複代理同一 /browse 網址。
+- 已是 Worker /browse 的絕對或相對網址會直接保留，不再包成巢狀 /browse?url=Worker/browse。
+- 加入資料 URI favicon，消除 GitHub Pages 的 /favicon.ico 404。
+- Worker 版本標頭更新為 origin-mode-v8.1。
