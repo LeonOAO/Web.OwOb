@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v22
+ *  OwO Simple Browser - 主程式 v23
  *
  *  架構：
  *     1. 設定與狀態
@@ -3781,8 +3781,24 @@ function OwObFrameAgent(Options) {
 
 window.addEventListener("message", event => {
     const data = event.data;
-    if (!data || data.OwOb !== true) return;
+    if (!data) return;
 
+    if (data.OwObSameOrigin === true && data.Type === "State") {
+        const sameOriginTab = State.Tabs.find(item => {
+            const currentFrame = item.ViewEl.querySelector("iframe");
+            return currentFrame && currentFrame.contentWindow === event.source;
+        });
+        if (!sameOriginTab) return;
+        if (typeof data.Title === "string" && data.Title.trim()) {
+            sameOriginTab.Title = data.Title.trim();
+            UpdateTabHeader(sameOriginTab);
+        }
+        SetLoading(sameOriginTab, false);
+        if (sameOriginTab.Id === State.ActiveId) RefreshToolbar();
+        return;
+    }
+
+    if (data.OwOb !== true) return;
     const tab = GetTabById(data.TabId);
     if (!tab) return;
 
