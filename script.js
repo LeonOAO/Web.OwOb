@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v28
+ *  OwO Simple Browser - 主程式 v29
  *
  *  架構：
  *     1. 設定與狀態
@@ -1738,6 +1738,7 @@ function RenderSettingsPage(tab) {
         </label>`;
 
     SetTabContent(tab, `
+        <form id="ProxySettingForm" autocomplete="off" hidden></form>
         <div class="InternalPage">
             <header class="SettingsHeader">
                 <div class="SettingsHeaderIcon"><i class="fa-solid fa-gear"></i></div>
@@ -1774,9 +1775,9 @@ function RenderSettingsPage(tab) {
 
                 <label class="FieldLabel" for="ProxyKeyInput">存取金鑰</label>
                 <div class="InputRow">
-                    <input id="ProxyKeyInput" class="SettingInput" type="password" spellcheck="false"
-                           autocomplete="off" placeholder="未設定"
-                           value="${EscapeHtml(proxyKey)}">
+                    <input id="ProxyKeyInput" class="SettingInput" type="password" name="proxy-key"
+                           form="ProxySettingForm" spellcheck="false" autocomplete="new-password"
+                           placeholder="未設定" value="${EscapeHtml(proxyKey)}">
                     <button class="ToolButton" data-action="toggle-key" title="顯示或隱藏存取金鑰。">
                         <i class="fa-solid fa-eye"></i>
                     </button>
@@ -1895,6 +1896,11 @@ function RenderSettingsPage(tab) {
         if (IsOnPage(tab, "owob://settings")) RenderSettingsPage(tab);
     };
 
+    const proxySettingForm = tab.ViewEl.querySelector("#ProxySettingForm");
+    if (proxySettingForm) {
+        proxySettingForm.addEventListener("submit", event => event.preventDefault());
+    }
+
     const actions = {
         "light":           () => { ApplyTheme("light"); rerender(); },
         "dark":            () => { ApplyTheme("dark");  rerender(); },
@@ -1922,7 +1928,9 @@ function RenderSettingsPage(tab) {
         "clear":           () => {
             if (!confirm("確定清除瀏覽紀錄、已開啟分頁與 Cookie？")) return;
             ClearBrowsingData();
-            rerender();
+            requestAnimationFrame(() => {
+                if (IsOnPage(tab, "owob://settings")) RenderSettingsPage(tab);
+            });
         },
         "export":          () => ExportSettings(),
         "import":          () => {
@@ -4301,11 +4309,14 @@ function BindEvents() {
             }
         }
 
+        const key = String(event.key || "").toLowerCase();
+        if (!key) return;
+
         const handled = HandleShortcut({
-            Key:   event.key.toLowerCase(),
-            Ctrl:  event.ctrlKey || event.metaKey,
-            Alt:   event.altKey,
-            Shift: event.shiftKey
+            Key:   key,
+            Ctrl:  Boolean(event.ctrlKey || event.metaKey),
+            Alt:   Boolean(event.altKey),
+            Shift: Boolean(event.shiftKey)
         });
         if (handled) event.preventDefault();
     });
