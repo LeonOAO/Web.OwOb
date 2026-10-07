@@ -582,34 +582,27 @@ function BuildSameOriginPath(requestUrl, value, baseUrl) {
     return result.toString();
 }
 function BuildSameOriginCompatibilityAgent(sourceUrl, requestUrl) {
-    const config = JSON.stringify({
-        pageUrl: new URL(sourceUrl).toString(),
-        pageOrigin: new URL(sourceUrl).origin,
-        proxyOrigin: requestUrl.origin,
-        key: requestUrl.searchParams.get("_owo_key") || ""
-    });
+    const config = JSON.stringify({ pageUrl:new URL(sourceUrl).toString(), pageOrigin:new URL(sourceUrl).origin, proxyOrigin:requestUrl.origin, key:requestUrl.searchParams.get("_owo_key")||"" });
     return `(function(C){"use strict";
 if(window.__OwOSameOriginCompatibility)return;
-var NativeURL=window.URL,NativeFetch=window.fetch&&window.fetch.bind(window),NativeOpen=XMLHttpRequest.prototype.open,pending=new WeakMap();
-function isProxy(value){try{var u=new NativeURL(String(value),C.proxyOrigin);return u.origin===C.proxyOrigin&&u.pathname.indexOf("/__owo_proxy__/")===0;}catch(e){return false;}}
-function decodeProxy(value){try{var u=new NativeURL(String(value),C.proxyOrigin),rest=u.pathname.slice("/__owo_proxy__/".length),i=rest.indexOf("/"),protocol=rest.slice(0,i),hostPath=rest.slice(i+1),j=hostPath.indexOf("/"),host=j<0?hostPath:hostPath.slice(0,j),path=j<0?"/":hostPath.slice(j),out=new NativeURL(protocol+"://"+host+path);u.searchParams.forEach(function(v,k){if(k!=="_owo_key")out.searchParams.append(k,v);});out.hash=u.hash;return out.href;}catch(e){return null;}}
-function clean(value){var text=String(value==null?"":value).trim().replace(/^null(?=\\/)/i,"");if(isProxy(text))return decodeProxy(text);try{var u=new NativeURL(text,C.pageUrl),m=u.pathname.match(/\\/null(\\/(?:svc|api|graphql)(?:\\/|$).*)/i);if(m)u.pathname=m[1];return u.href;}catch(e){return text;}}
-function absolute(value){var text=clean(value);try{return new NativeURL(text,text.charAt(0)==="/"?C.pageOrigin:C.pageUrl).href;}catch(e){return null;}}
-function proxy(value){if(isProxy(value))return new NativeURL(String(value),C.proxyOrigin).href;var target=absolute(value);if(!target||/^(?:data:|blob:|about:|javascript:|#)/i.test(String(value)))return value;var u=new NativeURL(target),out=new NativeURL(C.proxyOrigin);out.pathname="/__owo_proxy__/"+u.protocol.slice(0,-1)+"/"+u.host+u.pathname;out.search=u.search;if(C.key)out.searchParams.set("_owo_key",C.key);out.hash=u.hash;return out.href;}
-function shouldMap(value){return !!String(value||"")&&!/^(?:data:|blob:|about:|javascript:|mailto:|tel:|#)/i.test(String(value))&&!isProxy(value);}
-function mapNode(node){if(!(node instanceof Element))return node;["src","href","action","formaction","poster"].forEach(function(n){var v=node.getAttribute(n);if(v&&shouldMap(v))Element.prototype.setAttribute.call(node,n,proxy(v));});return node;}
-var NativeSet=Element.prototype.setAttribute,NativeAppend=Node.prototype.appendChild,NativeInsert=Node.prototype.insertBefore;
-Element.prototype.setAttribute=function(n,v){if(["src","href","action","formaction","poster"].indexOf(String(n).toLowerCase())>=0&&shouldMap(v))v=proxy(v);return NativeSet.call(this,n,v);};
-Node.prototype.appendChild=function(n){return NativeAppend.call(this,mapNode(n));};Node.prototype.insertBefore=function(n,r){return NativeInsert.call(this,mapNode(n),r);};
-if(NativeFetch)window.fetch=function(input,init){var url=input instanceof Request?input.url:String(input);if(shouldMap(url)){var mapped=proxy(url);input=input instanceof Request?new Request(mapped,input):mapped;}return NativeFetch(input,init);};
-XMLHttpRequest.prototype.open=function(m,u){var a=Array.prototype.slice.call(arguments);if(shouldMap(u))a[1]=proxy(u);return NativeOpen.apply(this,a);};
+var U=window.URL,F=window.fetch&&window.fetch.bind(window),XO=XMLHttpRequest.prototype.open,P=new WeakMap();
+function isP(v){try{var u=new U(String(v),C.proxyOrigin);return u.origin===C.proxyOrigin&&u.pathname.indexOf("/__owo_proxy__/")===0;}catch(e){return false;}}
+function unP(v){var value=String(v||"");for(var n=0;n<5&&isP(value);n++){try{var u=new U(value,C.proxyOrigin),r=u.pathname.slice(15),i=r.indexOf("/"),scheme=r.slice(0,i),hp=r.slice(i+1),j=hp.indexOf("/"),host=j<0?hp:hp.slice(0,j),path=j<0?"/":hp.slice(j),o=new U(scheme+"://"+host+path);u.searchParams.forEach(function(x,k){if(k!=="_owo_key")o.searchParams.append(k,x);});value=o.href;}catch(e){break;}}return value;}
+function abs(v){var t=unP(String(v==null?"":v).trim().replace(/^null(?=\\/)/i,""));try{var u=new U(t,t.charAt(0)==="/"?C.pageOrigin:C.pageUrl),m=u.pathname.match(/\\/null(\\/(?:svc|api|graphql)(?:\\/|$).*)/i);if(m)u.pathname=m[1];return u.href;}catch(e){return null;}}
+function px(v){if(isP(v))return new U(String(v),C.proxyOrigin).href;var t=abs(v);if(!t)return v;var u=new U(t),o=new U(C.proxyOrigin);o.pathname="/__owo_proxy__/"+u.protocol.slice(0,-1)+"/"+u.host+u.pathname;o.search=u.search;if(C.key)o.searchParams.set("_owo_key",C.key);o.hash=u.hash;return o.href;}
+function map(v){return !!String(v||"")&&!/^(?:data:|blob:|about:|javascript:|mailto:|tel:|#)/i.test(String(v))&&!isP(v);}
+var SA=Element.prototype.setAttribute,AC=Node.prototype.appendChild,IB=Node.prototype.insertBefore;
+function node(n){if(!(n instanceof Element))return n;["src","href","action","formaction","poster"].forEach(function(a){var v=n.getAttribute(a);if(v&&map(v))SA.call(n,a,px(v));});return n;}
+Element.prototype.setAttribute=function(a,v){if(["src","href","action","formaction","poster"].indexOf(String(a).toLowerCase())>=0&&map(v))v=px(v);return SA.call(this,a,v);};Node.prototype.appendChild=function(n){return AC.call(this,node(n));};Node.prototype.insertBefore=function(n,r){return IB.call(this,node(n),r);};
+if(F)window.fetch=function(i,n){var v=i instanceof Request?i.url:String(i);if(map(v)){var m=px(v);i=i instanceof Request?new Request(m,i):m;}return F(i,n);};XMLHttpRequest.prototype.open=function(m,u){var a=[].slice.call(arguments);if(map(u))a[1]=px(u);return XO.apply(this,a);};
 function wait(ms){return new Promise(function(r){setTimeout(r,ms);});}
-function partial(el,d,target){if(pending.has(el))return;var info=d.request||{},method=String(info.method||el.getAttribute("method")||"GET").toUpperCase(),holder=document.createElement("div");holder.className="owob-same-origin-partial";holder.innerHTML='<div class="owob-so-spinner"></div><div>正在載入更多內容…</div>';el.style.setProperty("display","none","important");el.before(holder);function attempt(i){return wait([0,450,900][i]||0).then(function(){var h=new Headers(info.headers||{}),init={method:method,headers:h,credentials:"include",cache:"no-store"};h.set("X-Reddit-Retry","attempt="+i+", max=2");if(method!=="GET"&&method!=="HEAD"&&info.body!=null)init.body=info.body;return NativeFetch(proxy(target),init);}).then(function(r){return r.text().then(function(body){if(!r.ok||!body.trim()||/載入下一頁時發生錯誤|請再試一次|shreddit-feed-page-error|feed-page-error|partial-error/i.test(body))throw new Error("Partial "+r.status);return body;});}).catch(function(e){if(i<2)return attempt(i+1);throw e;});}var task=attempt(0).then(function(html){var range=document.createRange();range.selectNode(holder);var f=range.createContextualFragment(html);holder.replaceWith(f);if(el.isConnected)el.remove();}).catch(function(e){if(el.isConnected)el.remove();holder.innerHTML='<div>載入下一頁時發生錯誤</div><button type="button">重試</button>';holder.querySelector("button").onclick=function(){location.reload();};console.error("[OwO Same-Origin Partial]",e,target);}).finally(function(){pending.delete(el);});pending.set(el,task);}
-var style=document.createElement("style");style.textContent='.owob-same-origin-partial{min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}.owob-so-spinner{width:42px;height:42px;border:4px solid #ffd8ca;border-top-color:#ff4500;border-radius:50%;animation:owobspin .8s linear infinite}@keyframes owobspin{to{transform:rotate(360deg)}}';(document.head||document.documentElement).appendChild(style);
-document.addEventListener("faceplate-request",function(e){var d=e&&e.detail;if(!d||typeof d.resource!=="string")return;var fixed=absolute(d.resource);if(!fixed)return;d.resource=fixed;if(/\\/svc\\/shreddit\\/community-more-posts\\//i.test(fixed)&&e.target&&e.target.tagName==="FACEPLATE-PARTIAL"){e.preventDefault();e.stopImmediatePropagation();partial(e.target,d,fixed);}},true);
-function state(){parent.postMessage({OwObSameOrigin:true,Type:"State",Title:document.title||new NativeURL(C.pageUrl).hostname,Url:decodeProxy(location.href)||C.pageUrl},"*");}
-if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",state,{once:true});else state();new MutationObserver(state).observe(document.querySelector("title")||document.documentElement,{childList:true,subtree:true,characterData:true});window.addEventListener("load",state,{once:true});
-window.__OwOSameOriginCompatibility={version:"2.1.0",absolute:absolute,proxy:proxy};
+function run(el,d,target,holder){if(P.has(el))return;target=abs(target);holder=holder||document.createElement("div");holder.className="owob-same-origin-partial";holder.innerHTML='<div class="owob-so-spinner"></div><div>正在載入更多內容…</div>';if(el.isConnected){el.style.setProperty("display","none","important");el.before(holder);}var q=d.request||{},method=String(q.method||el.getAttribute("method")||"GET").toUpperCase();function attempt(i){return wait([0,450,900][i]||0).then(function(){var h=new Headers(q.headers||{}),init={method:method,headers:h,credentials:"include",cache:"no-store"};if(method!=="GET"&&method!=="HEAD"&&q.body!=null)init.body=q.body;return F(px(target),init);}).then(function(r){return r.text().then(function(b){if(!r.ok||!b.trim()||/shreddit-feed-page-error|feed-page-error|partial-error/i.test(b))throw new Error("Partial "+r.status);return b;});}).catch(function(e){if(i<2)return attempt(i+1);throw e;});}var task=attempt(0).then(function(html){var range=document.createRange();range.selectNode(holder);holder.replaceWith(range.createContextualFragment(html));if(el.isConnected)el.remove();}).catch(function(e){holder.innerHTML='<div>載入下一頁時發生錯誤</div><button type="button">重試</button>';holder.querySelector("button").onclick=function(){P.delete(el);run(el,d,target,holder);};console.error("[OwO Same-Origin Partial]",e,target);}).finally(function(){P.delete(el);});P.set(el,task);}
+var st=document.createElement("style");st.textContent='.owob-same-origin-partial{min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}.owob-so-spinner{width:42px;height:42px;border:4px solid #ffd8ca;border-top-color:#ff4500;border-radius:50%;animation:os .8s linear infinite}@keyframes os{to{transform:rotate(360deg)}}';(document.head||document.documentElement).appendChild(st);
+document.addEventListener("faceplate-request",function(e){var d=e&&e.detail;if(!d||typeof d.resource!=="string")return;var t=abs(d.resource);if(!t)return;d.resource=t;if(/\\/svc\\/shreddit\\/community-more-posts\\//i.test(t)&&e.target&&e.target.tagName==="FACEPLATE-PARTIAL"){e.preventDefault();e.stopImmediatePropagation();run(e.target,d,t);}},true);
+function title(){var host=new U(C.pageUrl).hostname.toLowerCase();return /(^|\\.)reddit\\.com$/.test(host)?"Reddit - 網路心之所在":(document.title||host);}
+function sync(){parent.postMessage({OwObSameOrigin:true,Type:"State",Title:title(),Url:unP(location.href)},"*");}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",sync,{once:true});else sync();window.addEventListener("load",sync,{once:true});
+window.__OwOSameOriginCompatibility={version:"2.2.0",absolute:abs,proxy:px,retryPartial:run};
 })(${config});`;
 }
 
@@ -625,11 +618,7 @@ function RewriteSameOriginHtml(html, sourceUrl, requestUrl) {
         }).join(", ");
         return ` ${name}=${quote}${rewritten}${quote}`;
     });
-    const agentUrl = new URL("/__owo_same_origin_agent__.js", requestUrl.origin);
-    agentUrl.searchParams.set("page", new URL(sourceUrl).toString());
-    const agentKey = requestUrl.searchParams.get("_owo_key");
-    if (agentKey) agentUrl.searchParams.set("_owo_key", agentKey);
-    const injected = `<base href="${BuildSameOriginPath(requestUrl, sourceUrl, sourceUrl)}"><script src="${agentUrl.toString()}"></script>`;
+    const agentUrl=new URL("/__owo_same_origin_agent__.js",requestUrl.origin);agentUrl.searchParams.set("page",new URL(sourceUrl).toString());const agentKey=requestUrl.searchParams.get("_owo_key");if(agentKey)agentUrl.searchParams.set("_owo_key",agentKey);const injected=`<base href="${BuildSameOriginPath(requestUrl,sourceUrl,sourceUrl)}"><script src="${agentUrl.toString()}"></script>`;
     return /<head[^>]*>/i.test(output) ? output.replace(/<head[^>]*>/i, tag => tag + injected) : injected + output;
 }
 
@@ -665,8 +654,7 @@ export default {
         const allowedOrigins = GetAllowedOrigins(env);
 
         /* ---------- 來源檢查 ---------- */
-        const requestOrigin = new URL(request.url).origin;
-        const isWorkerSelfOrigin = origin === requestOrigin;
+        const requestOrigin=new URL(request.url).origin;const isWorkerSelfOrigin=origin===requestOrigin;
         if (!isWorkerSelfOrigin && !IsOriginAllowed(origin, allowedOrigins)) {
             return JsonResponse(
                 403,
@@ -689,12 +677,8 @@ export default {
             return JsonResponse(405, `不支援的方法：${request.method}`, origin);
         }
 
-        const requestUrl = new URL(request.url);
-        if (requestUrl.pathname === "/__owo_same_origin_agent__.js") {
-            if (!IsKeyValid(request, requestUrl, GetAccessKey(env))) return new Response("/* key rejected */", {status:401,headers:{"Content-Type":"application/javascript"}});
-            let pageUrl; try { pageUrl = new URL(requestUrl.searchParams.get("page")); } catch { return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}}); }
-            return new Response(BuildSameOriginCompatibilityAgent(pageUrl.toString(), requestUrl), {headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"9.3.0",...BuildCorsHeaders(origin)}});
-        }
+        const requestUrl=new URL(request.url);
+        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"9.4.0",...BuildCorsHeaders(origin)}});}
 
         /* ---------- 存取金鑰檢查（預檢請求不帶金鑰，故放在預檢之後） ---------- */
         if (!IsKeyValid(request, requestUrl, GetAccessKey(env))) {
@@ -708,7 +692,7 @@ export default {
         // 沒帶 url 參數且不是同源路徑 → 健康檢查
         if (!target && !sameOriginMode) {
             return JsonResponse(200, "OwOb Proxy 運作中", origin, {
-                version:     "9.3.0",
+                version:     "9.4.0",
                 usage:       "/?url=<encoded url> 或 /__owo_proxy__/https/example.com/path",
                 keyRequired: Boolean(GetAccessKey(env)),
                 allowedOrigins,
@@ -753,7 +737,7 @@ export default {
             Object.entries(BuildCorsHeaders(origin)).forEach(([key, value]) => headers.set(key, value));
             headers.set("X-Final-URL",    result.FinalUrl);
             headers.set("X-Proxy-Status", String(upstream.status));
-            headers.set("X-OwOb-Worker-Version", "9.3.0");
+            headers.set("X-OwOb-Worker-Version", "9.4.0");
 
             if (result.SetCookies.length > 0) {
                 headers.set("X-Proxy-Set-Cookie", encodeURIComponent(JSON.stringify(result.SetCookies)));

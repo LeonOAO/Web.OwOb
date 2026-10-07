@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v23
+ *  OwO Simple Browser - 主程式 v24
  *
  *  架構：
  *     1. 設定與狀態
@@ -3780,25 +3780,9 @@ function OwObFrameAgent(Options) {
  * ============================================================ */
 
 window.addEventListener("message", event => {
-    const data = event.data;
-    if (!data) return;
-
-    if (data.OwObSameOrigin === true && data.Type === "State") {
-        const sameOriginTab = State.Tabs.find(item => {
-            const currentFrame = item.ViewEl.querySelector("iframe");
-            return currentFrame && currentFrame.contentWindow === event.source;
-        });
-        if (!sameOriginTab) return;
-        if (typeof data.Title === "string" && data.Title.trim()) {
-            sameOriginTab.Title = data.Title.trim();
-            UpdateTabHeader(sameOriginTab);
-        }
-        SetLoading(sameOriginTab, false);
-        if (sameOriginTab.Id === State.ActiveId) RefreshToolbar();
-        return;
-    }
-
-    if (data.OwOb !== true) return;
+    const data=event.data;if(!data)return;
+    if(data.OwObSameOrigin===true&&data.Type==="State"){const t=State.Tabs.find(x=>x.ViewEl.querySelector("iframe")?.contentWindow===event.source);if(!t)return;t.Title=String(data.Title||GetHostname(GetTabUrl(t))||"頁面");UpdateTabHeader(t);SetLoading(t,false);if(t.Id===State.ActiveId)RefreshToolbar();return;}
+    if(data.OwOb!==true)return;
     const tab = GetTabById(data.TabId);
     if (!tab) return;
 
