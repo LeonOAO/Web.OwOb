@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v27
+ *  OwO Simple Browser - 主程式 v28
  *
  *  架構：
  *     1. 設定與狀態
@@ -2441,15 +2441,20 @@ async function LoadExternalPage(tab, url, postData = null) {
 
         if (contentType.includes("text/html") || contentType.includes("application/xhtml")) {
             const rawHtml = await response.text();
+            const isSearchPage = IsSearchResultPage(finalUrl);
+            const preparedHtml = SimplifySearchResultHtml(rawHtml, finalUrl);
 
-            // 外部 CSS 改經代理抓回並內嵌，避免被目標網站的防盜連 / CORP 擋掉
-            const inlined = await InlineStylesheets(rawHtml, finalUrl, controller.signal);
+            // 搜尋結果頁直接使用已取得的 HTML，避免逐份等待代理 CSS 逾時。
+            // 一般網站仍沿用外部 CSS 代理抓取與內嵌流程。
+            const preparedForFrame = isSearchPage
+                ? preparedHtml
+                : await InlineStylesheets(preparedHtml, finalUrl, controller.signal);
 
-            // 抓 CSS 期間使用者已切換頁面則捨棄
+            // 處理期間使用者已切換頁面則捨棄
             if (GetTabUrl(tab) !== finalUrl && GetTabUrl(tab) !== url) return;
 
             // 圖片、影音、字型（及選用的腳本）改經代理
-            const html = RewriteHtmlResources(inlined, finalUrl);
+            const html = RewriteHtmlResources(preparedForFrame, finalUrl);
             RenderHtmlInFrame(tab, html, finalUrl);
         } else {
             // 圖片、PDF、純文字等非 HTML 內容：直接以代理網址顯示
