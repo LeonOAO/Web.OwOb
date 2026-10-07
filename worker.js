@@ -586,11 +586,12 @@ function BuildSameOriginCompatibilityAgent(sourceUrl, requestUrl) {
     return `(function(C){"use strict";
 if(window.__OwOSameOriginCompatibility)return;
 var U=window.URL,F=window.fetch&&window.fetch.bind(window),XO=XMLHttpRequest.prototype.open,P=new WeakMap();
-function isP(v){try{var u=new U(String(v),C.proxyOrigin);return u.origin===C.proxyOrigin&&u.pathname.indexOf("/__owo_proxy__/")===0;}catch(e){return false;}}
-function unP(v){var value=String(v||"");for(var n=0;n<5&&isP(value);n++){try{var u=new U(value,C.proxyOrigin),r=u.pathname.slice(15),i=r.indexOf("/"),scheme=r.slice(0,i),hp=r.slice(i+1),j=hp.indexOf("/"),host=j<0?hp:hp.slice(0,j),path=j<0?"/":hp.slice(j),o=new U(scheme+"://"+host+path);u.searchParams.forEach(function(x,k){if(k!=="_owo_key")o.searchParams.append(k,x);});value=o.href;}catch(e){break;}}return value;}
-function abs(v){var t=unP(String(v==null?"":v).trim().replace(/^null(?=\\/)/i,""));try{var u=new U(t,t.charAt(0)==="/"?C.pageOrigin:C.pageUrl),m=u.pathname.match(/\\/null(\\/(?:svc|api|graphql)(?:\\/|$).*)/i);if(m)u.pathname=m[1];return u.href;}catch(e){return null;}}
-function px(v){if(isP(v))return new U(String(v),C.proxyOrigin).href;var t=abs(v);if(!t)return v;var u=new U(t),o=new U(C.proxyOrigin);o.pathname="/__owo_proxy__/"+u.protocol.slice(0,-1)+"/"+u.host+u.pathname;o.search=u.search;if(C.key)o.searchParams.set("_owo_key",C.key);o.hash=u.hash;return o.href;}
-function map(v){return !!String(v||"")&&!/^(?:data:|blob:|about:|javascript:|mailto:|tel:|#)/i.test(String(v))&&!isP(v);}
+var MARK="/__owo_proxy__/";
+function extract(v){try{var raw=String(v==null?"":v),pos=raw.lastIndexOf(MARK);if(pos<0)return null;var tail=raw.slice(pos+MARK.length),q=tail.indexOf("?"),pathPart=q<0?tail:tail.slice(0,q),query=q<0?"":tail.slice(q),i=pathPart.indexOf("/"),scheme=pathPart.slice(0,i),hp=pathPart.slice(i+1),j=hp.indexOf("/"),host=j<0?hp:hp.slice(0,j),path=j<0?"/":hp.slice(j);if(!/^(?:http|https)$/.test(scheme)||!host)return null;var out=new U(scheme+"://"+host+path+query);out.searchParams.delete("_owo_key");return out.href;}catch(e){return null;}}
+function isCanonical(v){try{var u=new U(String(v),C.proxyOrigin),first=u.pathname.indexOf(MARK);return u.origin===C.proxyOrigin&&first===0&&u.pathname.indexOf(MARK,MARK.length)<0&&!u.pathname.slice(MARK.length).includes(C.proxyOrigin.replace(/^https?:\\/\\//,""));}catch(e){return false;}}
+function abs(v){var raw=String(v==null?"":v).trim().replace(/^null(?=\\/)/i,""),peeled=extract(raw),t=peeled||raw;try{var u=new U(t,t.charAt(0)==="/"?C.pageOrigin:C.pageUrl),m=u.pathname.match(/\\/null(\\/(?:svc|api|graphql)(?:\\/|$).*)/i);if(m)u.pathname=m[1];return u.href;}catch(e){return null;}}
+function px(v){if(isCanonical(v))return new U(String(v),C.proxyOrigin).href;var t=abs(v);if(!t)return v;var u=new U(t),o=new U(C.proxyOrigin);o.pathname=MARK+u.protocol.slice(0,-1)+"/"+u.host+u.pathname;o.search=u.search;if(C.key)o.searchParams.set("_owo_key",C.key);o.hash=u.hash;return o.href;}
+function map(v){return !!String(v||"")&&!/^(?:data:|blob:|about:|javascript:|mailto:|tel:|#)/i.test(String(v))&&!isCanonical(v);}
 var SA=Element.prototype.setAttribute,AC=Node.prototype.appendChild,IB=Node.prototype.insertBefore;
 function node(n){if(!(n instanceof Element))return n;["src","href","action","formaction","poster"].forEach(function(a){var v=n.getAttribute(a);if(v&&map(v))SA.call(n,a,px(v));});return n;}
 Element.prototype.setAttribute=function(a,v){if(["src","href","action","formaction","poster"].indexOf(String(a).toLowerCase())>=0&&map(v))v=px(v);return SA.call(this,a,v);};Node.prototype.appendChild=function(n){return AC.call(this,node(n));};Node.prototype.insertBefore=function(n,r){return IB.call(this,node(n),r);};
@@ -604,13 +605,25 @@ var NativeWindowOpen=window.open;window.open=function(url){if(url&&abs(url)){sen
 document.addEventListener("click",function(e){if(e.defaultPrevented||e.button!==0||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;var a=e.target&&e.target.closest?e.target.closest("a[href]"):null;if(!a)return;var raw=a.getAttribute("href");if(!raw||/^(?:javascript:|mailto:|tel:|#)/i.test(raw))return;var original=abs(raw);if(!original)return;e.preventDefault();e.stopImmediatePropagation();sendNav(original,a.target==="_blank");},true);
 document.addEventListener("submit",function(e){var form=e.target;if(!(form instanceof HTMLFormElement))return;var method=String(form.method||"GET").toUpperCase(),action=abs(form.action||C.pageUrl);if(!action)return;e.preventDefault();e.stopImmediatePropagation();if(method==="GET"){var u=new U(action),data=new FormData(form);data.forEach(function(v,k){u.searchParams.append(k,String(v));});sendNav(u.href,false);}else{parent.postMessage({OwObSameOrigin:true,Type:"Post",Url:action,Body:new URLSearchParams(new FormData(form)).toString()},"*");}},true);
 function title(){var host=new U(C.pageUrl).hostname.toLowerCase();return /(^|\\.)reddit\\.com$/.test(host)?"Reddit - 網路心之所在":(document.title||host);}
-function sync(){parent.postMessage({OwObSameOrigin:true,Type:"State",Title:title(),Url:unP(location.href)},"*");}
+function sync(){parent.postMessage({OwObSameOrigin:true,Type:"State",Title:title(),Url:abs(location.href)},"*");}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",sync,{once:true});else sync();window.addEventListener("load",sync,{once:true});
 window.__OwOSameOriginCompatibility={version:"2.2.0",absolute:abs,proxy:px,retryPartial:run};
 })(${config});`;
 }
 
+function IsSearchResultPage(url) {
+    try {
+        const u=new URL(url),h=u.hostname.toLowerCase(),p=u.pathname.toLowerCase();
+        return ((h==="bing.com"||h.endsWith(".bing.com"))&&p==="/search")||((h==="google.com"||h.endsWith(".google.com")||/^www\.google\.[a-z.]+$/.test(h))&&p==="/search")||((h==="duckduckgo.com"||h.endsWith(".duckduckgo.com"))&&(p==="/"||p.includes("html")))||((h==="search.yahoo.com"||h.endsWith(".search.yahoo.com"))&&p.includes("search"));
+    } catch { return false; }
+}
+function SimplifySearchResultHtml(html,url) {
+    if(!IsSearchResultPage(url))return String(html);
+    return String(html).replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,"").replace(/<script\b[^>]*\/?>/gi,"").replace(/<link\b[^>]*\brel\s*=\s*["']?(?:preload|prefetch|modulepreload|dns-prefetch|preconnect)["']?[^>]*>/gi,"").replace(/<iframe\b[^>]*(?:ad|analytics|telemetry|tracking)[^>]*>[\s\S]*?<\/iframe\s*>/gi,"");
+}
+
 function RewriteSameOriginHtml(html, sourceUrl, requestUrl) {
+    html = SimplifySearchResultHtml(html, sourceUrl);
     const map = value => /^(?:data:|blob:|javascript:|mailto:|tel:|#)/i.test(value) ? value : BuildSameOriginPath(requestUrl, value, sourceUrl);
     let output = String(html).replace(/\s(src|href|action|formaction|poster)\s*=\s*(["'])(.*?)\2/gi,
         (all, name, quote, value) => ` ${name}=${quote}${map(value)}${quote}`);
@@ -682,7 +695,7 @@ export default {
         }
 
         const requestUrl=new URL(request.url);
-        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"9.5.0",...BuildCorsHeaders(origin)}});}
+        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"9.7.0",...BuildCorsHeaders(origin)}});}
 
         /* ---------- 存取金鑰檢查（預檢請求不帶金鑰，故放在預檢之後） ---------- */
         if (!IsKeyValid(request, requestUrl, GetAccessKey(env))) {
@@ -696,7 +709,7 @@ export default {
         // 沒帶 url 參數且不是同源路徑 → 健康檢查
         if (!target && !sameOriginMode) {
             return JsonResponse(200, "OwOb Proxy 運作中", origin, {
-                version:     "9.5.0",
+                version:     "9.7.0",
                 usage:       "/?url=<encoded url> 或 /__owo_proxy__/https/example.com/path",
                 keyRequired: Boolean(GetAccessKey(env)),
                 allowedOrigins,

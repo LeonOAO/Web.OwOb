@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v25
+ *  OwO Simple Browser - 主程式 v27
  *
  *  架構：
  *     1. 設定與狀態
@@ -2490,6 +2490,17 @@ async function LoadExternalPage(tab, url, postData = null) {
         if (tab.Id === State.ActiveId) RefreshToolbar();
         SaveOpenTabs();
     }
+}
+
+function IsSearchResultPage(url) {
+    try {
+        const u=new URL(url),h=u.hostname.toLowerCase(),p=u.pathname.toLowerCase();
+        return ((h==="bing.com"||h.endsWith(".bing.com"))&&p==="/search")||((h==="google.com"||h.endsWith(".google.com")||/^www\.google\.[a-z.]+$/.test(h))&&p==="/search")||((h==="duckduckgo.com"||h.endsWith(".duckduckgo.com"))&&(p==="/"||p.includes("html")))||((h==="search.yahoo.com"||h.endsWith(".search.yahoo.com"))&&p.includes("search"));
+    } catch { return false; }
+}
+function SimplifySearchResultHtml(html,url) {
+    if(!IsSearchResultPage(url))return String(html);
+    return String(html).replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,"").replace(/<script\b[^>]*\/?>/gi,"").replace(/<link\b[^>]*\brel\s*=\s*["']?(?:preload|prefetch|modulepreload|dns-prefetch|preconnect)["']?[^>]*>/gi,"").replace(/<iframe\b[^>]*(?:ad|analytics|telemetry|tracking)[^>]*>[\s\S]*?<\/iframe\s*>/gi,"");
 }
 
 /* ---------- 外部樣式表內嵌 ----------
