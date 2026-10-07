@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v24
+ *  OwO Simple Browser - 主程式 v25
  *
  *  架構：
  *     1. 設定與狀態
@@ -3781,7 +3781,7 @@ function OwObFrameAgent(Options) {
 
 window.addEventListener("message", event => {
     const data=event.data;if(!data)return;
-    if(data.OwObSameOrigin===true&&data.Type==="State"){const t=State.Tabs.find(x=>x.ViewEl.querySelector("iframe")?.contentWindow===event.source);if(!t)return;t.Title=String(data.Title||GetHostname(GetTabUrl(t))||"頁面");UpdateTabHeader(t);SetLoading(t,false);if(t.Id===State.ActiveId)RefreshToolbar();return;}
+    if(data.OwObSameOrigin===true){const t=State.Tabs.find(x=>x.ViewEl.querySelector("iframe")?.contentWindow===event.source);if(!t)return;if(data.Type==="State"){t.Title=String(data.Title||GetHostname(GetTabUrl(t))||"頁面");UpdateTabHeader(t);SetLoading(t,false);if(t.Id===State.ActiveId)RefreshToolbar();return;}if(data.Type==="Navigate"&&IsWebUrl(data.Url)){Navigate(t,UnwrapRedirectUrl(data.Url));return;}if(data.Type==="OpenTab"&&IsWebUrl(data.Url)){CreateTab(UnwrapRedirectUrl(data.Url),true,{AfterId:t.Id,LoadMode:t.LoadMode});return;}if(data.Type==="Post"&&IsWebUrl(data.Url)&&typeof data.Body==="string"){Navigate(t,data.Url,true,{Body:data.Body,Referer:GetTabUrl(t)});return;}}
     if(data.OwOb!==true)return;
     const tab = GetTabById(data.TabId);
     if (!tab) return;
