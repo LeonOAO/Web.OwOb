@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v31
+ *  OwO Simple Browser - 主程式 v32
  *
  *  架構：
  *     1. 設定與狀態
@@ -309,42 +309,67 @@ function UnwrapRedirectUrl(url) {
     return IsWebUrl(target) ? target : url;
 }
 
-/** 修正 PTT 年齡確認頁在 srcdoc 中產生的無效返回路徑。 */
+/** 由 PTT over18 網址或本文遞迴取出最終看板路徑，避免 /ask/over18 巢狀。 */
+function GetCanonicalPttReturnPath(value, fallbackPageUrl = "") {
+    const candidates = [String(value || ""), String(fallbackPageUrl || "")];
+
+    for (const candidate of candidates) {
+        let current = candidate;
+        for (let depth = 0; depth < 10; depth++) {
+            if (!current || current === "srcdoc" || current === "about:srcdoc" || current.startsWith("about:")) break;
+            try {
+                const parsed = new URL(current, "https://www.ptt.cc/");
+                if (parsed.hostname.toLowerCase() !== "www.ptt.cc") break;
+                if (parsed.pathname !== "/ask/over18") {
+                    if (parsed.pathname.startsWith("/")) return parsed.pathname + parsed.search;
+                    break;
+                }
+                const nested = String(parsed.searchParams.get("from") || "").trim();
+                if (!nested || nested === current) break;
+                current = nested;
+            } catch {
+                if (current.startsWith("/") && !current.startsWith("/ask/over18")) return current;
+                break;
+            }
+        }
+    }
+    return "/";
+}
+
+/** 判斷 OwO Cookie 罐是否已有 PTT 年齡確認 Cookie。 */
+function HasPttOver18Cookie() {
+    const jar = LoadCookieJar();
+    return Object.entries(jar).some(([domain, cookies]) =>
+        (domain === "ptt.cc" || domain.endsWith(".ptt.cc")) &&
+        cookies && cookies.over18 && String(cookies.over18.Value) === "1"
+    );
+}
+
+/** 修正 PTT 年齡確認網址，永遠只保留一層 canonical from。 */
 function NormalizePttOver18Url(value, pageUrl) {
     try {
-        const current = new URL(pageUrl);
+        const current = new URL(pageUrl, "https://www.ptt.cc/");
         const target = new URL(value, current);
         if (target.hostname.toLowerCase() !== "www.ptt.cc" || target.pathname !== "/ask/over18") {
             return target.href;
         }
-        const from = String(target.searchParams.get("from") || "").trim();
-        if (!from || from === "srcdoc" || from === "about:srcdoc" || from.startsWith("about:") || !from.startsWith("/")) {
-            const returnPath = current.hostname.toLowerCase() === "www.ptt.cc"
-                ? current.pathname + current.search
-                : "/";
-            target.searchParams.set("from", returnPath);
-        }
+        const returnPath = GetCanonicalPttReturnPath(target.searchParams.get("from"), current.href);
+        target.search = "";
+        target.searchParams.set("from", returnPath);
         return target.href;
     } catch {
         return value;
     }
 }
 
-/** 修正 PTT 年齡確認 POST 本文中的 from=srcdoc。 */
+/** 修正 PTT 年齡確認 POST 本文，保留 yes 並將 from 去巢狀化。 */
 function NormalizePttOver18PostBody(url, body, pageUrl) {
     try {
         const target = new URL(url, pageUrl);
-        if (target.hostname.toLowerCase() !== "www.ptt.cc" || target.pathname !== "/ask/over18") {
-            return body;
-        }
-        const current = new URL(pageUrl);
+        if (target.hostname.toLowerCase() !== "www.ptt.cc" || target.pathname !== "/ask/over18") return body;
         const params = new URLSearchParams(body);
-        const from = String(params.get("from") || "").trim();
-        if (!from || from === "srcdoc" || from === "about:srcdoc" || !from.startsWith("/")) {
-            params.set("from", current.hostname.toLowerCase() === "www.ptt.cc"
-                ? current.pathname + current.search
-                : "/");
-        }
+        const returnPath = GetCanonicalPttReturnPath(params.get("from"), target.href || pageUrl);
+        params.set("from", returnPath);
         return params.toString();
     } catch {
         return body;
@@ -2468,10 +2493,17 @@ async function LoadExternalPage(tab, url, postData = null) {
         const response = await fetch(BuildProxyUrl(url), requestOptions);
         const contentType = response.headers.get("Content-Type") || "";
         const reportedFinalUrl = response.headers.get("X-Final-URL") || url;
-        const finalUrl = NormalizePttOver18Url(reportedFinalUrl, url);
 
         // 先保存目標網站設定的 Cookie（驗證頁的通過紀錄就在這裡）
         StoreProxyCookies(response.headers.get("X-Proxy-Set-Cookie"));
+
+        let finalUrl = NormalizePttOver18Url(reportedFinalUrl, url);
+        const isPttOver18Post = Boolean(postData) && /https:\/\/www\.ptt\.cc\/ask\/over18/i.test(url);
+        if (isPttOver18Post && HasPttOver18Cookie()) {
+            const postParams = new URLSearchParams(postData.Body || "");
+            const returnPath = GetCanonicalPttReturnPath(postParams.get("from"), url);
+            finalUrl = new URL(returnPath, "https://www.ptt.cc").href;
+        }
 
         // 代理回傳的錯誤（JSON 格式）
         if (!response.ok && contentType.includes("application/json")) {
@@ -2779,8 +2811,12 @@ function ExtractPttOver18ScriptRedirect(html, baseUrl) {
 
     if (!detected) return null;
 
+    // 已有 over18=1 時，PTT 原始腳本在 srcdoc 仍讀不到真實 Cookie；
+    // 此時只移除錯誤導向，直接保留看板內容。
+    if (HasPttOver18Cookie()) return { Html: cleanedHtml, Url: null };
+
     const target = new URL("/ask/over18", page.origin);
-    target.searchParams.set("from", page.pathname + page.search);
+    target.searchParams.set("from", GetCanonicalPttReturnPath(page.href));
     return { Html: cleanedHtml, Url: target.href };
 }
 
@@ -2838,9 +2874,9 @@ ${MakeProxyUrl.toString()}
     SetTabContent(tab, frame, true);
     tab.HasAgent = true;
 
-    const outerRedirect = pttRedirect
+    const outerRedirect = pttRedirect && pttRedirect.Url
         ? { Url: pttRedirect.Url, DelayMs: 0 }
-        : refresh;
+        : (!pttRedirect ? refresh : null);
 
     if (outerRedirect) {
         const expectedUrl = GetTabUrl(tab);
