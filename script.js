@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v30
+ *  OwO Simple Browser - 主程式 v31
  *
  *  架構：
  *     1. 設定與狀態
@@ -2751,12 +2751,50 @@ function RewriteHtmlResources(html, baseUrl) {
 }
 
 /**
+ * 偵測並移除 PTT 在標準 srcdoc 模式中直接執行的年齡確認跳轉。
+ * PTT 原始腳本使用 location.pathname；在 srcdoc 中會得到 "srcdoc"，
+ * 且 location 導覽會繞過 OwO 代理，因此改由外層 Navigate() 接管。
+ */
+function ExtractPttOver18ScriptRedirect(html, baseUrl) {
+    let page;
+    try {
+        page = new URL(baseUrl);
+    } catch {
+        return null;
+    }
+
+    if (page.hostname.toLowerCase() !== "www.ptt.cc") return null;
+
+    let detected = false;
+    const cleanedHtml = String(html).replace(
+        /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi,
+        (whole, attributes, body) => {
+            const isOver18Redirect = /\/ask\/over18/i.test(body) &&
+                /(?:document\.)?(?:window\.)?location(?:\.pathname|\s*=|\.href|\.replace\s*\()/i.test(body);
+            if (!isOver18Redirect) return whole;
+            detected = true;
+            return "<!-- OwO: PTT over18 srcdoc redirect moved to outer proxy navigation -->";
+        }
+    );
+
+    if (!detected) return null;
+
+    const target = new URL("/ask/over18", page.origin);
+    target.searchParams.set("from", page.pathname + page.search);
+    return { Html: cleanedHtml, Url: target.href };
+}
+
+/**
  * 將抓回的 HTML 放進沙箱 iframe
  *  - <base> 讓相對路徑的圖片、CSS 正確指向原網站
  *  - 注入 iframe 代理程式（連結、表單、資源、請求、頁內搜尋、快捷鍵）
  *  - sandbox 不含 allow-same-origin，網頁腳本無法存取 OwOb 本身
  */
 function RenderHtmlInFrame(tab, html, baseUrl) {
+    // PTT 的 inline location 導向在 srcdoc 中會產生 from=srcdoc 並繞過代理。
+    const pttRedirect = ExtractPttOver18ScriptRedirect(html, baseUrl);
+    if (pttRedirect) html = pttRedirect.Html;
+
     // <meta http-equiv="refresh"> 會讓 iframe 繞過代理直接跳轉，
     // 因此從 HTML 移除，改由 OwOb 經代理導覽
     const refresh = ExtractMetaRefresh(html, baseUrl);
@@ -2800,14 +2838,18 @@ ${MakeProxyUrl.toString()}
     SetTabContent(tab, frame, true);
     tab.HasAgent = true;
 
-    if (refresh) {
+    const outerRedirect = pttRedirect
+        ? { Url: pttRedirect.Url, DelayMs: 0 }
+        : refresh;
+
+    if (outerRedirect) {
         const expectedUrl = GetTabUrl(tab);
         setTimeout(() => {
             // 期間使用者已切換頁面則不跳轉
             if (GetTabUrl(tab) === expectedUrl) {
-                Navigate(tab, refresh.Url);
+                Navigate(tab, NormalizePttOver18Url(outerRedirect.Url, baseUrl));
             }
-        }, refresh.DelayMs);
+        }, outerRedirect.DelayMs);
     }
 }
 

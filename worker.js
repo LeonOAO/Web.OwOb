@@ -608,7 +608,7 @@ document.addEventListener("submit",function(e){var form=e.target;if(!(form insta
 function title(){var host=new U(C.pageUrl).hostname.toLowerCase();return /(^|\\.)reddit\\.com$/.test(host)?"Reddit - 網路心之所在":(document.title||host);}
 function sync(){parent.postMessage({OwObSameOrigin:true,Type:"State",Title:title(),Url:abs(location.href)},"*");}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",sync,{once:true});else sync();window.addEventListener("load",sync,{once:true});
-window.__OwOSameOriginCompatibility={version:"2.3.0",absolute:abs,proxy:px,retryPartial:run};
+window.__OwOSameOriginCompatibility={version:"2.4.0",absolute:abs,proxy:px,retryPartial:run};
 })(${config});`;
 }
 
@@ -623,7 +623,35 @@ function SimplifySearchResultHtml(html,url) {
     return String(html).replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,"").replace(/<script\b[^>]*\/?>/gi,"").replace(/<link\b[^>]*\brel\s*=\s*["']?(?:preload|prefetch|modulepreload|dns-prefetch|preconnect)["']?[^>]*>/gi,"").replace(/<iframe\b[^>]*(?:ad|analytics|telemetry|tracking)[^>]*>[\s\S]*?<\/iframe\s*>/gi,"");
 }
 
+function RewritePttOver18Redirect(html, sourceUrl, requestUrl) {
+    let page;
+    try { page = new URL(sourceUrl); } catch { return String(html); }
+    if (page.hostname.toLowerCase() !== "www.ptt.cc") return String(html);
+
+    let detected = false;
+    let output = String(html).replace(
+        /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi,
+        (whole, attributes, body) => {
+            const match = /\/ask\/over18/i.test(body) &&
+                /(?:document\.)?(?:window\.)?location(?:\.pathname|\s*=|\.href|\.replace\s*\()/i.test(body);
+            if (!match) return whole;
+            detected = true;
+            return "<!-- OwO: PTT over18 redirect rewritten to same-origin proxy -->";
+        }
+    );
+    if (!detected) return output;
+
+    const target = new URL("/ask/over18", page.origin);
+    target.searchParams.set("from", page.pathname + page.search);
+    const proxyTarget = BuildSameOriginPath(requestUrl, target.href, sourceUrl);
+    const redirectScript = `<script>location.replace(${JSON.stringify(proxyTarget)});<\/script>`;
+    return /<head[^>]*>/i.test(output)
+        ? output.replace(/<head[^>]*>/i, tag => tag + redirectScript)
+        : redirectScript + output;
+}
+
 function RewriteSameOriginHtml(html, sourceUrl, requestUrl) {
+    html = RewritePttOver18Redirect(html, sourceUrl, requestUrl);
     html = SimplifySearchResultHtml(html, sourceUrl);
     const map = value => /^(?:data:|blob:|javascript:|mailto:|tel:|#)/i.test(value) ? value : BuildSameOriginPath(requestUrl, value, sourceUrl);
     let output = String(html).replace(/\s(src|href|action|formaction|poster)\s*=\s*(["'])(.*?)\2/gi,
@@ -696,7 +724,7 @@ export default {
         }
 
         const requestUrl=new URL(request.url);
-        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"9.7.2",...BuildCorsHeaders(origin)}});}
+        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"9.7.3",...BuildCorsHeaders(origin)}});}
 
         /* ---------- 存取金鑰檢查（預檢請求不帶金鑰，故放在預檢之後） ---------- */
         if (!IsKeyValid(request, requestUrl, GetAccessKey(env))) {
@@ -710,7 +738,7 @@ export default {
         // 沒帶 url 參數且不是同源路徑 → 健康檢查
         if (!target && !sameOriginMode) {
             return JsonResponse(200, "OwOb Proxy 運作中", origin, {
-                version:     "9.7.2",
+                version:     "9.7.3",
                 usage:       "/?url=<encoded url> 或 /__owo_proxy__/https/example.com/path",
                 keyRequired: Boolean(GetAccessKey(env)),
                 allowedOrigins,
@@ -755,7 +783,7 @@ export default {
             Object.entries(BuildCorsHeaders(origin)).forEach(([key, value]) => headers.set(key, value));
             headers.set("X-Final-URL",    result.FinalUrl);
             headers.set("X-Proxy-Status", String(upstream.status));
-            headers.set("X-OwOb-Worker-Version", "9.7.2");
+            headers.set("X-OwOb-Worker-Version", "9.7.3");
 
             if (result.SetCookies.length > 0) {
                 headers.set("X-Proxy-Set-Cookie", encodeURIComponent(JSON.stringify(result.SetCookies)));
