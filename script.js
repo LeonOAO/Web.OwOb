@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v32
+ *  OwO Simple Browser - 主程式 v33
  *
  *  架構：
  *     1. 設定與狀態
@@ -3519,6 +3519,23 @@ function OwObFrameAgent(Options) {
 
     /* ---------- 1. 連結點擊 ---------- */
 
+    var OwObLastNavigation = { Url: "", Type: "", Time: 0 };
+
+    function SendNavigationOnce(type, url) {
+        var now = Date.now();
+        if (
+            OwObLastNavigation.Url === url &&
+            OwObLastNavigation.Type === type &&
+            now - OwObLastNavigation.Time < 700
+        ) {
+            return;
+        }
+        OwObLastNavigation.Url = url;
+        OwObLastNavigation.Type = type;
+        OwObLastNavigation.Time = now;
+        Send({ Type: type, Url: url });
+    }
+
     document.addEventListener("click", function (event) {
         var link = event.target && event.target.closest && event.target.closest("a[href]");
         if (!link || event.defaultPrevented) return;
@@ -3526,12 +3543,14 @@ function OwObFrameAgent(Options) {
         var href = link.getAttribute("href") || "";
         if (href.charAt(0) === "#" || /^(javascript|mailto|tel|data|blob):/i.test(href)) return;
 
-        event.preventDefault();
-        event.stopPropagation();
         var absolute = ToAbsolute(link.getAttribute("href") || link.href);
         if (!absolute || !/^https?:\/\//i.test(absolute)) return;
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+
         var newTab = link.target === "_blank" || event.ctrlKey || event.metaKey || event.button === 1;
-        Send({ Type: newTab ? "OpenTab" : "Navigate", Url: absolute });
+        SendNavigationOnce(newTab ? "OpenTab" : "Navigate", absolute);
     }, true);
 
     /* ---------- 1. 表單送出（GET / POST） ---------- */
@@ -3920,6 +3939,21 @@ function OwObFrameAgent(Options) {
     }, true);
 }
 
+function ShouldIgnoreRepeatedNavigation(tab, type, url) {
+    const now = Date.now();
+    if (
+        tab.LastFrameNavigationUrl === url &&
+        tab.LastFrameNavigationType === type &&
+        now - Number(tab.LastFrameNavigationTime || 0) < 700
+    ) {
+        return true;
+    }
+    tab.LastFrameNavigationUrl = url;
+    tab.LastFrameNavigationType = type;
+    tab.LastFrameNavigationTime = now;
+    return false;
+}
+
 /* ============================================================
  * 14. iframe 訊息接收
  * ============================================================ */
@@ -3938,14 +3972,15 @@ window.addEventListener("message", event => {
             return;
         }
         if (data.Type === "Navigate" && IsWebUrl(data.Url)) {
-            Navigate(t, NormalizePttOver18Url(UnwrapRedirectUrl(data.Url), pageUrl));
+            const targetUrl = NormalizePttOver18Url(UnwrapRedirectUrl(data.Url), pageUrl);
+            if (!ShouldIgnoreRepeatedNavigation(t, "Navigate", targetUrl)) Navigate(t, targetUrl);
             return;
         }
         if (data.Type === "OpenTab" && IsWebUrl(data.Url)) {
-            CreateTab(NormalizePttOver18Url(UnwrapRedirectUrl(data.Url), pageUrl), true, {
-                AfterId: t.Id,
-                LoadMode: t.LoadMode
-            });
+            const targetUrl = NormalizePttOver18Url(UnwrapRedirectUrl(data.Url), pageUrl);
+            if (!ShouldIgnoreRepeatedNavigation(t, "OpenTab", targetUrl)) {
+                CreateTab(targetUrl, true, { AfterId: t.Id, LoadMode: t.LoadMode });
+            }
             return;
         }
         if (data.Type === "Post" && IsWebUrl(data.Url) && typeof data.Body === "string") {
@@ -3968,16 +4003,22 @@ window.addEventListener("message", event => {
     switch (data.Type) {
         case "Navigate":
             if (IsWebUrl(data.Url)) {
-                Navigate(tab, NormalizePttOver18Url(data.Url, GetTabUrl(tab)));
+                const targetUrl = NormalizePttOver18Url(data.Url, GetTabUrl(tab));
+                if (!ShouldIgnoreRepeatedNavigation(tab, "Navigate", targetUrl)) {
+                    Navigate(tab, targetUrl);
+                }
             }
             break;
 
         case "OpenTab":
             if (IsWebUrl(data.Url)) {
-                CreateTab(NormalizePttOver18Url(data.Url, GetTabUrl(tab)), true, {
-                    AfterId: tab.Id,
-                    LoadMode: tab.LoadMode
-                });
+                const targetUrl = NormalizePttOver18Url(data.Url, GetTabUrl(tab));
+                if (!ShouldIgnoreRepeatedNavigation(tab, "OpenTab", targetUrl)) {
+                    CreateTab(targetUrl, true, {
+                        AfterId: tab.Id,
+                        LoadMode: tab.LoadMode
+                    });
+                }
             }
             break;
 
