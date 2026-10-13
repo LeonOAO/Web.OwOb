@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v34
+ *  OwO Simple Browser - 主程式 v35
  *
  *  架構：
  *     1. 設定與狀態
@@ -309,17 +309,15 @@ function UnwrapRedirectUrl(url) {
     return IsWebUrl(target) ? target : url;
 }
 
-/** 移除 Reddit JavaScript Challenge 的一次性參數。 */
-function NormalizeRedditChallengeUrl(value) {
+/** 判斷 Reddit JavaScript Challenge 暫時網址；驗證完成前必須原樣保留。 */
+function IsRedditChallengeUrl(value) {
     try {
         const target = new URL(value);
         const host = target.hostname.toLowerCase();
-        if (host === "reddit.com" || host.endsWith(".reddit.com")) {
-            ["solution", "js_challenge", "jsc_token", "jsc_orig_r"].forEach(name => target.searchParams.delete(name));
-        }
-        return target.href;
+        return (host === "reddit.com" || host.endsWith(".reddit.com")) &&
+            (target.searchParams.has("js_challenge") || target.searchParams.has("jsc_token"));
     } catch {
-        return value;
+        return false;
     }
 }
 
@@ -1431,9 +1429,9 @@ function SetTabContent(tab, content, hasFrame = false) {
  * @param {object|null}  postData  POST 表單資料 { Body, Referer }；GET 時為 null
  */
 function Navigate(tab, url, pushState = true, postData = null) {
-    // 搜尋追蹤與 Reddit Challenge 暫時參數，在寫入歷史前先正規化。
+    // 搜尋結果的追蹤轉址直接換成目的網址；Reddit Challenge 參數需保留到驗證完成。
     if (!postData && !IsInternalUrl(url)) {
-        url = NormalizeRedditChallengeUrl(UnwrapRedirectUrl(url));
+        url = UnwrapRedirectUrl(url);
     }
 
     if (pushState) {
@@ -2506,9 +2504,7 @@ async function LoadExternalPage(tab, url, postData = null) {
 
         const response = await fetch(BuildProxyUrl(url), requestOptions);
         const contentType = response.headers.get("Content-Type") || "";
-        const reportedFinalUrl = NormalizeRedditChallengeUrl(
-            response.headers.get("X-Final-URL") || url
-        );
+        const reportedFinalUrl = response.headers.get("X-Final-URL") || url;
 
         // 先保存目標網站設定的 Cookie（驗證頁的通過紀錄就在這裡）
         StoreProxyCookies(response.headers.get("X-Proxy-Set-Cookie"));
@@ -3568,15 +3564,6 @@ function OwObFrameAgent(Options) {
 
         var absolute = ToAbsolute(link.getAttribute("href") || link.href);
         if (!absolute || !/^https?:\/\//i.test(absolute)) return;
-        try {
-            var redditTarget = new URL(absolute);
-            if (redditTarget.hostname === "reddit.com" || redditTarget.hostname.endsWith(".reddit.com")) {
-                ["solution", "js_challenge", "jsc_token", "jsc_orig_r"].forEach(function (name) {
-                    redditTarget.searchParams.delete(name);
-                });
-                absolute = redditTarget.href;
-            }
-        } catch (ignored) { /* 保留原網址 */ }
 
         event.preventDefault();
         event.stopImmediatePropagation();

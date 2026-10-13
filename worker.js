@@ -260,15 +260,6 @@ function IsKeyValid(request, requestUrl, accessKey) {
 }
 
 /** 檢查網址協定與主機 */
-function NormalizeRedditChallengeTarget(url) {
-    const target = new URL(url.toString());
-    const host = target.hostname.toLowerCase();
-    if (host === "reddit.com" || host.endsWith(".reddit.com")) {
-        ["solution", "js_challenge", "jsc_token", "jsc_orig_r"].forEach(name => target.searchParams.delete(name));
-    }
-    return target;
-}
-
 function AssertSafeUrl(url) {
     if (url.protocol !== "http:" && url.protocol !== "https:") {
         throw new ProxyError(400, `只支援 http / https：${url.protocol}`);
@@ -618,7 +609,7 @@ document.addEventListener("submit",function(e){var form=e.target;if(!(form insta
 function title(){var host=new U(C.pageUrl).hostname.toLowerCase();return /(^|\\.)reddit\\.com$/.test(host)?"Reddit - 網路心之所在":(document.title||host);}
 function sync(){parent.postMessage({OwObSameOrigin:true,Type:"State",Title:title(),Url:abs(location.href)},"*");}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",sync,{once:true});else sync();window.addEventListener("load",sync,{once:true});
-window.__OwOSameOriginCompatibility={version:"2.7.0",absolute:abs,proxy:px,retryPartial:run};
+window.__OwOSameOriginCompatibility={version:"2.7.1",absolute:abs,proxy:px,retryPartial:run};
 })(${config});`;
 }
 
@@ -734,7 +725,7 @@ export default {
         }
 
         const requestUrl=new URL(request.url);
-        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"9.7.6",...BuildCorsHeaders(origin)}});}
+        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"9.7.7",...BuildCorsHeaders(origin)}});}
 
         /* ---------- 存取金鑰檢查（預檢請求不帶金鑰，故放在預檢之後） ---------- */
         if (!IsKeyValid(request, requestUrl, GetAccessKey(env))) {
@@ -748,7 +739,7 @@ export default {
         // 沒帶 url 參數且不是同源路徑 → 健康檢查
         if (!target && !sameOriginMode) {
             return JsonResponse(200, "OwOb Proxy 運作中", origin, {
-                version:     "9.7.6",
+                version:     "9.7.7",
                 usage:       "/?url=<encoded url> 或 /__owo_proxy__/https/example.com/path",
                 keyRequired: Boolean(GetAccessKey(env)),
                 allowedOrigins,
@@ -758,7 +749,7 @@ export default {
 
         let targetUrl;
         try {
-            targetUrl = NormalizeRedditChallengeTarget(sameOriginMode ? ParseSameOriginTarget(requestUrl) : new URL(target));
+            targetUrl = sameOriginMode ? ParseSameOriginTarget(requestUrl) : new URL(target);
         } catch (error) {
             return JsonResponse(400, error.message || `網址格式錯誤：${target}`, origin);
         }
@@ -793,7 +784,7 @@ export default {
             Object.entries(BuildCorsHeaders(origin)).forEach(([key, value]) => headers.set(key, value));
             headers.set("X-Final-URL",    result.FinalUrl);
             headers.set("X-Proxy-Status", String(upstream.status));
-            headers.set("X-OwOb-Worker-Version", "9.7.6");
+            headers.set("X-OwOb-Worker-Version", "9.7.7");
 
             if (result.SetCookies.length > 0) {
                 headers.set("X-Proxy-Set-Cookie", encodeURIComponent(JSON.stringify(result.SetCookies)));
