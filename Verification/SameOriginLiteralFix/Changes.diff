@@ -1,0 +1,38 @@
+--- a/worker.js
++++ b/worker.js
+@@ -651,7 +651,35 @@
+         : redirectScript + output;
+ }
+ 
++/**
++ * Same-origin only: rewrite a standalone literal location redirect before HTML
++ * reaches the browser. Never scan external scripts or alter complex JavaScript.
++ * If the entire script is not one supported redirect, leave it byte-identical.
++ */
++function RewriteSameOriginLiteralRedirects(html, sourceUrl, requestUrl) {
++    return String(html).replace(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi,
++        (whole, attributes, body) => {
++            // External scripts, modules and data scripts keep their original behavior.
++            if (/\bsrc\s*=|\btype\s*=/i.test(attributes)) return whole;
++            const assignment = body.match(/^\s*(?:(?:window|document|self)\s*\.\s*)?location(?:\s*\.\s*href)?\s*=\s*(["'])([^"'\\\r\n]+)\1\s*;?\s*$/);
++            const method = body.match(/^\s*(?:(?:window|document|self)\s*\.\s*)?location\s*\.\s*(assign|replace)\s*\(\s*(["'])([^"'\\\r\n]+)\2\s*\)\s*;?\s*$/);
++            if (!assignment && !method) return whole;
++            const value = assignment ? assignment[2] : method[3];
++            // Fix root-relative paths only; other navigation forms are outside this patch.
++            if (!value.startsWith("/") || value.startsWith("//")) return whole;
++            let proxy;
++            try {
++                proxy = BuildSameOriginPath(requestUrl, value, sourceUrl);
++            } catch { return whole; }
++            const literal = JSON.stringify(proxy).replace(/</g, "\\u003c");
++            const next = assignment ? `location.href=${literal};`
++                : `location.${method[1]}(${literal});`;
++            return `<script${attributes}>${next}</script>`;
++        });
++}
++
+ function RewriteSameOriginHtml(html, sourceUrl, requestUrl) {
++    html = RewriteSameOriginLiteralRedirects(html, sourceUrl, requestUrl);
+     html = RewritePttOver18Redirect(html, sourceUrl, requestUrl);
+     html = SimplifySearchResultHtml(html, sourceUrl);
+     const map = value => /^(?:data:|blob:|javascript:|mailto:|tel:|#)/i.test(value) ? value : BuildSameOriginPath(requestUrl, value, sourceUrl);

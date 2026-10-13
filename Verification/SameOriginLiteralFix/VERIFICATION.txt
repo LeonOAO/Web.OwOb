@@ -1,0 +1,103 @@
+{
+  "parent_sha256": "327f430d25126b907cb3f1859a4f36c98558ee82dfe283fdc1ebad4bf014674b",
+  "changed_symbols": [
+    "RewriteSameOriginLiteralRedirects",
+    "RewriteSameOriginHtml: single helper call"
+  ],
+  "only_original_file_changed": "worker.js",
+  "unchanged_original_files": [
+    "Assets/favico.ico",
+    "JavaScript/wOvOw.js",
+    "Login.html",
+    "ReleaseNotes.md",
+    "Verification/Baseline/script.js",
+    "Verification/Changes.diff",
+    "Verification/ROLLBACK.sh",
+    "Verification/RegressionTest.cjs",
+    "Verification/VERIFICATION.txt",
+    "index.html",
+    "script.js",
+    "styles.css"
+  ],
+  "baseline_sha256": "136080f886065be106fe9ff6befdcf615c37edc6ba8767a4af0d1553cd5a8ba6",
+  "modified_sha256": "f8878e5cb641fad3f24a230cfad2dfb65c3545bb0d1f3b408abf2325d81d9fcb",
+  "rollback_sha256": "136080f886065be106fe9ff6befdcf615c37edc6ba8767a4af0d1553cd5a8ba6",
+  "commands": [
+    {
+      "label": "BASELINE",
+      "command": [
+        "node",
+        "/mnt/data/SameOriginMinimalTemp/Project/Verification/SameOriginLiteralFix/RegressionTest.cjs",
+        "/mnt/data/SameOriginMinimalTemp/Project/Verification/SameOriginLiteralFix/BaselineWorker.js"
+      ],
+      "stdin": "",
+      "stdout": "SCRIPT_NAVIGATION https://proxy.example/lander\nSTANDARD_HTML byte-identical to upstream fixture\nSAME_ORIGIN_HANDLER redirect remains raw\nHEALTH unchanged\nAUTH 401 and PRIVATE_HOST 403 unchanged\nRESULT PASS BASELINE\n",
+      "stderr": "",
+      "exit_status": 0
+    },
+    {
+      "label": "MODIFIED",
+      "command": [
+        "node",
+        "/mnt/data/SameOriginMinimalTemp/Project/Verification/SameOriginLiteralFix/RegressionTest.cjs",
+        "/mnt/data/SameOriginMinimalTemp/Project/worker.js"
+      ],
+      "stdin": "",
+      "stdout": "SCRIPT_NAVIGATION https://proxy.example/__owo_proxy__/https/www.redlib.com/lander?_owo_key=secret\nSUPPORTED_LITERAL_FORMS 4 PASS; COMPLEX/EXTERNAL/DATA_SCRIPTS 7 unchanged\nSTANDARD_HTML byte-identical to upstream fixture\nSAME_ORIGIN_HANDLER redirect rewritten\nHEALTH unchanged\nAUTH 401 and PRIVATE_HOST 403 unchanged\nRESULT PASS MODIFIED\n",
+      "stderr": "",
+      "exit_status": 0
+    },
+    {
+      "label": "SYNTAX",
+      "command": [
+        "node",
+        "--input-type=module",
+        "--check"
+      ],
+      "stdin": "worker.js bytes; SHA256=f8878e5cb641fad3f24a230cfad2dfb65c3545bb0d1f3b408abf2325d81d9fcb",
+      "stdout": "",
+      "stderr": "",
+      "exit_status": 0
+    },
+    {
+      "label": "ROLLBACK_EXECUTE",
+      "command": [
+        "sh",
+        "/mnt/data/SameOriginMinimalTemp/Project/Verification/SameOriginLiteralFix/ROLLBACK.sh",
+        "/mnt/data/SameOriginMinimalTemp/RollbackCopy"
+      ],
+      "stdin": "",
+      "stdout": "ROLLBACK restored uploaded MinimalFix worker.js\n",
+      "stderr": "",
+      "exit_status": 0
+    },
+    {
+      "label": "ROLLBACK",
+      "command": [
+        "node",
+        "/mnt/data/SameOriginMinimalTemp/Project/Verification/SameOriginLiteralFix/RegressionTest.cjs",
+        "/mnt/data/SameOriginMinimalTemp/RollbackCopy/worker.js"
+      ],
+      "stdin": "",
+      "stdout": "SCRIPT_NAVIGATION https://proxy.example/lander\nSTANDARD_HTML byte-identical to upstream fixture\nSAME_ORIGIN_HANDLER redirect remains raw\nHEALTH unchanged\nAUTH 401 and PRIVATE_HOST 403 unchanged\nRESULT PASS BASELINE\n",
+      "stderr": "",
+      "exit_status": 0
+    },
+    {
+      "label": "DIFF_REBUILD",
+      "command": [
+        "git",
+        "-C",
+        "/mnt/data/SameOriginMinimalTemp/PatchCopy",
+        "apply",
+        "/mnt/data/SameOriginMinimalTemp/Project/Verification/SameOriginLiteralFix/Changes.diff"
+      ],
+      "stdin": "",
+      "stdout": "",
+      "stderr": "",
+      "exit_status": 0
+    }
+  ],
+  "scope": "Standalone inline script containing only a literal root-relative location assignment/assign/replace. No external script parsing, no frontend changes, no root recovery route.",
+  "limitations": "Node VM with local fetch and location stubs, not real browser or deployed Worker. The upstream source fetch was blocked by sandbox policy; actual site redirect syntax unverified. Complex/dynamic redirects intentionally unchanged. No claim all websites work or 403/503 resolved."
+}
