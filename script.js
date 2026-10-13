@@ -2445,7 +2445,6 @@ async function LoadExternalPage(tab, url, postData = null) {
 
     if (!postData && tab.LoadMode === "same-origin") {
         try {
-            tab.SameOriginPageUrl = url;
             const frame = CreateFrame(tab, true);
             frame.src = BuildSameOriginProxyUrl(url);
             frame.addEventListener("load", () => {
@@ -3940,37 +3939,6 @@ function OwObFrameAgent(Options) {
     }, true);
 }
 
-/**
- * Recover a document navigation that escaped the same-origin proxy prefix.
- * The caller has already matched event.source to this tab's actual iframe.
- * Do not trust an upstream URL supplied by the recovery document: only accept
- * a root path and resolve it against this tab's last confirmed upstream origin.
- */
-function RecoverSameOriginRootNavigation(tab, event, data) {
-    if (tab.LoadMode !== "same-origin" || event.origin !== GetProxyOrigin()) return;
-    const path = data.Path;
-    if (typeof path !== "string" || !path.startsWith("/") || path.startsWith("//") ||
-        /[\\\x00-\x1f\x7f]/.test(path) || path.startsWith("/__owo_")) return;
-    let target;
-    try {
-        const base = new URL(tab.SameOriginPageUrl || GetTabUrl(tab));
-        if (!IsWebUrl(base.href) || base.origin === GetProxyOrigin()) return;
-        target = new URL(path, base.origin);
-        if (target.origin !== base.origin) return;
-    } catch { return; }
-
-    // Bound repeated recoveries; a broken upstream redirect must not loop forever.
-    const now = Date.now();
-    tab.RootRecoveryTimes = (tab.RootRecoveryTimes || []).filter(time => now - time < 10000);
-    if (tab.RootRecoveryTimes.length >= 3) {
-        RenderErrorPage(tab, "同源代理跳轉反覆失敗", "已停止重複復原，請切回標準模式或檢查目標網站。", target.href);
-        return;
-    }
-    if (ShouldIgnoreRepeatedNavigation(tab, "RecoverRootNavigation", target.href)) return;
-    tab.RootRecoveryTimes.push(now);
-    Navigate(tab, target.href);
-}
-
 function ShouldIgnoreRepeatedNavigation(tab, type, url) {
     const now = Date.now();
     if (
@@ -3996,16 +3964,7 @@ window.addEventListener("message", event => {
         const t = State.Tabs.find(item => item.ViewEl.querySelector("iframe")?.contentWindow === event.source);
         if (!t) return;
         const pageUrl = GetTabUrl(t);
-        if (data.Type === "RecoverRootNavigation") {
-            RecoverSameOriginRootNavigation(t, event, data);
-            return;
-        }
         if (data.Type === "State") {
-            if (t.LoadMode === "same-origin" && event.origin === GetProxyOrigin() &&
-                typeof data.Url === "string" && IsWebUrl(data.Url) &&
-                GetHostname(data.Url) !== GetHostname(GetProxyBase())) {
-                t.SameOriginPageUrl = data.Url;
-            }
             t.Title = String(data.Title || GetHostname(pageUrl) || "頁面");
             UpdateTabHeader(t);
             SetLoading(t, false);
