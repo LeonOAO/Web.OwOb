@@ -1,16 +1,28 @@
-Changed: RewriteNavigationJavaScript; RewriteHtmlResources; ResourceRules.IFRAME/FRAME; MapAttribute; HookProperty; __OwObNavigate; Navigate; Worker script/HTML rewriting.
-HTTP lander is a regression fixture, not a captured upstream response.
-No live browser/Worker deployment, upstream redirect chain or DNS answer verified. eval/dynamic code, parse failures and shadowed globals are not claimed covered.
 {
+  "source_zip_sha256": "05a94e8993478fd0e60535b3b2beada477cf755eb9926d0f63fceebe6699058e",
+  "changed_symbol": "OwObFrameAgent.CreateQuietResponse",
+  "change": "Response body: empty string -> null for status 204",
+  "baseline_sha256": "65064956c595966c8f6594a39f1baa93cd8f60354dce1a614f6156a69320e52a",
+  "modified_sha256": "f3fac3a112b233b7bc336680289ef36ecc6fd2fa5b38d35fa38cd7477cf832b4",
+  "rollback_sha256": "65064956c595966c8f6594a39f1baa93cd8f60354dce1a614f6156a69320e52a",
+  "byte_identical_original_files": [
+    "JavaScript/wOvOw.js",
+    "index.html",
+    "Login.html",
+    "styles.css",
+    "worker.js",
+    "Assets/favico.ico"
+  ],
   "commands": [
     {
       "label": "BASELINE",
       "command": [
         "node",
-        "/mnt/data/FixTemp/Web.OwO/Verification/RegressionTest.cjs",
-        "/mnt/data/AnalysisTemp"
+        "/mnt/data/StableTemp/Web.OwO/Verification/RegressionTest.cjs",
+        "/mnt/data/StableTemp/Web.OwO/Verification/Baseline/script.js"
       ],
-      "stdout": "NAVIGATION window.location.replace(\"http://www.redlib.com/lander\");\nFRAME <iframe src=\"http://www.redlib.com/lander\"></iframe>\nBASELINE direct navigation and unproxied frame reproduced\nRESULT PASS\n",
+      "input": "",
+      "stdout": "QUIET_CONSTRUCTOR TypeError: Response constructor: Invalid response status code 204\nTELEMETRY /svc/shreddit/events status=200 network_calls=1\nTELEMETRY /svc/shreddit/client-errors status=200 network_calls=1\nTELEMETRY /test status=200 network_calls=1\nCONTENT_REQUEST status=200 network_calls=1 proxied=true method=GET\nCONTENT_REQUEST status=200 network_calls=1 proxied=true method=POST\nRESULT PASS BASELINE\n",
       "stderr": "",
       "exit_status": 0
     },
@@ -18,10 +30,35 @@ No live browser/Worker deployment, upstream redirect chain or DNS answer verifie
       "label": "MODIFIED",
       "command": [
         "node",
-        "/mnt/data/FixTemp/Web.OwO/Verification/RegressionTest.cjs",
-        "/mnt/data/FixTemp/Web.OwO"
+        "/mnt/data/StableTemp/Web.OwO/Verification/RegressionTest.cjs",
+        "/mnt/data/StableTemp/Web.OwO/script.js"
       ],
-      "stdout": "NAVIGATION globalThis.__OwObNavigate((\"http://www.redlib.com/lander\"),true,true);\nFRAME <iframe src=\"https://proxy.example/__owo_proxy__/http/www.redlib.com/lander\"></iframe>\nPARSER_CASES \u001b[33m9\u001b[39m PASS\nBRIDGE replace=true; upstream location not executed\nWORKER inline/external redirect rewritten; generated agent parses\nDYNAMIC_FRAME native property setter and attribute mapper route to HTTPS proxy\nREPLACE_HISTORY current entry replaced; no extra history entry\nRESULT PASS\n",
+      "input": "",
+      "stdout": "QUIET_CONSTRUCTOR none\nTELEMETRY /svc/shreddit/events status=204 network_calls=0\nTELEMETRY /svc/shreddit/client-errors status=204 network_calls=0\nTELEMETRY /test status=204 network_calls=0\nCONTENT_REQUEST status=200 network_calls=1 proxied=true method=GET\nCONTENT_REQUEST status=200 network_calls=1 proxied=true method=POST\nRESULT PASS MODIFIED\n",
+      "stderr": "",
+      "exit_status": 0
+    },
+    {
+      "label": "SCRIPT_SYNTAX",
+      "command": [
+        "node",
+        "--check",
+        "/mnt/data/StableTemp/Web.OwO/script.js"
+      ],
+      "input": "",
+      "stdout": "",
+      "stderr": "",
+      "exit_status": 0
+    },
+    {
+      "label": "WORKER_SYNTAX",
+      "command": [
+        "node",
+        "--input-type=module",
+        "--check"
+      ],
+      "input": "worker.js contents; sha256=136080f886065be106fe9ff6befdcf615c37edc6ba8767a4af0d1553cd5a8ba6",
+      "stdout": "",
       "stderr": "",
       "exit_status": 0
     },
@@ -29,10 +66,11 @@ No live browser/Worker deployment, upstream redirect chain or DNS answer verifie
       "label": "ROLLBACK_EXECUTE",
       "command": [
         "sh",
-        "/mnt/data/FixTemp/Web.OwO/Verification/ROLLBACK.sh",
-        "/mnt/data/FixTemp/RollbackCopy"
+        "/mnt/data/StableTemp/Web.OwO/Verification/ROLLBACK.sh",
+        "/mnt/data/StableTemp/RollbackCopy"
       ],
-      "stdout": "ROLLBACK restored script.js, worker.js, index.html; removed added parser assets\n",
+      "input": "",
+      "stdout": "ROLLBACK restored pristine script.js\n",
       "stderr": "",
       "exit_status": 0
     },
@@ -40,78 +78,29 @@ No live browser/Worker deployment, upstream redirect chain or DNS answer verifie
       "label": "ROLLBACK",
       "command": [
         "node",
-        "/mnt/data/FixTemp/Web.OwO/Verification/RegressionTest.cjs",
-        "/mnt/data/FixTemp/RollbackCopy"
+        "/mnt/data/StableTemp/Web.OwO/Verification/RegressionTest.cjs",
+        "/mnt/data/StableTemp/RollbackCopy/script.js"
       ],
-      "stdout": "NAVIGATION window.location.replace(\"http://www.redlib.com/lander\");\nFRAME <iframe src=\"http://www.redlib.com/lander\"></iframe>\nBASELINE direct navigation and unproxied frame reproduced\nRESULT PASS\n",
+      "input": "",
+      "stdout": "QUIET_CONSTRUCTOR TypeError: Response constructor: Invalid response status code 204\nTELEMETRY /svc/shreddit/events status=200 network_calls=1\nTELEMETRY /svc/shreddit/client-errors status=200 network_calls=1\nTELEMETRY /test status=200 network_calls=1\nCONTENT_REQUEST status=200 network_calls=1 proxied=true method=GET\nCONTENT_REQUEST status=200 network_calls=1 proxied=true method=POST\nRESULT PASS BASELINE\n",
       "stderr": "",
       "exit_status": 0
-    },
-    {
-      "label": "SYNTAX_SCRIPT",
-      "command": [
-        "node",
-        "--check",
-        "/mnt/data/FixTemp/Web.OwO/script.js"
-      ],
-      "stdout": "",
-      "stderr": "",
-      "exit_status": 0
-    },
-    {
-      "label": "SYNTAX_WORKER",
-      "command": [
-        "node",
-        "--input-type=module",
-        "--check",
-        "< worker.js"
-      ],
-      "input_sha256": "17861a8e4e972e5299475b01657e3ab51bf8c39ac79544c4d41b681a3d10ab5e",
-      "stdout": "",
-      "stderr": "",
-      "exit_status": 0
-    },
-    {
-      "label": "PATCH_TOOL_ERROR",
-      "command": [
-        "patch",
-        "-p1",
-        "-i",
-        "/mnt/data/FixTemp/Web.OwO/Verification/Changes.diff"
-      ],
-      "stderr": "FileNotFoundError: [Errno 2] No such file or directory: 'patch'",
-      "exit_status": null
     },
     {
       "label": "PATCH_RECONSTRUCT",
       "command": [
         "git",
         "-C",
-        "/mnt/data/FixTemp/PatchCopy",
+        "/mnt/data/StableTemp/PatchCopy",
         "apply",
-        "/mnt/data/FixTemp/Web.OwO/Verification/Changes.diff"
+        "/mnt/data/StableTemp/Web.OwO/Verification/Changes.diff"
       ],
+      "input": "",
       "stdout": "",
       "stderr": "",
-      "exit_status": 0,
-      "note": "Executed via container.exec; every changed/added file byte-compared successfully."
+      "exit_status": 0
     }
   ],
-  "hashes": {
-    "script.js": {
-      "baseline": "65064956c595966c8f6594a39f1baa93cd8f60354dce1a614f6156a69320e52a",
-      "modified": "be0203513f549843f15b7bfc151cd1d569ca4c50103b5c1e3a7127780bcb5132",
-      "rollback": "65064956c595966c8f6594a39f1baa93cd8f60354dce1a614f6156a69320e52a"
-    },
-    "worker.js": {
-      "baseline": "136080f886065be106fe9ff6befdcf615c37edc6ba8767a4af0d1553cd5a8ba6",
-      "modified": "17861a8e4e972e5299475b01657e3ab51bf8c39ac79544c4d41b681a3d10ab5e",
-      "rollback": "136080f886065be106fe9ff6befdcf615c37edc6ba8767a4af0d1553cd5a8ba6"
-    },
-    "index.html": {
-      "baseline": "62db55179099e916741b9e9cf60a31e7a5feec0b9c3e74b33962ab4847670fb0",
-      "modified": "f94d9e0a00cf01544c381f9f33ecbf008adb9f901d24b1d8b17c0fddc21ce74e",
-      "rollback": "62db55179099e916741b9e9cf60a31e7a5feec0b9c3e74b33962ab4847670fb0"
-    }
-  }
+  "test_environment": "Node; actual source fetch wrapper extracted using Acorn. NativeFetch is a local stub; no external network. Acorn is a TEST dependency only, not included in app or Worker. NODE_PATH used in verification environment.",
+  "limitations": "No real browser or deployed Worker test. No claim to repair upstream 403/503 or arbitrary srcdoc location redirects. Previous broad MixedContentFix changes are fully removed."
 }
