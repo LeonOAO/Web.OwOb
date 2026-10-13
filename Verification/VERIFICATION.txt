@@ -1,16 +1,30 @@
 {
-  "source_zip_sha256": "05a94e8993478fd0e60535b3b2beada477cf755eb9926d0f63fceebe6699058e",
-  "changed_symbol": "OwObFrameAgent.CreateQuietResponse",
-  "change": "Response body: empty string -> null for status 204",
-  "baseline_sha256": "65064956c595966c8f6594a39f1baa93cd8f60354dce1a614f6156a69320e52a",
-  "modified_sha256": "f3fac3a112b233b7bc336680289ef36ecc6fd2fa5b38d35fa38cd7477cf832b4",
-  "rollback_sha256": "65064956c595966c8f6594a39f1baa93cd8f60354dce1a614f6156a69320e52a",
-  "byte_identical_original_files": [
-    "JavaScript/wOvOw.js",
+  "changed_symbols": [
+    "RecoverSameOriginRootNavigation",
+    "LoadExternalPage:SameOriginPageUrl",
+    "message:RecoverRootNavigation/State",
+    "BuildSameOriginRecoveryResponse",
+    "Worker.fetch:escaped iframe GET branch"
+  ],
+  "worker_version": "9.7.6",
+  "parent_sha256": "327f430d25126b907cb3f1859a4f36c98558ee82dfe283fdc1ebad4bf014674b",
+  "hashes": {
+    "script.js": {
+      "baseline": "f3fac3a112b233b7bc336680289ef36ecc6fd2fa5b38d35fa38cd7477cf832b4",
+      "modified": "a30dcbad0ffc5695f5393f8d26657f8dfe64a057074b0aed688f47790640d84e",
+      "rollback": "f3fac3a112b233b7bc336680289ef36ecc6fd2fa5b38d35fa38cd7477cf832b4"
+    },
+    "worker.js": {
+      "baseline": "136080f886065be106fe9ff6befdcf615c37edc6ba8767a4af0d1553cd5a8ba6",
+      "modified": "8e72c39248f3a9725cc8788b926419b7ecba0c6ae60e17943a4b4be6a0b1d1ba",
+      "rollback": "136080f886065be106fe9ff6befdcf615c37edc6ba8767a4af0d1553cd5a8ba6"
+    }
+  },
+  "unchanged_files": [
     "index.html",
-    "Login.html",
     "styles.css",
-    "worker.js",
+    "Login.html",
+    "JavaScript/wOvOw.js",
     "Assets/favico.ico"
   ],
   "commands": [
@@ -18,11 +32,11 @@
       "label": "BASELINE",
       "command": [
         "node",
-        "/mnt/data/StableTemp/Web.OwO/Verification/RegressionTest.cjs",
-        "/mnt/data/StableTemp/Web.OwO/Verification/Baseline/script.js"
+        "/mnt/data/RootFixTemp/Project/Verification/RegressionTest.cjs",
+        "/mnt/data/RootFixTemp/Project/Verification/Baseline"
       ],
       "input": "",
-      "stdout": "QUIET_CONSTRUCTOR TypeError: Response constructor: Invalid response status code 204\nTELEMETRY /svc/shreddit/events status=200 network_calls=1\nTELEMETRY /svc/shreddit/client-errors status=200 network_calls=1\nTELEMETRY /test status=200 network_calls=1\nCONTENT_REQUEST status=200 network_calls=1 proxied=true method=GET\nCONTENT_REQUEST status=200 network_calls=1 proxied=true method=POST\nRESULT PASS BASELINE\n",
+      "stdout": "ROOT_IFRAME 200 application/json; charset=utf-8 health JSON upstream_calls=0\nBASELINE root navigation remains health JSON; no recovery\nHEALTH normal root GET unchanged\nOPTIONS unchanged 204\nPRIVATE_HOST blocked 403\nORIGIN_POLICY unchanged 403\nCANONICAL proxy route and key validation PASS\n204_FIX retained\nRESULT PASS BASELINE\n",
       "stderr": "",
       "exit_status": 0
     },
@@ -30,11 +44,11 @@
       "label": "MODIFIED",
       "command": [
         "node",
-        "/mnt/data/StableTemp/Web.OwO/Verification/RegressionTest.cjs",
-        "/mnt/data/StableTemp/Web.OwO/script.js"
+        "/mnt/data/RootFixTemp/Project/Verification/RegressionTest.cjs",
+        "/mnt/data/RootFixTemp/Project"
       ],
       "input": "",
-      "stdout": "QUIET_CONSTRUCTOR none\nTELEMETRY /svc/shreddit/events status=204 network_calls=0\nTELEMETRY /svc/shreddit/client-errors status=204 network_calls=0\nTELEMETRY /test status=204 network_calls=0\nCONTENT_REQUEST status=200 network_calls=1 proxied=true method=GET\nCONTENT_REQUEST status=200 network_calls=1 proxied=true method=POST\nRESULT PASS MODIFIED\n",
+      "stdout": "ROOT_IFRAME 200 text/html; charset=utf-8 recovery document upstream_calls=0\nRECOVERED https://proxy.example/__owo_proxy__/https/www.redlib.com/lander?x=1&_owo_key=secret#part\nREJECTED wrong source/origin and 5 invalid paths\nDUPLICATE suppressed\nMULTI_TAB isolated upstream origins\nSTATE uses last confirmed upstream origin\nSTANDARD_MODE unchanged\nLOOP bounded after 3 recoveries\nAUTH recovery forwards no upstream data; canonical request still requires key\nHEALTH normal root GET unchanged\nOPTIONS unchanged 204\nPRIVATE_HOST blocked 403\nORIGIN_POLICY unchanged 403\nCANONICAL proxy route and key validation PASS\n204_FIX retained\nRESULT PASS MODIFIED\n",
       "stderr": "",
       "exit_status": 0
     },
@@ -43,7 +57,7 @@
       "command": [
         "node",
         "--check",
-        "/mnt/data/StableTemp/Web.OwO/script.js"
+        "/mnt/data/RootFixTemp/Project/script.js"
       ],
       "input": "",
       "stdout": "",
@@ -57,7 +71,7 @@
         "--input-type=module",
         "--check"
       ],
-      "input": "worker.js contents; sha256=136080f886065be106fe9ff6befdcf615c37edc6ba8767a4af0d1553cd5a8ba6",
+      "input": "worker.js contents; SHA256=8e72c39248f3a9725cc8788b926419b7ecba0c6ae60e17943a4b4be6a0b1d1ba",
       "stdout": "",
       "stderr": "",
       "exit_status": 0
@@ -66,11 +80,11 @@
       "label": "ROLLBACK_EXECUTE",
       "command": [
         "sh",
-        "/mnt/data/StableTemp/Web.OwO/Verification/ROLLBACK.sh",
-        "/mnt/data/StableTemp/RollbackCopy"
+        "/mnt/data/RootFixTemp/Project/Verification/ROLLBACK.sh",
+        "/mnt/data/RootFixTemp/RollbackCopy"
       ],
       "input": "",
-      "stdout": "ROLLBACK restored pristine script.js\n",
+      "stdout": "ROLLBACK restored MinimalFix script.js and worker.js\n",
       "stderr": "",
       "exit_status": 0
     },
@@ -78,22 +92,22 @@
       "label": "ROLLBACK",
       "command": [
         "node",
-        "/mnt/data/StableTemp/Web.OwO/Verification/RegressionTest.cjs",
-        "/mnt/data/StableTemp/RollbackCopy/script.js"
+        "/mnt/data/RootFixTemp/Project/Verification/RegressionTest.cjs",
+        "/mnt/data/RootFixTemp/RollbackCopy"
       ],
       "input": "",
-      "stdout": "QUIET_CONSTRUCTOR TypeError: Response constructor: Invalid response status code 204\nTELEMETRY /svc/shreddit/events status=200 network_calls=1\nTELEMETRY /svc/shreddit/client-errors status=200 network_calls=1\nTELEMETRY /test status=200 network_calls=1\nCONTENT_REQUEST status=200 network_calls=1 proxied=true method=GET\nCONTENT_REQUEST status=200 network_calls=1 proxied=true method=POST\nRESULT PASS BASELINE\n",
+      "stdout": "ROOT_IFRAME 200 application/json; charset=utf-8 health JSON upstream_calls=0\nBASELINE root navigation remains health JSON; no recovery\nHEALTH normal root GET unchanged\nOPTIONS unchanged 204\nPRIVATE_HOST blocked 403\nORIGIN_POLICY unchanged 403\nCANONICAL proxy route and key validation PASS\n204_FIX retained\nRESULT PASS BASELINE\n",
       "stderr": "",
       "exit_status": 0
     },
     {
-      "label": "PATCH_RECONSTRUCT",
+      "label": "DIFF_RECONSTRUCT",
       "command": [
         "git",
         "-C",
-        "/mnt/data/StableTemp/PatchCopy",
+        "/mnt/data/RootFixTemp/PatchCopy",
         "apply",
-        "/mnt/data/StableTemp/Web.OwO/Verification/Changes.diff"
+        "/mnt/data/RootFixTemp/Project/Verification/Changes.diff"
       ],
       "input": "",
       "stdout": "",
@@ -101,6 +115,7 @@
       "exit_status": 0
     }
   ],
-  "test_environment": "Node; actual source fetch wrapper extracted using Acorn. NativeFetch is a local stub; no external network. Acorn is a TEST dependency only, not included in app or Worker. NODE_PATH used in verification environment.",
-  "limitations": "No real browser or deployed Worker test. No claim to repair upstream 403/503 or arbitrary srcdoc location redirects. Previous broad MixedContentFix changes are fully removed."
+  "test_environment": "Node VM; actual Worker handler, generated recovery script, frontend message listener and proxy URL builder executed. Upstream fetch and frontend Navigate are local stubs. No browser/network/deployment test.",
+  "limitations": "Recovery covers top-level tab iframe GET documents with Sec-Fetch-Dest: iframe. Nested frames, root resource requests, POST navigation, and upstream 403/503 are not claimed repaired. No access-key, origin or private-host check is disabled. Recovery response itself performs no upstream request and includes no credentials.",
+  "prior_verification": "PreviousMinimalFix preserves prior evidence. Current Baseline is uploaded MinimalFix, including the 204 null-body fix."
 }

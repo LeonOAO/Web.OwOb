@@ -695,6 +695,43 @@ function BuildRequestJar(request, targetUrl) {
     return CreateCookieJar(ParseLegacyCookie(request.headers.get("X-Proxy-Cookie"), targetUrl.hostname));
 }
 
+/**
+ * A root-relative location navigation can escape /__owo_proxy__/ while staying
+ * on the Worker origin. Return a small recovery document, not the health JSON.
+ * No upstream request or credential is handled here. The parent validates the
+ * frame/source/origin and rebuilds the normal authenticated proxy URL per tab.
+ */
+function BuildSameOriginRecoveryResponse(origin, allowedOrigins) {
+    const destinations = JSON.stringify(allowedOrigins).replace(/</g, "\\u003c");
+    const html = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
+<title>同源代理跳轉復原</title></head><body>
+<p>正在復原同源代理跳轉；若未自動恢復，請更新前端與 Worker。</p>
+<script>
+(function () {
+    "use strict";
+    if (window.parent === window) return;
+    var message = {
+        OwObSameOrigin: true,
+        Type: "RecoverRootNavigation",
+        Path: location.pathname + location.search + location.hash
+    };
+    ${destinations}.forEach(function (destination) {
+        try { window.parent.postMessage(message, destination); } catch (error) { /* Invalid configured origin. */ }
+    });
+})();
+</script></body></html>`;
+    return new Response(html, {
+        status: 200,
+        headers: {
+            ...BuildCorsHeaders(origin),
+            "Content-Type": "text/html; charset=utf-8",
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+            "X-OwOb-Worker-Version": "9.7.6"
+        }
+    });
+}
+
 export default {
     async fetch(request, env) {
         const origin         = request.headers.get("Origin");
@@ -725,7 +762,16 @@ export default {
         }
 
         const requestUrl=new URL(request.url);
-        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"9.7.5",...BuildCorsHeaders(origin)}});}
+        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"9.7.6",...BuildCorsHeaders(origin)}});}
+
+        // Only escaped iframe GET documents use recovery. Normal health/API,
+        // authenticated proxy requests, agent resources and other methods keep
+        // their existing routes. Recovery does not forward anything upstream.
+        if (request.method === "GET" && request.headers.get("Sec-Fetch-Dest") === "iframe" &&
+            !requestUrl.pathname.startsWith(SameOriginPrefix) &&
+            !requestUrl.searchParams.has("url")) {
+            return BuildSameOriginRecoveryResponse(origin, allowedOrigins);
+        }
 
         /* ---------- 存取金鑰檢查（預檢請求不帶金鑰，故放在預檢之後） ---------- */
         if (!IsKeyValid(request, requestUrl, GetAccessKey(env))) {
@@ -739,7 +785,7 @@ export default {
         // 沒帶 url 參數且不是同源路徑 → 健康檢查
         if (!target && !sameOriginMode) {
             return JsonResponse(200, "OwOb Proxy 運作中", origin, {
-                version:     "9.7.5",
+                version:     "9.7.6",
                 usage:       "/?url=<encoded url> 或 /__owo_proxy__/https/example.com/path",
                 keyRequired: Boolean(GetAccessKey(env)),
                 allowedOrigins,
@@ -784,7 +830,7 @@ export default {
             Object.entries(BuildCorsHeaders(origin)).forEach(([key, value]) => headers.set(key, value));
             headers.set("X-Final-URL",    result.FinalUrl);
             headers.set("X-Proxy-Status", String(upstream.status));
-            headers.set("X-OwOb-Worker-Version", "9.7.5");
+            headers.set("X-OwOb-Worker-Version", "9.7.6");
 
             if (result.SetCookies.length > 0) {
                 headers.set("X-Proxy-Set-Cookie", encodeURIComponent(JSON.stringify(result.SetCookies)));
