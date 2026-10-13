@@ -1422,6 +1422,8 @@ function Navigate(tab, url, pushState = true, postData = null) {
         url = UnwrapRedirectUrl(url);
     }
 
+    if (!pushState && GetTabUrl(tab) !== url) tab.History[tab.Index] = url;
+
     if (pushState) {
         tab.History = tab.History.slice(0, tab.Index + 1);
         tab.History.push(url);
@@ -2725,9 +2727,88 @@ function RewriteTagAttributes(tagText, baseUrl) {
  *   - 註解、<textarea>、<noscript> 內容與內嵌腳本內容不改，避免破壞字串
  */
 /** 將 JavaScript 中可安全辨識的模組與資源字面值改經代理。 */
+/**
+ * Rewrite real JavaScript navigation syntax, not strings or comments.
+ * Parse failures and shadowed browser globals are left unchanged.
+ * The bridge returns the assigned value and preserves replace semantics.
+ */
+function RewriteNavigationJavaScript(code) {
+    const source = String(code);
+    if (!globalThis.acorn) return source;
+    let tree;
+    try {
+        tree = globalThis.acorn.parse(source, { ecmaVersion: "latest", sourceType: "script", allowReturnOutsideFunction: true });
+    } catch {
+        try { tree = globalThis.acorn.parse(source, { ecmaVersion: "latest", sourceType: "module" }); }
+        catch { return source; }
+    }
+    const shadowed = new Set();
+    function children(node) {
+        const result = [];
+        for (const key of Object.keys(node)) {
+            const value = node[key];
+            if (value && typeof value.type === "string") result.push(value);
+            else if (Array.isArray(value)) value.forEach(item => {
+                if (item && typeof item.type === "string") result.push(item);
+            });
+        }
+        return result;
+    }
+    function binding(node) {
+        if (!node) return;
+        if (node.type === "Identifier") shadowed.add(node.name);
+        else if (node.type === "Property") binding(node.value);
+        else if (node.type === "AssignmentPattern") binding(node.left);
+        else children(node).forEach(binding);
+    }
+    function collect(node) {
+        if (node.type === "VariableDeclarator") binding(node.id);
+        if (/Function/.test(node.type) || node.type === "ArrowFunctionExpression") {
+            binding(node.id); (node.params || []).forEach(binding);
+        }
+        if (node.type === "CatchClause") binding(node.param);
+        if (node.type === "ImportSpecifier" || node.type === "ImportDefaultSpecifier" || node.type === "ImportNamespaceSpecifier") binding(node.local);
+        if (node.type === "ClassDeclaration" || node.type === "ClassExpression") binding(node.id);
+        children(node).forEach(collect);
+    }
+    collect(tree);
+    if (shadowed.has("globalThis")) return source;
+    function property(node) {
+        if (!node || node.type !== "MemberExpression" || node.optional) return "";
+        return node.computed ? (node.property.type === "Literal" ? node.property.value : "") : node.property.name;
+    }
+    function browserGlobal(node) {
+        return node && node.type === "Identifier" && /^(window|self|document)$/.test(node.name) && !shadowed.has(node.name);
+    }
+    function locationObject(node) {
+        return node && ((node.type === "Identifier" && node.name === "location" && !shadowed.has("location")) ||
+            (property(node) === "location" && browserGlobal(node.object)));
+    }
+    function navigationTarget(node) {
+        return locationObject(node) || (property(node) === "href" && locationObject(node.object));
+    }
+    function render(node) {
+        if (node.type === "AssignmentExpression" && node.operator === "=" && navigationTarget(node.left)) {
+            return `globalThis.__OwObNavigate((${render(node.right)}),false)`;
+        }
+        if (node.type === "CallExpression" && !node.optional && /^(assign|replace)$/.test(property(node.callee)) &&
+            locationObject(node.callee.object) && node.arguments.length === 1 && node.arguments[0].type !== "SpreadElement") {
+            return `globalThis.__OwObNavigate((${render(node.arguments[0])}),${property(node.callee) === "replace"},true)`;
+        }
+        let output = source.slice(node.start, node.end);
+        const list = children(node).sort((a,b) => b.start-a.start);
+        for (const child of list) {
+            const rewritten = render(child);
+            output = output.slice(0, child.start-node.start) + rewritten + output.slice(child.end-node.start);
+        }
+        return output;
+    }
+    return source.slice(0,tree.start) + render(tree) + source.slice(tree.end);
+}
+
 function RewriteJavaScriptUrls(code, baseUrl) {
     const map = value => MapResourceUrl(value, baseUrl);
-    let output = String(code);
+    let output = RewriteNavigationJavaScript(code);
 
     // 僅處理語法位置明確的 import/export，支援單引號、雙引號及無插值反引號。
     // 不再全域替換所有 http 字串，避免破壞壓縮腳本中的字串邊界。
@@ -2754,9 +2835,9 @@ function RewriteJavaScriptUrls(code, baseUrl) {
 function RewriteHtmlResources(html, baseUrl) {
     const proxyMedia   = GetFlag("ProxyResources");
     const proxyScripts = GetFlag("ProxyScripts");
-    if (!proxyMedia && !proxyScripts) return html;
+    // Frame navigation is always proxied, independently of media preferences.
 
-    const pattern = /<!--[\s\S]*?-->|<(textarea|noscript)\b[\s\S]*?<\/\1\s*>|<style\b([^>]*)>([\s\S]*?)<\/style\s*>|<script\b([^>]*)>([\s\S]*?)<\/script\s*>|<(?:img|source|video|audio|track|embed|input)\b[^>]*>/gi;
+    const pattern = /<!--[\s\S]*?-->|<(textarea|noscript)\b[\s\S]*?<\/\1\s*>|<style\b([^>]*)>([\s\S]*?)<\/style\s*>|<script\b([^>]*)>([\s\S]*?)<\/script\s*>|<(?:img|source|video|audio|track|embed|input|iframe|frame)\b[^>]*>/gi;
 
     return html.replace(pattern, (match, rawTag, styleAttrs, styleBody, scriptAttrs, scriptBody) => {
         // <style>：改寫 url()
@@ -2766,7 +2847,7 @@ function RewriteHtmlResources(html, baseUrl) {
 
         // <script>：只改開始標籤的 src
         if (scriptAttrs !== undefined) {
-            if (!proxyScripts) return match;
+            if (!proxyScripts) return `<script${scriptAttrs}>${RewriteNavigationJavaScript(scriptBody)}</script>`;
             const nextAttrs = RewriteTagAttributes(scriptAttrs, baseUrl);
             const nextBody  = RewriteJavaScriptUrls(scriptBody, baseUrl);
             return `<script${nextAttrs}>${nextBody}</script>`;
@@ -2777,6 +2858,18 @@ function RewriteHtmlResources(html, baseUrl) {
             return match;
         }
 
+        // Nested frames use the Worker HTML compatibility pipeline, not a raw upstream URL.
+        if (/^<(?:iframe|frame)\b/i.test(match)) {
+            return match.replace(/(\ssrc\s*=\s*)(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi,
+                (whole, prefix, doubleQuoted, singleQuoted, bare) => {
+                    const raw = DecodeEntities(doubleQuoted ?? singleQuoted ?? bare ?? "");
+                    if (!raw || /^(?:data:|blob:|about:|javascript:|#)/i.test(raw)) return whole;
+                    try {
+                        const target = new URL(raw, baseUrl);
+                        return IsWebUrl(target.href) ? `${prefix}"${EscapeHtml(BuildSameOriginProxyUrl(target.href))}"` : whole;
+                    } catch { return whole; }
+                });
+        }
         // 圖片 / 影音標籤
         return proxyMedia ? RewriteTagAttributes(match, baseUrl) : match;
     });
@@ -3553,6 +3646,21 @@ function OwObFrameAgent(Options) {
         SendNavigationOnce(newTab ? "OpenTab" : "Navigate", absolute);
     }, true);
 
+    /** Script navigation must return to the outer controller instead of leaving srcdoc. */
+    Object.defineProperty(globalThis, "__OwObNavigate", {
+        configurable: false,
+        writable: false,
+        value: function (value, replace, isMethod) {
+            var absolute = ToAbsolute(String(value));
+            if (absolute && /^https?:\/\//i.test(absolute)) {
+                Send({ Type: "Navigate", Url: absolute, Replace: Boolean(replace) });
+            } else if (absolute && absolute.charAt(0) !== "#") {
+                Send({ Type: "Toast", Message: "已阻止非 HTTP／HTTPS 的頁面跳轉" });
+            }
+            return isMethod ? undefined : value;
+        }
+    });
+
     /* ---------- 1. 表單送出（GET / POST） ---------- */
 
     document.addEventListener("submit", function (event) {
@@ -3602,6 +3710,8 @@ function OwObFrameAgent(Options) {
 
     // 各標籤需要改寫的屬性
     var ResourceRules = {
+        IFRAME: ["src"],
+        FRAME:  ["src"],
         IMG:    ["src", "srcset"],
         SOURCE: ["src", "srcset"],
         VIDEO:  ["src", "poster"],
@@ -3618,6 +3728,7 @@ function OwObFrameAgent(Options) {
     /** 此元素是否需要改寫 */
     function IsRewritable(element) {
         if (!element || !ResourceRules[element.tagName]) return false;
+        if (/^(IFRAME|FRAME)$/.test(element.tagName)) return true;
         if (element.tagName === "SCRIPT") return Options.ProxyScripts;
         if (element.tagName === "LINK") {
             var rel = String(element.getAttribute("rel") || "").toLowerCase();
@@ -3627,7 +3738,18 @@ function OwObFrameAgent(Options) {
     }
 
     /** 依屬性類型改寫值 */
-    function MapAttribute(name, value) {
+    function MapAttribute(name, value, element) {
+        if (element && /^(IFRAME|FRAME)$/.test(element.tagName) && name === "src") {
+            var absolute = ToAbsolute(value);
+            if (!ShouldProxy(absolute)) return value;
+            var target = new NativeURL(absolute);
+            var proxy = new NativeURL(Options.ProxyBase);
+            proxy.pathname = "/__owo_proxy__/" + target.protocol.slice(0,-1) + "/" + target.host + target.pathname;
+            proxy.search = target.search;
+            if (Options.ProxyKey) proxy.searchParams.set("_owo_key", Options.ProxyKey);
+            proxy.hash = target.hash;
+            return proxy.href;
+        }
         return /srcset$/i.test(name) ? RewriteSrcset(value, ToProxy) : ToProxy(value);
     }
 
@@ -3637,7 +3759,7 @@ function OwObFrameAgent(Options) {
         ResourceRules[element.tagName].forEach(function (name) {
             var value = element.getAttribute(name);
             if (!value) return;
-            var next = MapAttribute(name, value);
+            var next = MapAttribute(name, value, element);
             if (next !== value) NativeSetAttribute.call(element, name, next);
         });
     }
@@ -3647,7 +3769,7 @@ function OwObFrameAgent(Options) {
         if (!node || node.nodeType !== 1) return;
         FixElement(node);
         if (node.querySelectorAll) {
-            var list = node.querySelectorAll("img,source,video,audio,track,embed,input,script");
+            var list = node.querySelectorAll("iframe,frame,img,source,video,audio,track,embed,input,script");
             for (var i = 0; i < list.length; i++) FixElement(list[i]);
         }
     }
@@ -3664,14 +3786,17 @@ function OwObFrameAgent(Options) {
             get:          descriptor.get,
             set: function (value) {
                 if (IsRewritable(this) && value != null) {
-                    value = MapAttribute(property, String(value));
+                    value = MapAttribute(property, String(value), this);
                 }
                 descriptor.set.call(this, value);
             }
         });
     }
 
-    if (Options.ProxyResources || Options.ProxyScripts) {
+    {
+        // Frame hooks remain active even when optional media/script proxying is disabled.
+        HookProperty(window.HTMLIFrameElement, "src");
+        HookProperty(window.HTMLFrameElement, "src");
         HookProperty(window.HTMLImageElement,  "src");
         HookProperty(window.HTMLImageElement,  "srcset");
         HookProperty(window.HTMLSourceElement, "src");
@@ -3688,7 +3813,7 @@ function OwObFrameAgent(Options) {
         Element.prototype.setAttribute = function (name, value) {
             var lower = String(name).toLowerCase();
             if (IsRewritable(this) && ResourceRules[this.tagName].indexOf(lower) !== -1 && value != null) {
-                value = MapAttribute(lower, String(value));
+                value = MapAttribute(lower, String(value), this);
             }
             return NativeSetAttribute.call(this, name, value);
         };
@@ -3973,7 +4098,7 @@ window.addEventListener("message", event => {
         }
         if (data.Type === "Navigate" && IsWebUrl(data.Url)) {
             const targetUrl = NormalizePttOver18Url(UnwrapRedirectUrl(data.Url), pageUrl);
-            if (!ShouldIgnoreRepeatedNavigation(t, "Navigate", targetUrl)) Navigate(t, targetUrl);
+            if (!ShouldIgnoreRepeatedNavigation(t, "Navigate", targetUrl)) Navigate(t, targetUrl, data.Replace !== true);
             return;
         }
         if (data.Type === "OpenTab" && IsWebUrl(data.Url)) {
@@ -4005,7 +4130,7 @@ window.addEventListener("message", event => {
             if (IsWebUrl(data.Url)) {
                 const targetUrl = NormalizePttOver18Url(data.Url, GetTabUrl(tab));
                 if (!ShouldIgnoreRepeatedNavigation(tab, "Navigate", targetUrl)) {
-                    Navigate(tab, targetUrl);
+                    Navigate(tab, targetUrl, data.Replace !== true);
                 }
             }
             break;

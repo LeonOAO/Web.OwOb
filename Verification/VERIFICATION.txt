@@ -1,0 +1,117 @@
+Changed: RewriteNavigationJavaScript; RewriteHtmlResources; ResourceRules.IFRAME/FRAME; MapAttribute; HookProperty; __OwObNavigate; Navigate; Worker script/HTML rewriting.
+HTTP lander is a regression fixture, not a captured upstream response.
+No live browser/Worker deployment, upstream redirect chain or DNS answer verified. eval/dynamic code, parse failures and shadowed globals are not claimed covered.
+{
+  "commands": [
+    {
+      "label": "BASELINE",
+      "command": [
+        "node",
+        "/mnt/data/FixTemp/Web.OwO/Verification/RegressionTest.cjs",
+        "/mnt/data/AnalysisTemp"
+      ],
+      "stdout": "NAVIGATION window.location.replace(\"http://www.redlib.com/lander\");\nFRAME <iframe src=\"http://www.redlib.com/lander\"></iframe>\nBASELINE direct navigation and unproxied frame reproduced\nRESULT PASS\n",
+      "stderr": "",
+      "exit_status": 0
+    },
+    {
+      "label": "MODIFIED",
+      "command": [
+        "node",
+        "/mnt/data/FixTemp/Web.OwO/Verification/RegressionTest.cjs",
+        "/mnt/data/FixTemp/Web.OwO"
+      ],
+      "stdout": "NAVIGATION globalThis.__OwObNavigate((\"http://www.redlib.com/lander\"),true,true);\nFRAME <iframe src=\"https://proxy.example/__owo_proxy__/http/www.redlib.com/lander\"></iframe>\nPARSER_CASES \u001b[33m9\u001b[39m PASS\nBRIDGE replace=true; upstream location not executed\nWORKER inline/external redirect rewritten; generated agent parses\nDYNAMIC_FRAME native property setter and attribute mapper route to HTTPS proxy\nREPLACE_HISTORY current entry replaced; no extra history entry\nRESULT PASS\n",
+      "stderr": "",
+      "exit_status": 0
+    },
+    {
+      "label": "ROLLBACK_EXECUTE",
+      "command": [
+        "sh",
+        "/mnt/data/FixTemp/Web.OwO/Verification/ROLLBACK.sh",
+        "/mnt/data/FixTemp/RollbackCopy"
+      ],
+      "stdout": "ROLLBACK restored script.js, worker.js, index.html; removed added parser assets\n",
+      "stderr": "",
+      "exit_status": 0
+    },
+    {
+      "label": "ROLLBACK",
+      "command": [
+        "node",
+        "/mnt/data/FixTemp/Web.OwO/Verification/RegressionTest.cjs",
+        "/mnt/data/FixTemp/RollbackCopy"
+      ],
+      "stdout": "NAVIGATION window.location.replace(\"http://www.redlib.com/lander\");\nFRAME <iframe src=\"http://www.redlib.com/lander\"></iframe>\nBASELINE direct navigation and unproxied frame reproduced\nRESULT PASS\n",
+      "stderr": "",
+      "exit_status": 0
+    },
+    {
+      "label": "SYNTAX_SCRIPT",
+      "command": [
+        "node",
+        "--check",
+        "/mnt/data/FixTemp/Web.OwO/script.js"
+      ],
+      "stdout": "",
+      "stderr": "",
+      "exit_status": 0
+    },
+    {
+      "label": "SYNTAX_WORKER",
+      "command": [
+        "node",
+        "--input-type=module",
+        "--check",
+        "< worker.js"
+      ],
+      "input_sha256": "17861a8e4e972e5299475b01657e3ab51bf8c39ac79544c4d41b681a3d10ab5e",
+      "stdout": "",
+      "stderr": "",
+      "exit_status": 0
+    },
+    {
+      "label": "PATCH_TOOL_ERROR",
+      "command": [
+        "patch",
+        "-p1",
+        "-i",
+        "/mnt/data/FixTemp/Web.OwO/Verification/Changes.diff"
+      ],
+      "stderr": "FileNotFoundError: [Errno 2] No such file or directory: 'patch'",
+      "exit_status": null
+    },
+    {
+      "label": "PATCH_RECONSTRUCT",
+      "command": [
+        "git",
+        "-C",
+        "/mnt/data/FixTemp/PatchCopy",
+        "apply",
+        "/mnt/data/FixTemp/Web.OwO/Verification/Changes.diff"
+      ],
+      "stdout": "",
+      "stderr": "",
+      "exit_status": 0,
+      "note": "Executed via container.exec; every changed/added file byte-compared successfully."
+    }
+  ],
+  "hashes": {
+    "script.js": {
+      "baseline": "65064956c595966c8f6594a39f1baa93cd8f60354dce1a614f6156a69320e52a",
+      "modified": "be0203513f549843f15b7bfc151cd1d569ca4c50103b5c1e3a7127780bcb5132",
+      "rollback": "65064956c595966c8f6594a39f1baa93cd8f60354dce1a614f6156a69320e52a"
+    },
+    "worker.js": {
+      "baseline": "136080f886065be106fe9ff6befdcf615c37edc6ba8767a4af0d1553cd5a8ba6",
+      "modified": "17861a8e4e972e5299475b01657e3ab51bf8c39ac79544c4d41b681a3d10ab5e",
+      "rollback": "136080f886065be106fe9ff6befdcf615c37edc6ba8767a4af0d1553cd5a8ba6"
+    },
+    "index.html": {
+      "baseline": "62db55179099e916741b9e9cf60a31e7a5feec0b9c3e74b33962ab4847670fb0",
+      "modified": "f94d9e0a00cf01544c381f9f33ecbf008adb9f901d24b1d8b17c0fddc21ce74e",
+      "rollback": "62db55179099e916741b9e9cf60a31e7a5feec0b9c3e74b33962ab4847670fb0"
+    }
+  }
+}
