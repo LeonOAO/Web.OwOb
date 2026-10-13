@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v37
+ *  OwO Simple Browser - 主程式 v38
  *
  *  架構：
  *     1. 設定與狀態
@@ -307,6 +307,26 @@ function UnwrapRedirectUrl(url) {
     }
 
     return IsWebUrl(target) ? target : url;
+}
+
+/**
+ * Reddit 新版文章依賴大型 redditstatic concat 腳本；代理偶發 502 時整頁會空白。
+ * 文章與留言頁改用 Reddit 的輕量伺服器介面，避免將顯示綁在該 JavaScript 套件。
+ */
+function NormalizeRedditReaderUrl(value) {
+    try {
+        const target = new URL(value);
+        const host = target.hostname.toLowerCase();
+        const isReddit = host === "reddit.com" || host === "www.reddit.com" || host === "old.reddit.com";
+        const isArticle = /^\/r\/[^/]+\/comments\/[^/]+(?:\/|$)/i.test(target.pathname);
+        if (isReddit && isArticle) {
+            target.hostname = "old.reddit.com";
+            ["solution", "js_challenge", "jsc_token", "jsc_orig_r"].forEach(name => target.searchParams.delete(name));
+        }
+        return target.href;
+    } catch {
+        return value;
+    }
 }
 
 /** 判斷 Reddit JavaScript Challenge 暫時網址；驗證完成前必須原樣保留。 */
@@ -1431,7 +1451,7 @@ function SetTabContent(tab, content, hasFrame = false) {
 function Navigate(tab, url, pushState = true, postData = null) {
     // 搜尋結果的追蹤轉址直接換成目的網址；Reddit Challenge 參數需保留到驗證完成。
     if (!postData && !IsInternalUrl(url)) {
-        url = UnwrapRedirectUrl(url);
+        url = NormalizeRedditReaderUrl(UnwrapRedirectUrl(url));
     }
 
     if (pushState) {
@@ -2504,7 +2524,9 @@ async function LoadExternalPage(tab, url, postData = null) {
 
         const response = await fetch(BuildProxyUrl(url), requestOptions);
         const contentType = response.headers.get("Content-Type") || "";
-        const reportedFinalUrl = response.headers.get("X-Final-URL") || url;
+        const reportedFinalUrl = NormalizeRedditReaderUrl(
+            response.headers.get("X-Final-URL") || url
+        );
 
         // 先保存目標網站設定的 Cookie（驗證頁的通過紀錄就在這裡）
         StoreProxyCookies(response.headers.get("X-Proxy-Set-Cookie"));
@@ -3565,6 +3587,18 @@ function OwObFrameAgent(Options) {
 
         var absolute = ToAbsolute(link.getAttribute("href") || link.href);
         if (!absolute || !/^https?:\/\//i.test(absolute)) return;
+        try {
+            var redditReader = new URL(absolute);
+            var redditHost = redditReader.hostname.toLowerCase();
+            if ((redditHost === "reddit.com" || redditHost === "www.reddit.com" || redditHost === "old.reddit.com") &&
+                /^\/r\/[^/]+\/comments\/[^/]+(?:\/|$)/i.test(redditReader.pathname)) {
+                redditReader.hostname = "old.reddit.com";
+                ["solution", "js_challenge", "jsc_token", "jsc_orig_r"].forEach(function (name) {
+                    redditReader.searchParams.delete(name);
+                });
+                absolute = redditReader.href;
+            }
+        } catch (ignored) { /* 保留原網址 */ }
 
         event.preventDefault();
         event.stopImmediatePropagation();
