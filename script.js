@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v35
+ *  OwO Simple Browser - 主程式 v36
  *
  *  架構：
  *     1. 設定與狀態
@@ -2766,16 +2766,17 @@ function RewriteJavaScriptUrls(code, baseUrl) {
 function RewriteHtmlResources(html, baseUrl) {
     // Reddit 右側欄 Partial 預載在 srcdoc 中不會直接使用，只會產生警告與重複請求。
     if (/^(?:https?:\/\/)?(?:www\.)?reddit\.com\//i.test(baseUrl)) {
-        html = String(html).replace(
-            /<link\b[^>]*\brel\s*=\s*["']?preload["']?[^>]*\bhref\s*=\s*["'][^"']*\/svc\/shreddit\/pdp-right-rail\/[^"']*["'][^>]*>/gi,
-            ""
-        );
+        html = String(html).replace(/<link\b[^>]*>/gi, tag => {
+            const isPreload = /\brel\s*=\s*["']?preload(?:["'\s>]|$)/i.test(tag);
+            const isRightRail = /\/svc\/shreddit\/pdp-right-rail\//i.test(tag);
+            return isPreload && isRightRail ? "" : tag;
+        });
     }
     const proxyMedia   = GetFlag("ProxyResources");
     const proxyScripts = GetFlag("ProxyScripts");
     if (!proxyMedia && !proxyScripts) return html;
 
-    const pattern = /<!--[\s\S]*?-->|<(textarea|noscript)\b[\s\S]*?<\/\1\s*>|<style\b([^>]*)>([\s\S]*?)<\/style\s*>|<script\b([^>]*)>([\s\S]*?)<\/script\s*>|<(?:img|source|video|audio|track|embed|input)\b[^>]*>/gi;
+    const pattern = /<!--[\s\S]*?-->|<(textarea|noscript)\b[\s\S]*?<\/\1\s*>|<style\b([^>]*)>([\s\S]*?)<\/style\s*>|<script\b([^>]*)>([\s\S]*?)<\/script\s*>|<(?:img|source|video|audio|track|embed|input|iframe)\b[^>]*>/gi;
 
     return html.replace(pattern, (match, rawTag, styleAttrs, styleBody, scriptAttrs, scriptBody) => {
         // <style>：改寫 url()
@@ -3628,6 +3629,7 @@ function OwObFrameAgent(Options) {
         TRACK:  ["src"],
         EMBED:  ["src"],
         INPUT:  ["src"],
+        IFRAME: ["src"],
         SCRIPT: ["src"],
         LINK:   ["href"]
     };
@@ -3700,6 +3702,7 @@ function OwObFrameAgent(Options) {
         HookProperty(window.HTMLTrackElement,  "src");
         HookProperty(window.HTMLEmbedElement,  "src");
         HookProperty(window.HTMLInputElement,  "src");
+        HookProperty(window.HTMLIFrameElement, "src");
         HookProperty(window.HTMLScriptElement, "src");
         HookProperty(window.HTMLLinkElement,   "href");
 
@@ -3740,7 +3743,7 @@ function OwObFrameAgent(Options) {
         /** 不影響頁面主要內容的遙測、廣告與錯誤回報請求，可直接降噪。 */
         function IsNonEssentialBackgroundRequest(url) {
             var absolute = ToAbsolute(url) || String(url || "");
-            return /(?:\/svc\/shreddit\/(?:events|client-errors)|error-tracking\.|w3-reporting\.|pi\.[^/]+\/v4\/p|google-analytics\.|googletagmanager\.|doubleclick\.|\/pagead\/|\/collect(?:\?|$))/i.test(absolute);
+            return /(?:\/svc\/shreddit\/(?:events|client-errors)|error-tracking\.|w3-reporting\.|pi\.[^/]+\/v4\/p|google-analytics\.|googletagmanager\.|doubleclick\.|google\.[^/]+\/ccm\/collect|\/pagead\/|\/collect(?:\?|$))/i.test(absolute);
         }
 
         /** 產生不含資料的成功回應，避免網站因遙測失敗反覆重送。 */
@@ -3758,6 +3761,14 @@ function OwObFrameAgent(Options) {
                 input instanceof Request && input.method ||
                 "GET"
             ).toUpperCase();
+        }
+
+        if (navigator && typeof navigator.sendBeacon === "function") {
+            var NativeSendBeacon = navigator.sendBeacon.bind(navigator);
+            navigator.sendBeacon = function (url, data) {
+                if (IsNonEssentialBackgroundRequest(url)) return true;
+                return NativeSendBeacon(url, data);
+            };
         }
 
         if (typeof NativeFetch === "function") {
