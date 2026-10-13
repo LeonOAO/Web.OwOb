@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v38
+ *  OwO Simple Browser - 主程式 v39
  *
  *  架構：
  *     1. 設定與狀態
@@ -320,7 +320,7 @@ function NormalizeRedditReaderUrl(value) {
         const isReddit = host === "reddit.com" || host === "www.reddit.com" || host === "old.reddit.com";
         const isArticle = /^\/r\/[^/]+\/comments\/[^/]+(?:\/|$)/i.test(target.pathname);
         if (isReddit && isArticle) {
-            target.hostname = "old.reddit.com";
+            target.hostname = "www.reddit.com";
             ["solution", "js_challenge", "jsc_token", "jsc_orig_r"].forEach(name => target.searchParams.delete(name));
         }
         return target.href;
