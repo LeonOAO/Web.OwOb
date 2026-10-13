@@ -260,18 +260,6 @@ function IsKeyValid(request, requestUrl, accessKey) {
 }
 
 /** 檢查網址協定與主機 */
-function NormalizeRedditReaderTarget(url) {
-    const target = new URL(url.toString());
-    const host = target.hostname.toLowerCase();
-    const isReddit = host === "reddit.com" || host === "www.reddit.com" || host === "old.reddit.com";
-    const isArticle = /^\/r\/[^/]+\/comments\/[^/]+(?:\/|$)/i.test(target.pathname);
-    if (isReddit && isArticle) {
-        target.hostname = "www.reddit.com";
-        ["solution", "js_challenge", "jsc_token", "jsc_orig_r"].forEach(name => target.searchParams.delete(name));
-    }
-    return target;
-}
-
 function AssertSafeUrl(url) {
     if (url.protocol !== "http:" && url.protocol !== "https:") {
         throw new ProxyError(400, `只支援 http / https：${url.protocol}`);
@@ -484,39 +472,12 @@ async function FetchWithRedirects(startUrl, options) {
         }
 
         /* ---------- 發出請求 ---------- */
-        // Reddit 靜態 JavaScript 偶發 502 Server Hangup。GET / HEAD 可安全重送，
-        // 在 Worker 內完成重試，避免瀏覽器拿到缺少必要腳本的半成品頁面。
-        const canRetry = method === "GET" || method === "HEAD";
-        const maxAttempts = canRetry ? 3 : 1;
-        let response = null;
-        let lastFetchError = null;
-
-        for (let attempt = 0; attempt < maxAttempts; attempt++) {
-            try {
-                response = await fetch(currentUrl.toString(), {
-                    method,
-                    headers,
-                    body: canRetry ? undefined : body,
-                    redirect: "manual",
-                    cf: { cacheTtl: 0, cacheEverything: false }
-                });
-                lastFetchError = null;
-
-                const retryableStatus = response.status === 502 || response.status === 503 || response.status === 504;
-                if (!retryableStatus || attempt === maxAttempts - 1) break;
-
-                if (response.body) await response.body.cancel().catch(() => {});
-                await new Promise(resolve => setTimeout(resolve, 120 * (attempt + 1)));
-            } catch (error) {
-                lastFetchError = error;
-                if (attempt === maxAttempts - 1) throw error;
-                await new Promise(resolve => setTimeout(resolve, 120 * (attempt + 1)));
-            }
-        }
-
-        if (!response) {
-            throw lastFetchError || new ProxyError(502, "上游沒有回傳有效回應");
-        }
+        const response = await fetch(currentUrl.toString(), {
+            method,
+            headers,
+            body:     ["GET", "HEAD"].includes(method) ? undefined : body,
+            redirect: "manual"
+        });
 
         /* ---------- 收集 Set-Cookie ---------- */
         GetSetCookies(response.headers).forEach(cookie => {
@@ -648,7 +609,7 @@ document.addEventListener("submit",function(e){var form=e.target;if(!(form insta
 function title(){var host=new U(C.pageUrl).hostname.toLowerCase();return /(^|\\.)reddit\\.com$/.test(host)?"Reddit - 網路心之所在":(document.title||host);}
 function sync(){parent.postMessage({OwObSameOrigin:true,Type:"State",Title:title(),Url:abs(location.href)},"*");}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",sync,{once:true});else sync();window.addEventListener("load",sync,{once:true});
-window.__OwOSameOriginCompatibility={version:"2.9.0",absolute:abs,proxy:px,retryPartial:run};
+window.__OwOSameOriginCompatibility={version:"2.6.0",absolute:abs,proxy:px,retryPartial:run};
 })(${config});`;
 }
 
@@ -734,63 +695,6 @@ function BuildRequestJar(request, targetUrl) {
     return CreateCookieJar(ParseLegacyCookie(request.headers.get("X-Proxy-Cookie"), targetUrl.hostname));
 }
 
-function EscapeReaderHtml(value) {
-    return String(value == null ? "" : value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
-}
-
-function ReaderText(value) {
-    return EscapeReaderHtml(value).replace(/\n/g, "<br>");
-}
-
-function RenderRedditComments(children, depth = 0) {
-    if (!Array.isArray(children) || depth > 8) return "";
-    return children.map(item => {
-        if (!item || item.kind !== "t1" || !item.data) return "";
-        const data = item.data;
-        const replies = data.replies && data.replies.data && data.replies.data.children
-            ? RenderRedditComments(data.replies.data.children, depth + 1)
-            : "";
-        return `<article class="comment" style="margin-left:${Math.min(depth, 6) * 18}px">
-            <div class="meta">u/${EscapeReaderHtml(data.author || "[deleted]")} · ${Number(data.score || 0)} 分</div>
-            <div class="body">${ReaderText(data.body || "")}</div>${replies}
-        </article>`;
-    }).join("");
-}
-
-function RenderRedditReader(payload, articleUrl) {
-    const post = payload && payload[0] && payload[0].data && payload[0].data.children && payload[0].data.children[0]
-        ? payload[0].data.children[0].data
-        : null;
-    if (!post) throw new ProxyError(502, "Reddit JSON 未包含文章資料");
-    const comments = payload && payload[1] && payload[1].data ? payload[1].data.children : [];
-    const mediaUrl = post.url_overridden_by_dest || "";
-    const media = mediaUrl && !mediaUrl.includes("reddit.com/r/")
-        ? `<p><a href="${EscapeReaderHtml(mediaUrl)}" target="_blank" rel="noopener">開啟附加內容</a></p>`
-        : "";
-    return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>${EscapeReaderHtml(post.title || "Reddit")}</title>
-    <style>
-    :root{color-scheme:light dark}body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;max-width:920px;margin:auto;padding:20px;line-height:1.65;background:#f6f7f8;color:#1c1c1c}main,.comment{background:#fff;border:1px solid #d7d9dc;border-radius:10px;padding:16px;margin:12px 0}.meta{color:#576f76;font-size:13px}.title{font-size:25px;line-height:1.3;margin:8px 0}.body{overflow-wrap:anywhere}a{color:#0079d3}.notice{background:#fff4d6;border-color:#f0c36d}@media(prefers-color-scheme:dark){body{background:#151516;color:#ddd}main,.comment{background:#1f1f20;border-color:#444}.meta{color:#a8b4b8}}
-    </style></head><body>
-    <main><div class="meta">r/${EscapeReaderHtml(post.subreddit || "")} · u/${EscapeReaderHtml(post.author || "[deleted]")} · ${Number(post.score || 0)} 分</div>
-    <h1 class="title">${EscapeReaderHtml(post.title || "")}</h1>
-    <div class="body">${ReaderText(post.selftext || "")}</div>${media}
-    <p><a href="${EscapeReaderHtml(articleUrl)}" target="_blank" rel="noopener">開啟 Reddit 原始文章</a></p></main>
-    <section><h2>留言</h2>${RenderRedditComments(comments) || '<article class="comment notice">目前沒有可顯示的留言。</article>'}</section>
-    </body></html>`;
-}
-
-function GetRedditArticleId(url) {
-    const match = url.pathname.match(/^\/r\/[^/]+\/comments\/([^/]+)/i);
-    return match ? match[1] : "";
-}
-
 export default {
     async fetch(request, env) {
         const origin         = request.headers.get("Origin");
@@ -821,7 +725,7 @@ export default {
         }
 
         const requestUrl=new URL(request.url);
-        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"9.9.0",...BuildCorsHeaders(origin)}});}
+        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"9.7.5",...BuildCorsHeaders(origin)}});}
 
         /* ---------- 存取金鑰檢查（預檢請求不帶金鑰，故放在預檢之後） ---------- */
         if (!IsKeyValid(request, requestUrl, GetAccessKey(env))) {
@@ -835,7 +739,7 @@ export default {
         // 沒帶 url 參數且不是同源路徑 → 健康檢查
         if (!target && !sameOriginMode) {
             return JsonResponse(200, "OwOb Proxy 運作中", origin, {
-                version:     "9.9.0",
+                version:     "9.7.5",
                 usage:       "/?url=<encoded url> 或 /__owo_proxy__/https/example.com/path",
                 keyRequired: Boolean(GetAccessKey(env)),
                 allowedOrigins,
@@ -845,9 +749,7 @@ export default {
 
         let targetUrl;
         try {
-            targetUrl = NormalizeRedditReaderTarget(
-                sameOriginMode ? ParseSameOriginTarget(requestUrl) : new URL(target)
-            );
+            targetUrl = sameOriginMode ? ParseSameOriginTarget(requestUrl) : new URL(target);
         } catch (error) {
             return JsonResponse(400, error.message || `網址格式錯誤：${target}`, origin);
         }
@@ -861,48 +763,16 @@ export default {
             // 圖片等資源請求帶有具體 Accept 時則照實轉送
             const accept = request.headers.get("Accept") || "";
 
-            const articleId = request.method === "GET" ? GetRedditArticleId(targetUrl) : "";
-            let result;
-            if (articleId) {
-                const apiUrl = new URL(`https://www.reddit.com/comments/${encodeURIComponent(articleId)}.json`);
-                apiUrl.searchParams.set("raw_json", "1");
-                apiUrl.searchParams.set("limit", "200");
-                apiUrl.searchParams.set("depth", "6");
-                const apiResult = await FetchWithRedirects(apiUrl, {
-                    Method: "GET",
-                    Body: null,
-                    ForwardHeaders: forwardHeaders,
-                    ContentType: "application/json",
-                    Jar: BuildRequestJar(request, apiUrl),
-                    Referer: "https://www.reddit.com/",
-                    Accept: "application/json",
-                    Range: ""
-                });
-                if (!apiResult.Response.ok) {
-                    throw new ProxyError(apiResult.Response.status, `Reddit 資料介面回應 HTTP ${apiResult.Response.status}`);
-                }
-                const payload = await apiResult.Response.json();
-                const readerHtml = RenderRedditReader(payload, targetUrl.href);
-                result = {
-                    Response: new Response(readerHtml, {
-                        status: 200,
-                        headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" }
-                    }),
-                    FinalUrl: targetUrl.href,
-                    SetCookies: apiResult.SetCookies
-                };
-            } else {
-                result = await FetchWithRedirects(targetUrl, {
-                    Method: request.method,
-                    Body: hasBody ? await request.arrayBuffer() : null,
-                    ForwardHeaders: forwardHeaders,
-                    ContentType: request.headers.get("Content-Type") || "application/x-www-form-urlencoded",
-                    Jar: BuildRequestJar(request, targetUrl),
-                    Referer: request.headers.get("X-Proxy-Referer") || "",
-                    Accept: accept && accept !== "*/*" ? accept : "",
-                    Range: request.headers.get("Range") || ""
-                });
-            }
+            const result = await FetchWithRedirects(targetUrl, {
+                Method:      request.method,
+                Body:        hasBody ? await request.arrayBuffer() : null,
+                ForwardHeaders: forwardHeaders,
+                ContentType: request.headers.get("Content-Type") || "application/x-www-form-urlencoded",
+                Jar:         BuildRequestJar(request, targetUrl),
+                Referer:     request.headers.get("X-Proxy-Referer") || "",
+                Accept:      accept && accept !== "*/*" ? accept : "",
+                Range:       request.headers.get("Range") || ""
+            });
 
             const upstream = result.Response;
 
@@ -914,7 +784,7 @@ export default {
             Object.entries(BuildCorsHeaders(origin)).forEach(([key, value]) => headers.set(key, value));
             headers.set("X-Final-URL",    result.FinalUrl);
             headers.set("X-Proxy-Status", String(upstream.status));
-            headers.set("X-OwOb-Worker-Version", "9.9.0");
+            headers.set("X-OwOb-Worker-Version", "9.7.5");
 
             if (result.SetCookies.length > 0) {
                 headers.set("X-Proxy-Set-Cookie", encodeURIComponent(JSON.stringify(result.SetCookies)));

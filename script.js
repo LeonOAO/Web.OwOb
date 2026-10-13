@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v39
+ *  OwO Simple Browser - 主程式 v33
  *
  *  架構：
  *     1. 設定與狀態
@@ -307,38 +307,6 @@ function UnwrapRedirectUrl(url) {
     }
 
     return IsWebUrl(target) ? target : url;
-}
-
-/**
- * Reddit 新版文章依賴大型 redditstatic concat 腳本；代理偶發 502 時整頁會空白。
- * 文章與留言頁改用 Reddit 的輕量伺服器介面，避免將顯示綁在該 JavaScript 套件。
- */
-function NormalizeRedditReaderUrl(value) {
-    try {
-        const target = new URL(value);
-        const host = target.hostname.toLowerCase();
-        const isReddit = host === "reddit.com" || host === "www.reddit.com" || host === "old.reddit.com";
-        const isArticle = /^\/r\/[^/]+\/comments\/[^/]+(?:\/|$)/i.test(target.pathname);
-        if (isReddit && isArticle) {
-            target.hostname = "www.reddit.com";
-            ["solution", "js_challenge", "jsc_token", "jsc_orig_r"].forEach(name => target.searchParams.delete(name));
-        }
-        return target.href;
-    } catch {
-        return value;
-    }
-}
-
-/** 判斷 Reddit JavaScript Challenge 暫時網址；驗證完成前必須原樣保留。 */
-function IsRedditChallengeUrl(value) {
-    try {
-        const target = new URL(value);
-        const host = target.hostname.toLowerCase();
-        return (host === "reddit.com" || host.endsWith(".reddit.com")) &&
-            (target.searchParams.has("js_challenge") || target.searchParams.has("jsc_token"));
-    } catch {
-        return false;
-    }
 }
 
 /** 由 PTT over18 網址或本文遞迴取出最終看板路徑，避免 /ask/over18 巢狀。 */
@@ -1449,9 +1417,9 @@ function SetTabContent(tab, content, hasFrame = false) {
  * @param {object|null}  postData  POST 表單資料 { Body, Referer }；GET 時為 null
  */
 function Navigate(tab, url, pushState = true, postData = null) {
-    // 搜尋結果的追蹤轉址直接換成目的網址；Reddit Challenge 參數需保留到驗證完成。
+    // 搜尋結果的追蹤轉址 → 直接換成目的網址（POST 不處理）
     if (!postData && !IsInternalUrl(url)) {
-        url = NormalizeRedditReaderUrl(UnwrapRedirectUrl(url));
+        url = UnwrapRedirectUrl(url);
     }
 
     if (pushState) {
@@ -2524,9 +2492,7 @@ async function LoadExternalPage(tab, url, postData = null) {
 
         const response = await fetch(BuildProxyUrl(url), requestOptions);
         const contentType = response.headers.get("Content-Type") || "";
-        const reportedFinalUrl = NormalizeRedditReaderUrl(
-            response.headers.get("X-Final-URL") || url
-        );
+        const reportedFinalUrl = response.headers.get("X-Final-URL") || url;
 
         // 先保存目標網站設定的 Cookie（驗證頁的通過紀錄就在這裡）
         StoreProxyCookies(response.headers.get("X-Proxy-Set-Cookie"));
@@ -2786,19 +2752,11 @@ function RewriteJavaScriptUrls(code, baseUrl) {
 }
 
 function RewriteHtmlResources(html, baseUrl) {
-    // Reddit 右側欄 Partial 預載在 srcdoc 中不會直接使用，只會產生警告與重複請求。
-    if (/^(?:https?:\/\/)?(?:www\.)?reddit\.com\//i.test(baseUrl)) {
-        html = String(html).replace(/<link\b[^>]*>/gi, tag => {
-            const isPreload = /\brel\s*=\s*["']?preload(?:["'\s>]|$)/i.test(tag);
-            const isRightRail = /\/svc\/shreddit\/pdp-right-rail\//i.test(tag);
-            return isPreload && isRightRail ? "" : tag;
-        });
-    }
     const proxyMedia   = GetFlag("ProxyResources");
     const proxyScripts = GetFlag("ProxyScripts");
     if (!proxyMedia && !proxyScripts) return html;
 
-    const pattern = /<!--[\s\S]*?-->|<(textarea|noscript)\b[\s\S]*?<\/\1\s*>|<style\b([^>]*)>([\s\S]*?)<\/style\s*>|<script\b([^>]*)>([\s\S]*?)<\/script\s*>|<(?:img|source|video|audio|track|embed|input|iframe)\b[^>]*>/gi;
+    const pattern = /<!--[\s\S]*?-->|<(textarea|noscript)\b[\s\S]*?<\/\1\s*>|<style\b([^>]*)>([\s\S]*?)<\/style\s*>|<script\b([^>]*)>([\s\S]*?)<\/script\s*>|<(?:img|source|video|audio|track|embed|input)\b[^>]*>/gi;
 
     return html.replace(pattern, (match, rawTag, styleAttrs, styleBody, scriptAttrs, scriptBody) => {
         // <style>：改寫 url()
@@ -3587,18 +3545,6 @@ function OwObFrameAgent(Options) {
 
         var absolute = ToAbsolute(link.getAttribute("href") || link.href);
         if (!absolute || !/^https?:\/\//i.test(absolute)) return;
-        try {
-            var redditReader = new URL(absolute);
-            var redditHost = redditReader.hostname.toLowerCase();
-            if ((redditHost === "reddit.com" || redditHost === "www.reddit.com" || redditHost === "old.reddit.com") &&
-                /^\/r\/[^/]+\/comments\/[^/]+(?:\/|$)/i.test(redditReader.pathname)) {
-                redditReader.hostname = "old.reddit.com";
-                ["solution", "js_challenge", "jsc_token", "jsc_orig_r"].forEach(function (name) {
-                    redditReader.searchParams.delete(name);
-                });
-                absolute = redditReader.href;
-            }
-        } catch (ignored) { /* 保留原網址 */ }
 
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -3663,7 +3609,6 @@ function OwObFrameAgent(Options) {
         TRACK:  ["src"],
         EMBED:  ["src"],
         INPUT:  ["src"],
-        IFRAME: ["src"],
         SCRIPT: ["src"],
         LINK:   ["href"]
     };
@@ -3688,14 +3633,6 @@ function OwObFrameAgent(Options) {
 
     /** 檢查並改寫元素現有屬性 */
     function FixElement(element) {
-        if (element && element.tagName === "LINK") {
-            var linkRel = String(element.getAttribute("rel") || "").toLowerCase();
-            var linkHref = String(element.getAttribute("href") || "");
-            if (linkRel === "preload" && /\/svc\/shreddit\/pdp-right-rail\//i.test(linkHref)) {
-                element.remove();
-                return;
-            }
-        }
         if (!IsRewritable(element)) return;
         ResourceRules[element.tagName].forEach(function (name) {
             var value = element.getAttribute(name);
@@ -3710,7 +3647,7 @@ function OwObFrameAgent(Options) {
         if (!node || node.nodeType !== 1) return;
         FixElement(node);
         if (node.querySelectorAll) {
-            var list = node.querySelectorAll("img,source,video,audio,track,embed,input,iframe,script,link");
+            var list = node.querySelectorAll("img,source,video,audio,track,embed,input,script");
             for (var i = 0; i < list.length; i++) FixElement(list[i]);
         }
     }
@@ -3744,7 +3681,6 @@ function OwObFrameAgent(Options) {
         HookProperty(window.HTMLTrackElement,  "src");
         HookProperty(window.HTMLEmbedElement,  "src");
         HookProperty(window.HTMLInputElement,  "src");
-        HookProperty(window.HTMLIFrameElement, "src");
         HookProperty(window.HTMLScriptElement, "src");
         HookProperty(window.HTMLLinkElement,   "href");
 
@@ -3785,7 +3721,7 @@ function OwObFrameAgent(Options) {
         /** 不影響頁面主要內容的遙測、廣告與錯誤回報請求，可直接降噪。 */
         function IsNonEssentialBackgroundRequest(url) {
             var absolute = ToAbsolute(url) || String(url || "");
-            return /(?:\/svc\/shreddit\/(?:events|client-errors)|error-tracking\.|w3-reporting\.|pi\.[^/]+\/v4\/p|google-analytics\.|googletagmanager\.|doubleclick\.|google\.[^/]+\/ccm\/collect|\/pagead\/|\/collect(?:\?|$))/i.test(absolute);
+            return /(?:\/svc\/shreddit\/(?:events|client-errors)|error-tracking\.|w3-reporting\.|pi\.[^/]+\/v4\/p|google-analytics\.|googletagmanager\.|doubleclick\.|\/pagead\/|\/collect(?:\?|$))/i.test(absolute);
         }
 
         /** 產生不含資料的成功回應，避免網站因遙測失敗反覆重送。 */
@@ -3803,14 +3739,6 @@ function OwObFrameAgent(Options) {
                 input instanceof Request && input.method ||
                 "GET"
             ).toUpperCase();
-        }
-
-        if (navigator && typeof navigator.sendBeacon === "function") {
-            var NativeSendBeacon = navigator.sendBeacon.bind(navigator);
-            navigator.sendBeacon = function (url, data) {
-                if (IsNonEssentialBackgroundRequest(url)) return true;
-                return NativeSendBeacon(url, data);
-            };
         }
 
         if (typeof NativeFetch === "function") {
@@ -3899,7 +3827,6 @@ function OwObFrameAgent(Options) {
             var NativeSendBeacon = navigator.sendBeacon.bind(navigator);
             try {
                 navigator.sendBeacon = function (url, data) {
-                    if (IsNonEssentialBackgroundRequest(url)) return true;
                     return NativeSendBeacon(ToProxy(String(url)), data);
                 };
             } catch (error) { /* 唯讀實作維持原樣 */ }
@@ -3909,11 +3836,7 @@ function OwObFrameAgent(Options) {
         XMLHttpRequest.prototype.open = function (method, url) {
             var args = Array.prototype.slice.call(arguments);
             try {
-                if (IsNonEssentialBackgroundRequest(url)) {
-                    args[1] = "data:application/json,{}";
-                } else {
-                    args[1] = ToProxy(String(url));
-                }
+                args[1] = ToProxy(String(url));
             } catch (error) {
                 /* 改寫失敗時以原網址送出 */
             }
