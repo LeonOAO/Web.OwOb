@@ -1,1 +1,839 @@
-const DefaultAllowedOrigins=['https://leonoao.github.io','http://localhost:5500','http://127.0.0.1:5500'];const MaxRedirects=0xf;const StripResponseHeaders=['content-security-policy','content-security-policy-report-only','x-frame-options','cross-origin-opener-policy','cross-origin-embedder-policy','cross-origin-resource-policy','strict-transport-security','set-cookie','content-length','location'];const BrowserHeaders={'User-Agent':'Mozilla/5.0\x20(Windows\x20NT\x2010.0;\x20Win64;\x20x64)\x20AppleWebKit/537.36\x20(KHTML,\x20like\x20Gecko)\x20Chrome/129.0.0.0\x20Safari/537.36','Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8','Accept-Language':'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7'};class ProxyError extends Error{constructor(_0x55eded,_0x388db0){super(_0x388db0);this['Status']=_0x55eded;}}function GetAllowedOrigins(_0x7bd063){const _0xd1ef5d=_0x7bd063&&_0x7bd063['ALLOWED_ORIGINS']?String(_0x7bd063['ALLOWED_ORIGINS']):'';const _0x444c57=_0xd1ef5d?_0xd1ef5d['split'](','):DefaultAllowedOrigins;return _0x444c57['map'](_0x558b89=>_0x558b89['trim']()['replace'](/\/+$/,''))['filter'](Boolean);}function IsOriginAllowed(_0x4e62fc,_0x2897ba){if(!_0x4e62fc||_0x4e62fc==='null'){return!![];}if(_0x2897ba['includes']('*')){return!![];}return _0x2897ba['includes'](_0x4e62fc);}const DefaultAllowHeaders='Content-Type,\x20Accept,\x20Accept-Language,\x20Range,\x20Authorization,\x20X-Requested-With,\x20X-CSRF-Token,\x20X-Reddit-Compression,\x20X-Proxy-Cookie,\x20X-Proxy-Cookie-Jar,\x20X-Proxy-Referer,\x20X-Proxy-Key,\x20X-Proxy-Headers';const ForwardRequestHeaders=['Accept-Language','Authorization','X-Requested-With','X-CSRF-Token','X-Reddit-Compression'];const BlockedForwardHeaders=new Set(['host','cookie','origin','referer','content-length','connection','cf-connecting-ip','cf-ipcountry','cf-ray','x-forwarded-for','x-forwarded-proto']);function DecodeForwardHeaders(_0x5dcde5){const _0x4bc923={};const _0x39b695=_0x5dcde5['headers']['get']('X-Proxy-Headers');if(_0x39b695){try{const _0x5d3b37=JSON['parse'](decodeURIComponent(_0x39b695));Object['entries'](_0x5d3b37)['forEach'](([_0x245d60,_0x3666fe])=>{const _0x71e001=String(_0x245d60)['toLowerCase']();if(!BlockedForwardHeaders['has'](_0x71e001)&&!_0x71e001['startsWith']('sec-')&&!_0x71e001['startsWith']('proxy-')&&typeof _0x3666fe==='string'){_0x4bc923[_0x245d60]=_0x3666fe;}});}catch(_0x3749ee){}}ForwardRequestHeaders['forEach'](_0x4993d1=>{const _0x415715=_0x5dcde5['headers']['get'](_0x4993d1);if(_0x415715)_0x4bc923[_0x4993d1]=_0x415715;});return _0x4bc923;}function BuildCorsHeaders(_0x46ddc7,_0x24c6ca=null){const _0x1c7fec={'Access-Control-Allow-Origin':_0x46ddc7||'*','Access-Control-Allow-Methods':'GET,\x20HEAD,\x20POST,\x20PUT,\x20PATCH,\x20DELETE,\x20OPTIONS','Access-Control-Allow-Headers':_0x24c6ca||DefaultAllowHeaders,'Access-Control-Expose-Headers':'Content-Type,\x20Content-Range,\x20Accept-Ranges,\x20X-Final-URL,\x20X-Proxy-Status,\x20X-Proxy-Set-Cookie,\x20X-OwOb-Worker-Version','Access-Control-Max-Age':'86400','Vary':'Origin'};if(_0x46ddc7){_0x1c7fec['Access-Control-Allow-Credentials']='true';}return _0x1c7fec;}function JsonResponse(_0x1e87b9,_0x7501c9,_0x2e7fa3,_0x55d7ca={}){return new Response(JSON['stringify']({'ok':_0x1e87b9<0x190,'status':_0x1e87b9,'message':_0x7501c9,..._0x55d7ca}),{'status':_0x1e87b9,'headers':{...BuildCorsHeaders(_0x2e7fa3),'Content-Type':'application/json;\x20charset=utf-8'}});}function IsBlockedHost(_0x1c98f7){const _0x38d5fa=_0x1c98f7['toLowerCase']()['replace'](/^\[|\]$/g,'');if(_0x38d5fa==='localhost'||_0x38d5fa['endsWith']('.localhost')||_0x38d5fa['endsWith']('.local')){return!![];}if(_0x38d5fa['includes'](':')){return _0x38d5fa==='::1'||_0x38d5fa['startsWith']('fc')||_0x38d5fa['startsWith']('fd')||_0x38d5fa['startsWith']('fe80');}const _0x44ae53=_0x38d5fa['match'](/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);if(_0x44ae53){const [_0x3abbda,_0x18c278]=[Number(_0x44ae53[0x1]),Number(_0x44ae53[0x2])];return _0x3abbda===0x0||_0x3abbda===0xa||_0x3abbda===0x7f||_0x3abbda===0xa9&&_0x18c278===0xfe||_0x3abbda===0xac&&_0x18c278>=0x10&&_0x18c278<=0x1f||_0x3abbda===0xc0&&_0x18c278===0xa8||_0x3abbda===0x64&&_0x18c278>=0x40&&_0x18c278<=0x7f;}return![];}function GetAccessKey(_0x3a45a0){return _0x3a45a0&&_0x3a45a0['ACCESS_KEY']?String(_0x3a45a0['ACCESS_KEY'])['trim']():'';}function SafeEqual(_0x302b0e,_0x2e2645){const _0x435ed5=String(_0x302b0e);const _0x5d6198=String(_0x2e2645);let _0x589ee1=_0x435ed5['length']^_0x5d6198['length'];for(let _0x3cdabd=0x0;_0x3cdabd<Math['max'](_0x435ed5['length'],_0x5d6198['length']);_0x3cdabd++){_0x589ee1|=(_0x435ed5['charCodeAt'](_0x3cdabd)||0x0)^(_0x5d6198['charCodeAt'](_0x3cdabd)||0x0);}return _0x589ee1===0x0;}function IsKeyValid(_0x560ed3,_0x1f0e34,_0x5c7475){if(!_0x5c7475)return!![];const _0x50ca40=_0x1f0e34['searchParams']['get']('key')||_0x1f0e34['searchParams']['get']('_owo_key')||_0x560ed3['headers']['get']('X-Proxy-Key')||'';return SafeEqual(_0x50ca40,_0x5c7475);}function AssertSafeUrl(_0x58388b){if(_0x58388b['protocol']!=='http:'&&_0x58388b['protocol']!=='https:'){throw new ProxyError(0x190,'只支援\x20http\x20/\x20https：'+_0x58388b['protocol']);}if(IsBlockedHost(_0x58388b['hostname'])){throw new ProxyError(0x193,'禁止存取內網位址：'+_0x58388b['hostname']);}}function CreateCookieJar(_0x33f074){const _0x842a7e=[];(Array['isArray'](_0x33f074)?_0x33f074:[])['forEach'](_0x58d215=>{if(_0x58d215&&typeof _0x58d215['Domain']==='string'&&typeof _0x58d215['Name']==='string'){_0x842a7e['push']({'Domain':_0x58d215['Domain']['toLowerCase'](),'Name':_0x58d215['Name'],'Value':String(_0x58d215['Value']??''),'HostOnly':Boolean(_0x58d215['HostOnly'])});}});return _0x842a7e;}function ParseLegacyCookie(_0x2936e8,_0x37624f){const _0x57204d=[];String(_0x2936e8||'')['split'](';')['forEach'](_0x323b44=>{const _0x3fb4e2=_0x323b44['indexOf']('=');if(_0x3fb4e2>0x0){_0x57204d['push']({'Domain':_0x37624f,'Name':_0x323b44['slice'](0x0,_0x3fb4e2)['trim'](),'Value':_0x323b44['slice'](_0x3fb4e2+0x1)['trim'](),'HostOnly':!![]});}});return _0x57204d;}function GetCookieHeaderForHost(_0x28168f,_0x543cc5){const _0x5b29a4=_0x543cc5['toLowerCase']();return _0x28168f['filter'](_0x2082de=>_0x5b29a4===_0x2082de['Domain']||!_0x2082de['HostOnly']&&_0x5b29a4['endsWith']('.'+_0x2082de['Domain']))['map'](_0x190996=>_0x190996['Name']+'='+_0x190996['Value'])['join'](';\x20');}function ApplySetCookieToJar(_0x37ce74,_0x36721d,_0x42fbbf){const _0x90cc53=String(_0x42fbbf)['split'](';');const _0x5c7732=_0x90cc53['shift']();const _0x2a79cb=_0x5c7732['indexOf']('=');if(_0x2a79cb<=0x0)return![];const _0x9b7b0b=_0x5c7732['slice'](0x0,_0x2a79cb)['trim']();const _0x26c847=_0x5c7732['slice'](_0x2a79cb+0x1)['trim']();let _0x38e8c3=_0x36721d['toLowerCase']();let _0x4879b2=!![];let _0x2b8ce3=![];for(const _0x124684 of _0x90cc53){const [_0x25161b,..._0x295382]=_0x124684['split']('=');const _0x42650b=_0x25161b['trim']()['toLowerCase']();const _0x138ab8=_0x295382['join']('=')['trim']();if(_0x42650b==='domain'&&_0x138ab8){const _0xa62788=_0x138ab8['replace'](/^\./,'')['toLowerCase']();if(_0x38e8c3!==_0xa62788&&!_0x38e8c3['endsWith']('.'+_0xa62788)){return![];}_0x38e8c3=_0xa62788;_0x4879b2=![];}else if(_0x42650b==='max-age'&&_0x138ab8){_0x2b8ce3=Number(_0x138ab8)<=0x0;}else if(_0x42650b==='expires'&&_0x138ab8){const _0x89211f=Date['parse'](_0x138ab8);if(!Number['isNaN'](_0x89211f)&&_0x89211f<=Date['now']())_0x2b8ce3=!![];}}const _0x365a73=_0x37ce74['findIndex'](_0x457ded=>_0x457ded['Domain']===_0x38e8c3&&_0x457ded['Name']===_0x9b7b0b);if(_0x2b8ce3){if(_0x365a73!==-0x1){_0x37ce74['splice'](_0x365a73,0x1);return!![];}return![];}if(_0x365a73!==-0x1){const _0x15b89b=_0x37ce74[_0x365a73]['Value']!==_0x26c847;_0x37ce74[_0x365a73]={'Domain':_0x38e8c3,'Name':_0x9b7b0b,'Value':_0x26c847,'HostOnly':_0x4879b2};return _0x15b89b;}_0x37ce74['push']({'Domain':_0x38e8c3,'Name':_0x9b7b0b,'Value':_0x26c847,'HostOnly':_0x4879b2});return!![];}function GetSetCookies(_0x440d3b){if(typeof _0x440d3b['getSetCookie']==='function'){return _0x440d3b['getSetCookie']();}if(typeof _0x440d3b['getAll']==='function'){return _0x440d3b['getAll']('Set-Cookie');}const _0x10f10f=_0x440d3b['get']('Set-Cookie');return _0x10f10f?[_0x10f10f]:[];}async function FetchWithRedirects(_0x566ac7,_0x201887){let currentUrl=new URL(_0x566ac7);let _0x498d4e=_0x201887['Method'];let _0x14c4cb=_0x201887['Body'];let _0x4446bd=_0x201887['Referer'];const _0x50ed99=_0x201887['Jar'];const _0x2ed318=[];const _0x2ba0e1=new Map();for(let _0xf18ae3=0x0;_0xf18ae3<=MaxRedirects;_0xf18ae3++){AssertSafeUrl(currentUrl);const _0x275d81=_0x498d4e+'\x20'+currentUrl['toString']();const _0x2a7533=GetCookieHeaderForHost(_0x50ed99,currentUrl['hostname']);if(_0x2ba0e1['get'](_0x275d81)===_0x2a7533){throw new ProxyError(0x1fc,'目標網站形成轉址迴圈（'+currentUrl['hostname']+'），網站可能拒絕代理伺服器或要求額外驗證');}_0x2ba0e1['set'](_0x275d81,_0x2a7533);const _0x227f89=new Headers(BrowserHeaders);if(_0x201887['ForwardHeaders']){Object['entries'](_0x201887['ForwardHeaders'])['forEach'](([_0x50f236,_0x5b8a33])=>{if(_0x5b8a33)_0x227f89['set'](_0x50f236,_0x5b8a33);});}if(_0x2a7533){_0x227f89['set']('Cookie',_0x2a7533);}if(_0x4446bd){_0x227f89['set']('Referer',_0x4446bd);}if(_0x201887['Accept']){_0x227f89['set']('Accept',_0x201887['Accept']);}if(_0x201887['Range']){_0x227f89['set']('Range',_0x201887['Range']);}if(!['GET','HEAD']['includes'](_0x498d4e)){_0x227f89['set']('Content-Type',_0x201887['ContentType']);_0x227f89['set']('Origin',currentUrl['origin']);}const _0x208c9e=await fetch(currentUrl['toString'](),{'method':_0x498d4e,'headers':_0x227f89,'body':['GET','HEAD']['includes'](_0x498d4e)?undefined:_0x14c4cb,'redirect':'manual'});GetSetCookies(_0x208c9e['headers'])['forEach'](_0x3caa83=>{_0x2ed318['push']({'Host':currentUrl['hostname'],'Cookie':_0x3caa83});ApplySetCookieToJar(_0x50ed99,currentUrl['hostname'],_0x3caa83);});const _0x3e5070=_0x208c9e['headers']['get']('Location');const _0x3cef51=_0x208c9e['status']>=0x12c&&_0x208c9e['status']<0x190&&_0x3e5070;if(!_0x3cef51){return{'Response':_0x208c9e,'FinalUrl':currentUrl['toString'](),'SetCookies':_0x2ed318};}if(_0x208c9e['body']){await _0x208c9e['body']['cancel']()['catch'](()=>{});}const _0x1f9246=new URL(_0x3e5070,currentUrl);if(_0x208c9e['status']===0x12f||!['GET','HEAD']['includes'](_0x498d4e)&&(_0x208c9e['status']===0x12d||_0x208c9e['status']===0x12e)){_0x498d4e='GET';_0x14c4cb=null;}_0x4446bd=currentUrl['toString']();currentUrl=_0x1f9246;}throw new ProxyError(0x1fc,'轉址次數超過\x20'+MaxRedirects+'\x20次');}function IsJavaScriptResponse(_0x483f43,_0x17c000){const _0x378bae=String(_0x483f43['get']('Content-Type')||'')['toLowerCase']();return _0x378bae['includes']('javascript')||_0x378bae['includes']('ecmascript')||/\.(?:m?js)(?:$|[?#])/i['test'](String(_0x17c000));}function BuildNestedProxyUrl(_0x513257,targetUrl){const nested=new URL(_0x513257['origin']+_0x513257['pathname']);nested['searchParams']['set']('url',targetUrl);const _0x360c53=_0x513257['searchParams']['get']('key');if(_0x360c53)nested['searchParams']['set']('key',_0x360c53);return nested['toString']();}function RewriteJavaScriptResponse(_0x402433,_0x2b190d,_0x2f99ab){const map=_0x575d0b=>{if(!_0x575d0b||/^(?:data:|blob:|javascript:|#)/i['test'](_0x575d0b))return _0x575d0b;try{const absoluteUrl=new URL(_0x575d0b,_0x2b190d);const _0x22b668=_0x2f99ab['origin']+_0x2f99ab['pathname'];if(absoluteUrl['toString']()['startsWith'](_0x22b668+'?'))return _0x575d0b;return/^https?:\/\//i['test'](absoluteUrl['toString']())?BuildNestedProxyUrl(_0x2f99ab,absoluteUrl['toString']()):_0x575d0b;}catch{return _0x575d0b;}};return String(_0x402433)['replace'](/(\b(?:import\s*\(\s*|import\s+|(?:import|export)\b[^;]*?\bfrom\s*))(["'`])([^"'`$]+)\2/g,(_0x2ca1bb,_0x48dc03,_0x53c049,_0x17b7f8)=>''+_0x48dc03+_0x53c049+map(_0x17b7f8)+_0x53c049);}const SameOriginPrefix='/__owo_proxy__/';function ParseSameOriginTarget(_0x42c051){const _0x29b064=_0x42c051['pathname']['slice'](SameOriginPrefix['length']);const _0x59cdf2=_0x29b064['indexOf']('/');const _0x4a3974=_0x29b064['slice'](0x0,_0x59cdf2);const _0x58dcdd=_0x29b064['slice'](_0x59cdf2+0x1);const _0x107d4b=_0x58dcdd['indexOf']('/');const _0x5344b5=_0x107d4b<0x0?_0x58dcdd:_0x58dcdd['slice'](0x0,_0x107d4b);const _0x1bb718=_0x107d4b<0x0?'/':_0x58dcdd['slice'](_0x107d4b);if(!/^(?:http|https)$/['test'](_0x4a3974)||!_0x5344b5)throw new ProxyError(0x190,'同源代理路徑格式錯誤');const _0x5ca482=new URL(_0x4a3974+'://'+_0x5344b5+_0x1bb718);_0x42c051['searchParams']['forEach']((_0xfe109a,_0x36126a)=>{if(_0x36126a!=='_owo_key')_0x5ca482['searchParams']['append'](_0x36126a,_0xfe109a);});return _0x5ca482;}function BuildSameOriginPath(_0x41f552,_0x248ffb,_0x50dc63){const _0x17978f=new URL(_0x248ffb,_0x50dc63);const result=new URL(_0x41f552['origin']);result['pathname']=''+SameOriginPrefix+_0x17978f['protocol']['slice'](0x0,-0x1)+'/'+_0x17978f['host']+_0x17978f['pathname'];result['search']=_0x17978f['search'];const _0x477963=_0x41f552['searchParams']['get']('_owo_key');if(_0x477963)result['searchParams']['set']('_owo_key',_0x477963);result['hash']=_0x17978f['hash'];return result['toString']();}function BuildSameOriginCompatibilityAgent(_0x612480,_0x2ecdf6){const _0x37e580=JSON['stringify']({'pageUrl':new URL(_0x612480)['toString'](),'pageOrigin':new URL(_0x612480)['origin'],'proxyOrigin':_0x2ecdf6['origin'],'key':_0x2ecdf6['searchParams']['get']('_owo_key')||''});return'(function(C){\x22use\x20strict\x22;\x0aif(window.__OwOSameOriginCompatibility)return;\x0avar\x20U=window.URL,F=window.fetch&&window.fetch.bind(window),XO=XMLHttpRequest.prototype.open,P=new\x20WeakMap();\x0avar\x20MARK=\x22/__owo_proxy__/\x22;\x0afunction\x20extract(v){try{var\x20raw=String(v==null?\x22\x22:v),pos=raw.lastIndexOf(MARK);if(pos<0)return\x20null;var\x20tail=raw.slice(pos+MARK.length),q=tail.indexOf(\x22?\x22),pathPart=q<0?tail:tail.slice(0,q),query=q<0?\x22\x22:tail.slice(q),i=pathPart.indexOf(\x22/\x22),scheme=pathPart.slice(0,i),hp=pathPart.slice(i+1),j=hp.indexOf(\x22/\x22),host=j<0?hp:hp.slice(0,j),path=j<0?\x22/\x22:hp.slice(j);if(!/^(?:http|https)$/.test(scheme)||!host)return\x20null;var\x20out=new\x20U(scheme+\x22://\x22+host+path+query);out.searchParams.delete(\x22_owo_key\x22);return\x20out.href;}catch(e){return\x20null;}}\x0afunction\x20isCanonical(v){try{var\x20u=new\x20U(String(v),C.proxyOrigin),first=u.pathname.indexOf(MARK);return\x20u.origin===C.proxyOrigin&&first===0&&u.pathname.indexOf(MARK,MARK.length)<0&&!u.pathname.slice(MARK.length).includes(C.proxyOrigin.replace(/^https?:\x5c/\x5c//,\x22\x22));}catch(e){return\x20false;}}\x0afunction\x20abs(v){var\x20raw=String(v==null?\x22\x22:v).trim().replace(/^null(?=\x5c/)/i,\x22\x22),peeled=extract(raw),t=peeled||raw;try{var\x20u=new\x20U(t,t.charAt(0)===\x22/\x22?C.pageOrigin:C.pageUrl),m=u.pathname.match(/\x5c/null(\x5c/(?:svc|api|graphql)(?:\x5c/|$).*)/i);if(m)u.pathname=m[1];return\x20u.href;}catch(e){return\x20null;}}\x0afunction\x20px(v){if(isCanonical(v))return\x20new\x20U(String(v),C.proxyOrigin).href;var\x20t=abs(v);if(!t)return\x20v;var\x20u=new\x20U(t),o=new\x20U(C.proxyOrigin);o.pathname=MARK+u.protocol.slice(0,-1)+\x22/\x22+u.host+u.pathname;o.search=u.search;if(C.key)o.searchParams.set(\x22_owo_key\x22,C.key);o.hash=u.hash;return\x20o.href;}\x0afunction\x20map(v){return\x20!!String(v||\x22\x22)&&!/^(?:data:|blob:|about:|javascript:|mailto:|tel:|#)/i.test(String(v))&&!isCanonical(v);}\x0avar\x20SA=Element.prototype.setAttribute,AC=Node.prototype.appendChild,IB=Node.prototype.insertBefore;\x0afunction\x20node(n){if(!(n\x20instanceof\x20Element))return\x20n;[\x22src\x22,\x22href\x22,\x22action\x22,\x22formaction\x22,\x22poster\x22].forEach(function(a){var\x20v=n.getAttribute(a);if(v&&map(v))SA.call(n,a,px(v));});return\x20n;}\x0aElement.prototype.setAttribute=function(a,v){if([\x22src\x22,\x22href\x22,\x22action\x22,\x22formaction\x22,\x22poster\x22].indexOf(String(a).toLowerCase())>=0&&map(v))v=px(v);return\x20SA.call(this,a,v);};Node.prototype.appendChild=function(n){return\x20AC.call(this,node(n));};Node.prototype.insertBefore=function(n,r){return\x20IB.call(this,node(n),r);};\x0aif(F)window.fetch=function(i,n){var\x20v=i\x20instanceof\x20Request?i.url:String(i);if(map(v)){var\x20m=px(v);i=i\x20instanceof\x20Request?new\x20Request(m,i):m;}return\x20F(i,n);};XMLHttpRequest.prototype.open=function(m,u){var\x20a=[].slice.call(arguments);if(map(u))a[1]=px(u);return\x20XO.apply(this,a);};\x0afunction\x20wait(ms){return\x20new\x20Promise(function(r){setTimeout(r,ms);});}\x0afunction\x20run(el,d,target,holder){if(P.has(el))return;target=abs(target);holder=holder||document.createElement(\x22div\x22);holder.className=\x22owob-same-origin-partial\x22;holder.innerHTML=\x27<div\x20class=\x22owob-so-spinner\x22></div><div>正在載入更多內容…</div>\x27;if(el.isConnected){el.style.setProperty(\x22display\x22,\x22none\x22,\x22important\x22);el.before(holder);}var\x20q=d.request||{},method=String(q.method||el.getAttribute(\x22method\x22)||\x22GET\x22).toUpperCase();function\x20attempt(i){return\x20wait([0,450,900][i]||0).then(function(){var\x20h=new\x20Headers(q.headers||{}),init={method:method,headers:h,credentials:\x22include\x22,cache:\x22no-store\x22};if(method!==\x22GET\x22&&method!==\x22HEAD\x22&&q.body!=null)init.body=q.body;return\x20F(px(target),init);}).then(function(r){return\x20r.text().then(function(b){if(!r.ok||!b.trim()||/shreddit-feed-page-error|feed-page-error|partial-error/i.test(b))throw\x20new\x20Error(\x22Partial\x20\x22+r.status);return\x20b;});}).catch(function(e){if(i<2)return\x20attempt(i+1);throw\x20e;});}var\x20task=attempt(0).then(function(html){var\x20range=document.createRange();range.selectNode(holder);holder.replaceWith(range.createContextualFragment(html));if(el.isConnected)el.remove();}).catch(function(e){holder.innerHTML=\x27<div>載入下一頁時發生錯誤</div><button\x20type=\x22button\x22>重試</button>\x27;holder.querySelector(\x22button\x22).onclick=function(){P.delete(el);run(el,d,target,holder);};console.error(\x22[OwO\x20Same-Origin\x20Partial]\x22,e,target);}).finally(function(){P.delete(el);});P.set(el,task);}\x0avar\x20st=document.createElement(\x22style\x22);st.textContent=\x27.owob-same-origin-partial{min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}.owob-so-spinner{width:42px;height:42px;border:4px\x20solid\x20#ffd8ca;border-top-color:#ff4500;border-radius:50%;animation:os\x20.8s\x20linear\x20infinite}@keyframes\x20os{to{transform:rotate(360deg)}}\x27;(document.head||document.documentElement).appendChild(st);\x0adocument.addEventListener(\x22faceplate-request\x22,function(e){var\x20d=e&&e.detail;if(!d||typeof\x20d.resource!==\x22string\x22)return;var\x20t=abs(d.resource);if(!t)return;d.resource=t;if(/\x5c/svc\x5c/shreddit\x5c/community-more-posts\x5c//i.test(t)&&e.target&&e.target.tagName===\x22FACEPLATE-PARTIAL\x22){e.preventDefault();e.stopImmediatePropagation();run(e.target,d,t);}},true);\x0afunction\x20pttPath(value,fallback){var\x20candidates=[String(value||\x22\x22),String(fallback||\x22\x22)];for(var\x20c=0;c<candidates.length;c++){var\x20current=candidates[c];for(var\x20depth=0;depth<10;depth++){if(!current||current===\x22srcdoc\x22||current===\x22about:srcdoc\x22||current.indexOf(\x22about:\x22)===0)break;try{var\x20parsed=new\x20U(current,\x22https://www.ptt.cc/\x22);if(parsed.hostname.toLowerCase()!==\x22www.ptt.cc\x22)break;if(parsed.pathname!==\x22/ask/over18\x22)return\x20parsed.pathname+parsed.search;var\x20nested=String(parsed.searchParams.get(\x22from\x22)||\x22\x22).trim();if(!nested||nested===current)break;current=nested;}catch(e){if(current.charAt(0)===\x22/\x22&&current.indexOf(\x22/ask/over18\x22)!==0)return\x20current;break;}}}return\x20\x22/\x22;}\x0afunction\x20ptt(url,body){var\x20original=abs(url);if(!original)return\x20{url:url,body:body};try{var\x20target=new\x20U(original),current=new\x20U(C.pageUrl);if(target.hostname.toLowerCase()===\x22www.ptt.cc\x22&&target.pathname===\x22/ask/over18\x22){var\x20path=pttPath(target.searchParams.get(\x22from\x22),current.href);target.search=\x22\x22;target.searchParams.set(\x22from\x22,path);if(typeof\x20body===\x22string\x22){var\x20params=new\x20URLSearchParams(body);params.set(\x22from\x22,pttPath(params.get(\x22from\x22),target.href));body=params.toString();}}return\x20{url:target.href,body:body};}catch(e){return\x20{url:original,body:body};}}\x0avar\x20lastNav={url:\x22\x22,type:\x22\x22,time:0};function\x20sendNav(url,newTab){var\x20normalized=ptt(url);if(!normalized.url)return;var\x20type=newTab?\x22OpenTab\x22:\x22Navigate\x22,now=Date.now();if(lastNav.url===normalized.url&&lastNav.type===type&&now-lastNav.time<700)return;lastNav={url:normalized.url,type:type,time:now};parent.postMessage({OwObSameOrigin:true,Type:type,Url:normalized.url},\x22*\x22);}\x0avar\x20NativeWindowOpen=window.open;window.open=function(url){if(url&&abs(url)){sendNav(url,true);return\x20null;}return\x20NativeWindowOpen.apply(window,arguments);};\x0adocument.addEventListener(\x22click\x22,function(e){if(e.defaultPrevented||e.button!==0||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;var\x20a=e.target&&e.target.closest?e.target.closest(\x22a[href]\x22):null;if(!a)return;var\x20raw=a.getAttribute(\x22href\x22);if(!raw||/^(?:javascript:|mailto:|tel:|#)/i.test(raw))return;var\x20original=abs(raw);if(!original)return;e.preventDefault();e.stopImmediatePropagation();sendNav(original,a.target===\x22_blank\x22);},true);\x0adocument.addEventListener(\x22submit\x22,function(e){var\x20form=e.target;if(!(form\x20instanceof\x20HTMLFormElement))return;var\x20method=String(form.method||\x22GET\x22).toUpperCase(),action=abs(form.action||C.pageUrl);if(!action)return;e.preventDefault();e.stopImmediatePropagation();if(method===\x22GET\x22){var\x20u=new\x20U(action),data=new\x20FormData(form);data.forEach(function(v,k){u.searchParams.append(k,String(v));});sendNav(u.href,false);}else{var\x20normalized=ptt(action,new\x20URLSearchParams(new\x20FormData(form)).toString());parent.postMessage({OwObSameOrigin:true,Type:\x22Post\x22,Url:normalized.url,Body:normalized.body},\x22*\x22);}},true);\x0afunction\x20title(){var\x20host=new\x20U(C.pageUrl).hostname.toLowerCase();return\x20/(^|\x5c.)reddit\x5c.com$/.test(host)?\x22Reddit\x20-\x20網路心之所在\x22:(document.title||host);}\x0afunction\x20sync(){parent.postMessage({OwObSameOrigin:true,Type:\x22State\x22,Title:title(),Url:abs(location.href)},\x22*\x22);}\x0aif(document.readyState===\x22loading\x22)document.addEventListener(\x22DOMContentLoaded\x22,sync,{once:true});else\x20sync();window.addEventListener(\x22load\x22,sync,{once:true});\x0awindow.__OwOSameOriginCompatibility={version:\x222.6.0\x22,absolute:abs,proxy:px,retryPartial:run};\x0a})('+_0x37e580+');';}function IsSearchResultPage(_0x5d4001){try{const _0x23aaa5=new URL(_0x5d4001),_0x10b2f8=_0x23aaa5['hostname']['toLowerCase'](),_0x56c8db=_0x23aaa5['pathname']['toLowerCase']();return(_0x10b2f8==='bing.com'||_0x10b2f8['endsWith']('.bing.com'))&&_0x56c8db==='/search'||(_0x10b2f8==='google.com'||_0x10b2f8['endsWith']('.google.com')||/^www\.google\.[a-z.]+$/['test'](_0x10b2f8))&&_0x56c8db==='/search'||(_0x10b2f8==='duckduckgo.com'||_0x10b2f8['endsWith']('.duckduckgo.com'))&&(_0x56c8db==='/'||_0x56c8db['includes']('html'))||(_0x10b2f8==='search.yahoo.com'||_0x10b2f8['endsWith']('.search.yahoo.com'))&&_0x56c8db['includes']('search');}catch{return![];}}function SimplifySearchResultHtml(_0xe19976,_0x1c50d1){if(!IsSearchResultPage(_0x1c50d1))return String(_0xe19976);return String(_0xe19976)['replace'](/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,'')['replace'](/<script\b[^>]*\/?>/gi,'')['replace'](/<link\b[^>]*\brel\s*=\s*["']?(?:preload|prefetch|modulepreload|dns-prefetch|preconnect)["']?[^>]*>/gi,'')['replace'](/<iframe\b[^>]*(?:ad|analytics|telemetry|tracking)[^>]*>[\s\S]*?<\/iframe\s*>/gi,'');}function RewritePttOver18Redirect(_0x2bf254,_0x2f1f95,_0x234fa7){let page;try{page=new URL(_0x2f1f95);}catch{return String(_0x2bf254);}if(page['hostname']['toLowerCase']()!=='www.ptt.cc')return String(_0x2bf254);let _0x2e9c1c=![];let _0x5e3ccd=String(_0x2bf254)['replace'](/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi,(_0x140827,_0xd530ec,_0x6272c2)=>{const _0x3af37f=/\/ask\/over18/i['test'](_0x6272c2)&&/(?:document\.)?(?:window\.)?location(?:\.pathname|\s*=|\.href|\.replace\s*\()/i['test'](_0x6272c2);if(!_0x3af37f)return _0x140827;_0x2e9c1c=!![];return'<!--\x20OwO:\x20PTT\x20over18\x20redirect\x20rewritten\x20to\x20same-origin\x20proxy\x20-->';});if(!_0x2e9c1c)return _0x5e3ccd;const _0x1442f4=new URL('/ask/over18',page['origin']);_0x1442f4['searchParams']['set']('from',page['pathname']+page['search']);const _0x51857e=BuildSameOriginPath(_0x234fa7,_0x1442f4['href'],_0x2f1f95);const _0x540a81='<script>location.replace('+JSON['stringify'](_0x51857e)+');</script>';return/<head[^>]*>/i['test'](_0x5e3ccd)?_0x5e3ccd['replace'](/<head[^>]*>/i,_0x1fb192=>_0x1fb192+_0x540a81):_0x540a81+_0x5e3ccd;}function RewriteSameOriginHtml(_0x1fa47e,_0x37b202,_0x452b59){_0x1fa47e=RewritePttOver18Redirect(_0x1fa47e,_0x37b202,_0x452b59);_0x1fa47e=SimplifySearchResultHtml(_0x1fa47e,_0x37b202);const map=_0x348b4e=>/^(?:data:|blob:|javascript:|mailto:|tel:|#)/i['test'](_0x348b4e)?_0x348b4e:BuildSameOriginPath(_0x452b59,_0x348b4e,_0x37b202);let _0x362055=String(_0x1fa47e)['replace'](/\s(src|href|action|formaction|poster)\s*=\s*(["'])(.*?)\2/gi,(_0x1983ea,_0x3a0f12,_0x26fda8,_0x2c6a8a)=>'\x20'+_0x3a0f12+'='+_0x26fda8+map(_0x2c6a8a)+_0x26fda8);_0x362055=_0x362055['replace'](/\s(srcset)\s*=\s*(["'])(.*?)\2/gi,(_0x5c050a,_0x2194ce,_0x5cc675,_0x387386)=>{const _0x53327c=_0x387386['split'](',')['map'](_0x836079=>{const _0x2c8b09=_0x836079['trim']();const _0x2097f2=_0x2c8b09['search'](/\s/);return _0x2097f2<0x0?map(_0x2c8b09):map(_0x2c8b09['slice'](0x0,_0x2097f2))+_0x2c8b09['slice'](_0x2097f2);})['join'](',\x20');return'\x20'+_0x2194ce+'='+_0x5cc675+_0x53327c+_0x5cc675;});const agentUrl=new URL('/__owo_same_origin_agent__.js',_0x452b59['origin']);agentUrl['searchParams']['set']('page',new URL(_0x37b202)['toString']());const _0x53cb05=_0x452b59['searchParams']['get']('_owo_key');if(_0x53cb05)agentUrl['searchParams']['set']('_owo_key',_0x53cb05);const _0x10dd09='<base\x20href=\x22'+BuildSameOriginPath(_0x452b59,_0x37b202,_0x37b202)+'\x22><script\x20src=\x22'+agentUrl['toString']()+'\x22></script>';return/<head[^>]*>/i['test'](_0x362055)?_0x362055['replace'](/<head[^>]*>/i,_0x1974f9=>_0x1974f9+_0x10dd09):_0x10dd09+_0x362055;}function RewriteSameOriginCss(_0x20c3bf,_0x311d08,_0x48efca){return String(_0x20c3bf)['replace'](/url\(\s*(["']?)([^"')]+)\1\s*\)/gi,(_0x47e6e6,_0x26502a,_0x57c52a)=>{if(/^(?:data:|blob:|#)/i['test'](_0x57c52a))return _0x47e6e6;try{return'url(\x22'+BuildSameOriginPath(_0x48efca,_0x57c52a,_0x311d08)+'\x22)';}catch{return _0x47e6e6;}});}function BuildRequestJar(_0x22b4cd,targetUrl){const _0x5e7561=_0x22b4cd['headers']['get']('X-Proxy-Cookie-Jar');if(_0x5e7561){try{return CreateCookieJar(JSON['parse'](decodeURIComponent(_0x5e7561)));}catch{}}return CreateCookieJar(ParseLegacyCookie(_0x22b4cd['headers']['get']('X-Proxy-Cookie'),targetUrl['hostname']));}export default{async 'fetch'(_0x305a9f,_0x1739e6){const _0x1848f2=_0x305a9f['headers']['get']('Origin');const _0x3f18cd=GetAllowedOrigins(_0x1739e6);const _0xe3b3ad=new URL(_0x305a9f['url'])['origin'];const _0x11c4f5=_0x1848f2===_0xe3b3ad;if(!_0x11c4f5&&!IsOriginAllowed(_0x1848f2,_0x3f18cd)){return JsonResponse(0x193,'來源未被允許：'+_0x1848f2+'（請將此來源加入\x20ALLOWED_ORIGINS）',_0x1848f2,{'allowedOrigins':_0x3f18cd});}if(_0x305a9f['method']==='OPTIONS'){return new Response(null,{'status':0xcc,'headers':BuildCorsHeaders(_0x1848f2,_0x305a9f['headers']['get']('Access-Control-Request-Headers'))});}if(!['GET','HEAD','POST','PUT','PATCH','DELETE']['includes'](_0x305a9f['method'])){return JsonResponse(0x195,'不支援的方法：'+_0x305a9f['method'],_0x1848f2);}const _0xea05a3=new URL(_0x305a9f['url']);if(_0xea05a3['pathname']==='/__owo_same_origin_agent__.js'){if(!IsKeyValid(_0x305a9f,_0xea05a3,GetAccessKey(_0x1739e6)))return new Response('/*\x20key\x20rejected\x20*/',{'status':0x191});let page;try{page=new URL(_0xea05a3['searchParams']['get']('page'));}catch{return new Response('throw\x20new\x20Error(\x27Invalid\x20agent\x20URL\x27)',{'status':0x190,'headers':{'Content-Type':'application/javascript'}});}return new Response(BuildSameOriginCompatibilityAgent(page['toString'](),_0xea05a3),{'headers':{'Content-Type':'application/javascript;\x20charset=utf-8','Cache-Control':'no-store','X-OwOb-Worker-Version':'9.7.5',...BuildCorsHeaders(_0x1848f2)}});}if(!IsKeyValid(_0x305a9f,_0xea05a3,GetAccessKey(_0x1739e6))){return JsonResponse(0x191,'需要存取金鑰或金鑰錯誤',_0x1848f2);}const _0x5449c0=_0xea05a3['pathname']['startsWith'](SameOriginPrefix);const _0x5e9d39=_0x5449c0?null:_0xea05a3['searchParams']['get']('url');if(!_0x5e9d39&&!_0x5449c0){return JsonResponse(0xc8,'OwOb\x20Proxy\x20運作中',_0x1848f2,{'version':'9.7.5','usage':'/?url=<encoded\x20url>\x20或\x20/__owo_proxy__/https/example.com/path','keyRequired':Boolean(GetAccessKey(_0x1739e6)),'allowedOrigins':_0x3f18cd,'time':new Date()['toISOString']()});}let targetUrl;try{targetUrl=_0x5449c0?ParseSameOriginTarget(_0xea05a3):new URL(_0x5e9d39);}catch(_0x353bbe){return JsonResponse(0x190,_0x353bbe['message']||'網址格式錯誤：'+_0x5e9d39,_0x1848f2);}try{const _0xfba800=!['GET','HEAD']['includes'](_0x305a9f['method']);const _0x2d2906=DecodeForwardHeaders(_0x305a9f);const _0x3cdbe4=_0x305a9f['headers']['get']('Accept')||'';const result=await FetchWithRedirects(targetUrl,{'Method':_0x305a9f['method'],'Body':_0xfba800?await _0x305a9f['arrayBuffer']():null,'ForwardHeaders':_0x2d2906,'ContentType':_0x305a9f['headers']['get']('Content-Type')||'application/x-www-form-urlencoded','Jar':BuildRequestJar(_0x305a9f,targetUrl),'Referer':_0x305a9f['headers']['get']('X-Proxy-Referer')||'','Accept':_0x3cdbe4&&_0x3cdbe4!=='*/*'?_0x3cdbe4:'','Range':_0x305a9f['headers']['get']('Range')||''});const _0xf7c001=result['Response'];const _0x5e589f=new Headers(_0xf7c001['headers']);StripResponseHeaders['forEach'](_0x20e9d6=>_0x5e589f['delete'](_0x20e9d6));Object['entries'](BuildCorsHeaders(_0x1848f2))['forEach'](([_0x24a140,_0x520f97])=>_0x5e589f['set'](_0x24a140,_0x520f97));_0x5e589f['set']('X-Final-URL',result['FinalUrl']);_0x5e589f['set']('X-Proxy-Status',String(_0xf7c001['status']));_0x5e589f['set']('X-OwOb-Worker-Version','9.7.5');if(result['SetCookies']['length']>0x0){_0x5e589f['set']('X-Proxy-Set-Cookie',encodeURIComponent(JSON['stringify'](result['SetCookies'])));}let _0x450d4b=_0x305a9f['method']==='HEAD'?null:_0xf7c001['body'];const _0x2d3ea8=String(_0x5e589f['get']('Content-Type')||'')['toLowerCase']();if(_0x5449c0&&_0x305a9f['method']!=='HEAD'&&_0x2d3ea8['includes']('text/html')){_0x450d4b=RewriteSameOriginHtml(await _0xf7c001['text'](),result['FinalUrl'],_0xea05a3);_0x5e589f['delete']('Content-Encoding');_0x5e589f['set']('Content-Type','text/html;\x20charset=utf-8');_0x5e589f['set']('Cache-Control','no-store');}else if(_0x5449c0&&_0x305a9f['method']!=='HEAD'&&_0x2d3ea8['includes']('text/css')){_0x450d4b=RewriteSameOriginCss(await _0xf7c001['text'](),result['FinalUrl'],_0xea05a3);_0x5e589f['delete']('Content-Encoding');_0x5e589f['set']('Content-Type','text/css;\x20charset=utf-8');}else if(_0x305a9f['method']!=='HEAD'&&IsJavaScriptResponse(_0x5e589f,result['FinalUrl'])){const _0x3bfa19=await _0xf7c001['text']();_0x450d4b=RewriteJavaScriptResponse(_0x3bfa19,result['FinalUrl'],_0xea05a3);_0x5e589f['delete']('Content-Encoding');_0x5e589f['set']('Content-Type','application/javascript;\x20charset=utf-8');_0x5e589f['set']('Cache-Control','no-store');}return new Response(_0x450d4b,{'status':_0xf7c001['status'],'statusText':_0xf7c001['statusText'],'headers':_0x5e589f});}catch(_0x19efe0){const _0xefec17=_0x19efe0 instanceof ProxyError?_0x19efe0['Status']:0x1f6;const _0x1a1f90=_0x19efe0&&_0x19efe0['message']?_0x19efe0['message']:String(_0x19efe0);return JsonResponse(_0xefec17,_0xefec17===0x1f6?'代理無法連線至目標網站：'+_0x1a1f90:_0x1a1f90,_0x1848f2,{'target':targetUrl['toString']()});}}};
+/* ============================================================
+ *  OwOb Proxy - Cloudflare Worker（CORS / 同源反向代理）v9
+ *
+ *  用法：
+ *      GET  https://owob-proxy.kkwan812.workers.dev/?url=<已編碼的目標網址>
+ *      POST https://owob-proxy.kkwan812.workers.dev/?url=<已編碼的目標網址>
+ *           Body：application/x-www-form-urlencoded（或網頁 fetch 送出的原始內容類型）
+ *
+ *      設定 ACCESS_KEY 時，每個請求都必須附上金鑰（二擇一）：
+ *          查詢參數 &key=<金鑰>   ← <img> 等無法自訂標頭的資源請求使用
+ *          請求標頭 X-Proxy-Key
+ *
+ *  自訂請求標頭（由 OwOb 前端送出）：
+ *      X-Proxy-Cookie-Jar：同站 Cookie 罐（JSON 後再 URI 編碼，可跨子網域轉址使用）
+ *      X-Proxy-Cookie   ：舊版格式「a=1; b=2」（相容用，只套用到起始主機）
+ *      X-Proxy-Referer  ：要轉送給目標網站的 Referer（送出表單時的頁面網址）
+ *      X-Proxy-Key      ：存取金鑰（亦可改用 key 查詢參數）
+ *
+ *  會轉送給目標網站的一般標頭：
+ *      Accept（非預設值時）、Range（影音分段載入）
+ *
+ *  自訂回應標頭（回傳給 OwOb 前端）：
+ *      X-Final-URL         ：轉址後的最終網址
+ *      X-Proxy-Status      ：目標網站原始狀態碼
+ *      X-Proxy-Set-Cookie  ：目標網站設定的 Cookie（JSON 後再 URI 編碼）
+ *
+ *  架構：
+ *      1. 設定（允許來源、轉送標頭、轉址上限）
+ *      2. CORS 工具函式
+ *      3. 安全檢查（協定 / 內網位址 / 存取金鑰）
+ *      4. Cookie 工具函式
+ *      5. 逐步轉址抓取（保留每一跳的 Set-Cookie）
+ *      6. 主要處理流程（OPTIONS / GET / HEAD / POST）
+ *
+ *  環境變數（Cloudflare → Worker → Settings → Variables）：
+ *      ALLOWED_ORIGINS = https://leonoao.github.io
+ *      （多個來源以逗號分隔；只填「協定 + 網域」，不可含路徑與結尾斜線）
+ *
+ *      ACCESS_KEY = <自訂的一組長亂碼>（選填，建議設為 Secret）
+ *      （設定後未附正確金鑰的請求一律回傳 401，避免代理被他人盜用；
+ *        OwOb 前端請在「設定 → 代理伺服器 → 代理金鑰」填入相同值）
+ * ============================================================ */
+
+
+/* ============================================================
+ *  1. 設定
+ * ============================================================ */
+
+// 未設定環境變數時使用的預設允許來源
+const DefaultAllowedOrigins = [
+    "https://leonoao.github.io",
+    "http://localhost:5500",
+    "http://127.0.0.1:5500"
+];
+
+// 最多跟隨幾次轉址
+const MaxRedirects = 15;
+
+// 回應給前端時要移除的標頭（避免 iframe 被擋、避免長度不符）
+const StripResponseHeaders = [
+    "content-security-policy",
+    "content-security-policy-report-only",
+    "x-frame-options",
+    "cross-origin-opener-policy",
+    "cross-origin-embedder-policy",
+    "cross-origin-resource-policy",
+    "strict-transport-security",
+    "set-cookie",
+    "content-length",
+    "location"
+];
+
+// 模擬一般瀏覽器的請求標頭，降低被目標網站拒絕的機率
+const BrowserHeaders = {
+    "User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+    "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7"
+};
+
+
+/* ============================================================
+ *  2. CORS 工具函式
+ * ============================================================ */
+
+/** 自訂錯誤：帶 HTTP 狀態碼 */
+class ProxyError extends Error {
+    constructor(status, message) {
+        super(message);
+        this.Status = status;
+    }
+}
+
+/** 取得允許來源清單（環境變數優先） */
+function GetAllowedOrigins(env) {
+    const raw = (env && env.ALLOWED_ORIGINS) ? String(env.ALLOWED_ORIGINS) : "";
+
+    const list = raw
+        ? raw.split(",")
+        : DefaultAllowedOrigins;
+
+    // 去除空白與結尾斜線，避免「https://xxx.github.io/」這類寫法比對失敗
+    return list
+        .map(item => item.trim().replace(/\/+$/, ""))
+        .filter(Boolean);
+}
+
+/**
+ * 判斷請求來源是否允許
+ *   - 無 Origin：直接在網址列開啟、iframe src 載入圖片 / PDF → 允許
+ *   - "null"：沙箱 iframe 內發出的請求 → 允許
+ *   - 清單內含 "*" → 全部允許
+ */
+function IsOriginAllowed(origin, allowedOrigins) {
+    if (!origin || origin === "null") {
+        return true;
+    }
+
+    if (allowedOrigins.includes("*")) {
+        return true;
+    }
+
+    return allowedOrigins.includes(origin);
+}
+
+// 預設允許的請求標頭
+const DefaultAllowHeaders = "Content-Type, Accept, Accept-Language, Range, Authorization, X-Requested-With, X-CSRF-Token, X-Reddit-Compression, X-Proxy-Cookie, X-Proxy-Cookie-Jar, X-Proxy-Referer, X-Proxy-Key, X-Proxy-Headers";
+
+const ForwardRequestHeaders = ["Accept-Language", "Authorization", "X-Requested-With", "X-CSRF-Token", "X-Reddit-Compression"];
+const BlockedForwardHeaders = new Set([
+    "host", "cookie", "origin", "referer", "content-length", "connection",
+    "cf-connecting-ip", "cf-ipcountry", "cf-ray", "x-forwarded-for", "x-forwarded-proto"
+]);
+
+function DecodeForwardHeaders(request) {
+    const output = {};
+    const encoded = request.headers.get("X-Proxy-Headers");
+    if (encoded) {
+        try {
+            const parsed = JSON.parse(decodeURIComponent(encoded));
+            Object.entries(parsed).forEach(([name, value]) => {
+                const lower = String(name).toLowerCase();
+                if (!BlockedForwardHeaders.has(lower) && !lower.startsWith("sec-") &&
+                    !lower.startsWith("proxy-") && typeof value === "string") {
+                    output[name] = value;
+                }
+            });
+        } catch (error) { /* 格式錯誤時沿用基本標頭 */ }
+    }
+    ForwardRequestHeaders.forEach(name => {
+        const value = request.headers.get(name);
+        if (value) output[name] = value;
+    });
+    return output;
+}
+
+/**
+ * 建立 CORS 標頭
+ * @param {string|null} origin            請求來源；沙箱 iframe 為 "null"
+ * @param {string|null} requestedHeaders  預檢請求的 Access-Control-Request-Headers
+ *        網頁內 fetch 可能帶任意自訂標頭，預檢時一律回應允許，避免被瀏覽器擋下
+ */
+function BuildCorsHeaders(origin, requestedHeaders = null) {
+    const headers = {
+        "Access-Control-Allow-Origin":   origin || "*",
+        "Access-Control-Allow-Methods":  "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers":  requestedHeaders || DefaultAllowHeaders,
+        "Access-Control-Expose-Headers": "Content-Type, Content-Range, Accept-Ranges, X-Final-URL, X-Proxy-Status, X-Proxy-Set-Cookie, X-OwOb-Worker-Version",
+        "Access-Control-Max-Age":        "86400",
+        "Vary":                          "Origin"
+    };
+
+    // 有明確來源時允許帶憑證（網頁 XHR 設定 withCredentials 時才不會被擋）
+    if (origin) {
+        headers["Access-Control-Allow-Credentials"] = "true";
+    }
+
+    return headers;
+}
+
+/**
+ * 回傳 JSON 錯誤
+ * 錯誤回應同樣附上 CORS 標頭，前端才讀得到錯誤內容，
+ * 否則瀏覽器只會顯示「Failed to fetch」
+ */
+function JsonResponse(status, message, origin, extra = {}) {
+    return new Response(
+        JSON.stringify({ ok: status < 400, status, message, ...extra }),
+        {
+            status,
+            headers: {
+                ...BuildCorsHeaders(origin),
+                "Content-Type": "application/json; charset=utf-8"
+            }
+        }
+    );
+}
+
+
+/* ============================================================
+ *  3. 安全檢查
+ * ============================================================ */
+
+/** 封鎖本機與內網位址，避免代理被拿來存取內部服務 */
+function IsBlockedHost(hostname) {
+    const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+
+    if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) {
+        return true;
+    }
+
+    // IPv6 本機 / 內網
+    if (host.includes(":")) {
+        return (
+            host === "::1" ||
+            host.startsWith("fc") ||
+            host.startsWith("fd") ||
+            host.startsWith("fe80")
+        );
+    }
+
+    // IPv4 內網
+    const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (ipv4) {
+        const [a, b] = [Number(ipv4[1]), Number(ipv4[2])];
+        return (
+            a === 0   ||
+            a === 10  ||
+            a === 127 ||
+            (a === 169 && b === 254) ||
+            (a === 172 && b >= 16 && b <= 31) ||
+            (a === 192 && b === 168) ||
+            (a === 100 && b >= 64 && b <= 127)
+        );
+    }
+
+    return false;
+}
+
+/** 取得存取金鑰（未設定回傳空字串 = 不驗證） */
+function GetAccessKey(env) {
+    return env && env.ACCESS_KEY ? String(env.ACCESS_KEY).trim() : "";
+}
+
+/** 固定時間比較字串，避免以回應時間推測金鑰 */
+function SafeEqual(a, b) {
+    const left  = String(a);
+    const right = String(b);
+    let diff = left.length ^ right.length;
+    for (let i = 0; i < Math.max(left.length, right.length); i++) {
+        diff |= (left.charCodeAt(i) || 0) ^ (right.charCodeAt(i) || 0);
+    }
+    return diff === 0;
+}
+
+/** 驗證請求是否附上正確金鑰（查詢參數 key 或標頭 X-Proxy-Key） */
+function IsKeyValid(request, requestUrl, accessKey) {
+    if (!accessKey) return true;
+    const provided = requestUrl.searchParams.get("key") || requestUrl.searchParams.get("_owo_key") || request.headers.get("X-Proxy-Key") || "";
+    return SafeEqual(provided, accessKey);
+}
+
+/** 檢查網址協定與主機 */
+function NormalizeRedditChallengeTarget(url) {
+    const target = new URL(url.toString());
+    const host = target.hostname.toLowerCase();
+    if (host === "reddit.com" || host.endsWith(".reddit.com")) {
+        ["solution", "js_challenge", "jsc_token", "jsc_orig_r"].forEach(name => target.searchParams.delete(name));
+    }
+    return target;
+}
+
+function AssertSafeUrl(url) {
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+        throw new ProxyError(400, `只支援 http / https：${url.protocol}`);
+    }
+
+    if (IsBlockedHost(url.hostname)) {
+        throw new ProxyError(403, `禁止存取內網位址：${url.hostname}`);
+    }
+}
+
+
+/* ============================================================
+ *  4. Cookie 工具函式（依網域管理）
+ *     轉址鏈中常會在不同子網域間跳轉（例如 tw.search.yahoo.com
+ *     → guce.yahoo.com → tw.search.yahoo.com），且以
+ *     Domain=.yahoo.com 的 Cookie 確認「已設定 Cookie」。
+ *     若換主機就清空 Cookie，網站會一直轉址回來 → 無限轉址。
+ *     因此改用依網域比對的 Cookie 罐。
+ * ============================================================ */
+
+/**
+ * 建立 Cookie 罐
+ * 項目結構：{ Domain, Name, Value, HostOnly }
+ */
+function CreateCookieJar(entries) {
+    const jar = [];
+
+    (Array.isArray(entries) ? entries : []).forEach(item => {
+        if (item && typeof item.Domain === "string" && typeof item.Name === "string") {
+            jar.push({
+                Domain:   item.Domain.toLowerCase(),
+                Name:     item.Name,
+                Value:    String(item.Value ?? ""),
+                HostOnly: Boolean(item.HostOnly)
+            });
+        }
+    });
+
+    return jar;
+}
+
+/** 將「a=1; b=2」舊格式 Cookie 轉成 Cookie 罐項目（綁定起始主機） */
+function ParseLegacyCookie(text, host) {
+    const entries = [];
+
+    String(text || "").split(";").forEach(part => {
+        const index = part.indexOf("=");
+        if (index > 0) {
+            entries.push({
+                Domain:   host,
+                Name:     part.slice(0, index).trim(),
+                Value:    part.slice(index + 1).trim(),
+                HostOnly: true
+            });
+        }
+    });
+
+    return entries;
+}
+
+/** 取得要送給指定主機的 Cookie 標頭 */
+function GetCookieHeaderForHost(jar, host) {
+    const target = host.toLowerCase();
+
+    return jar
+        .filter(item =>
+            target === item.Domain ||
+            (!item.HostOnly && target.endsWith("." + item.Domain))
+        )
+        .map(item => `${item.Name}=${item.Value}`)
+        .join("; ");
+}
+
+/**
+ * 將一筆 Set-Cookie 寫入 Cookie 罐
+ * @returns {boolean} Cookie 罐是否有變動
+ */
+function ApplySetCookieToJar(jar, host, cookie) {
+    const parts = String(cookie).split(";");
+    const pair  = parts.shift();
+    const index = pair.indexOf("=");
+
+    if (index <= 0) return false;
+
+    const name  = pair.slice(0, index).trim();
+    const value = pair.slice(index + 1).trim();
+
+    let domain   = host.toLowerCase();
+    let hostOnly = true;
+    let expired  = false;
+
+    for (const part of parts) {
+        const [rawKey, ...rest] = part.split("=");
+        const key = rawKey.trim().toLowerCase();
+        const val = rest.join("=").trim();
+
+        if (key === "domain" && val) {
+            const cleaned = val.replace(/^\./, "").toLowerCase();
+
+            // 只接受主機本身或其上層網域，避免跨站寫入
+            if (domain !== cleaned && !domain.endsWith("." + cleaned)) {
+                return false;
+            }
+
+            domain   = cleaned;
+            hostOnly = false;
+        } else if (key === "max-age" && val) {
+            expired = Number(val) <= 0;
+        } else if (key === "expires" && val) {
+            const time = Date.parse(val);
+            if (!Number.isNaN(time) && time <= Date.now()) expired = true;
+        }
+    }
+
+    const existing = jar.findIndex(item => item.Domain === domain && item.Name === name);
+
+    if (expired) {
+        if (existing !== -1) {
+            jar.splice(existing, 1);
+            return true;
+        }
+        return false;
+    }
+
+    if (existing !== -1) {
+        const changed = jar[existing].Value !== value;
+        jar[existing] = { Domain: domain, Name: name, Value: value, HostOnly: hostOnly };
+        return changed;
+    }
+
+    jar.push({ Domain: domain, Name: name, Value: value, HostOnly: hostOnly });
+    return true;
+}
+
+/** 取得回應中所有 Set-Cookie（相容不同 Workers 執行環境） */
+function GetSetCookies(headers) {
+    if (typeof headers.getSetCookie === "function") {
+        return headers.getSetCookie();
+    }
+
+    if (typeof headers.getAll === "function") {
+        return headers.getAll("Set-Cookie");
+    }
+
+    const single = headers.get("Set-Cookie");
+    return single ? [single] : [];
+}
+
+
+/* ============================================================
+ *  5. 逐步轉址抓取
+ *     使用 redirect: "manual" 自行跟隨轉址，
+ *     保留每一跳的 Set-Cookie，並依網域送出正確 Cookie
+ * ============================================================ */
+
+async function FetchWithRedirects(startUrl, options) {
+    let currentUrl = new URL(startUrl);
+    let method     = options.Method;
+    let body       = options.Body;
+    let referer    = options.Referer;
+
+    const jar       = options.Jar;
+    const collected = [];          // [{ Host, Cookie }] 回傳給前端保存
+    const visited   = new Map();   // 網址 → 上次經過時的 Cookie 狀態（偵測無限轉址）
+
+    for (let hop = 0; hop <= MaxRedirects; hop++) {
+        AssertSafeUrl(currentUrl);
+
+        /* ---------- 無限轉址偵測 ---------- */
+        // 同一網址、同一 Cookie 狀態再次出現 → 一定會一直繞圈，提早結束
+        const stateKey = method + " " + currentUrl.toString();
+        const cookieState = GetCookieHeaderForHost(jar, currentUrl.hostname);
+
+        if (visited.get(stateKey) === cookieState) {
+            throw new ProxyError(
+                508,
+                `目標網站形成轉址迴圈（${currentUrl.hostname}），網站可能拒絕代理伺服器或要求額外驗證`
+            );
+        }
+        visited.set(stateKey, cookieState);
+
+        /* ---------- 組合請求標頭 ---------- */
+        const headers = new Headers(BrowserHeaders);
+
+        if (options.ForwardHeaders) {
+            Object.entries(options.ForwardHeaders).forEach(([name, value]) => {
+                if (value) headers.set(name, value);
+            });
+        }
+
+        if (cookieState) {
+            headers.set("Cookie", cookieState);
+        }
+
+        if (referer) {
+            headers.set("Referer", referer);
+        }
+
+        if (options.Accept) {
+            headers.set("Accept", options.Accept);
+        }
+
+        if (options.Range) {
+            headers.set("Range", options.Range);
+        }
+
+        if (!["GET", "HEAD"].includes(method)) {
+            headers.set("Content-Type", options.ContentType);
+            headers.set("Origin", currentUrl.origin);
+        }
+
+        /* ---------- 發出請求 ---------- */
+        const response = await fetch(currentUrl.toString(), {
+            method,
+            headers,
+            body:     ["GET", "HEAD"].includes(method) ? undefined : body,
+            redirect: "manual"
+        });
+
+        /* ---------- 收集 Set-Cookie ---------- */
+        GetSetCookies(response.headers).forEach(cookie => {
+            collected.push({ Host: currentUrl.hostname, Cookie: cookie });
+            ApplySetCookieToJar(jar, currentUrl.hostname, cookie);
+        });
+
+        /* ---------- 處理轉址 ---------- */
+        const location   = response.headers.get("Location");
+        const isRedirect = response.status >= 300 && response.status < 400 && location;
+
+        if (!isRedirect) {
+            return {
+                Response:   response,
+                FinalUrl:   currentUrl.toString(),
+                SetCookies: collected
+            };
+        }
+
+        // 丟棄轉址回應的內容，釋放連線
+        if (response.body) {
+            await response.body.cancel().catch(() => {});
+        }
+
+        const nextUrl = new URL(location, currentUrl);
+
+        // 301 / 302 / 303 遇到 POST 時改為 GET（與瀏覽器行為一致）
+        if (response.status === 303 || (!["GET", "HEAD"].includes(method) && (response.status === 301 || response.status === 302))) {
+            method = "GET";
+            body   = null;
+        }
+
+        referer    = currentUrl.toString();
+        currentUrl = nextUrl;
+    }
+
+    throw new ProxyError(508, `轉址次數超過 ${MaxRedirects} 次`);
+}
+
+
+/* ============================================================
+ *  6. JavaScript 模組網址改寫
+ * ============================================================ */
+function IsJavaScriptResponse(headers, url) {
+    const type = String(headers.get("Content-Type") || "").toLowerCase();
+    return type.includes("javascript") || type.includes("ecmascript") || /\.(?:m?js)(?:$|[?#])/i.test(String(url));
+}
+function BuildNestedProxyUrl(requestUrl, targetUrl) {
+    const nested = new URL(requestUrl.origin + requestUrl.pathname);
+    nested.searchParams.set("url", targetUrl);
+    const key = requestUrl.searchParams.get("key");
+    if (key) nested.searchParams.set("key", key);
+    return nested.toString();
+}
+function RewriteJavaScriptResponse(code, sourceUrl, requestUrl) {
+    const map = value => {
+        if (!value || /^(?:data:|blob:|javascript:|#)/i.test(value)) return value;
+        try {
+            const absoluteUrl = new URL(value, sourceUrl);
+            const proxyPath   = requestUrl.origin + requestUrl.pathname;
+            if (absoluteUrl.toString().startsWith(proxyPath + "?")) return value;
+            return /^https?:\/\//i.test(absoluteUrl.toString())
+                ? BuildNestedProxyUrl(requestUrl, absoluteUrl.toString())
+                : value;
+        } catch {
+            return value;
+        }
+    };
+
+    // 僅改寫 import/export 的模組指定符。全域 URL 字串替換會破壞大型壓縮腳本。
+    return String(code).replace(
+        /(\b(?:import\s*\(\s*|import\s+|(?:import|export)\b[^;]*?\bfrom\s*))(["'`])([^"'`$]+)\2/g,
+        (match, prefix, quote, value) => `${prefix}${quote}${map(value)}${quote}`
+    );
+}
+
+/* ============================================================
+ *  7. 同源反向代理路徑模式
+ * ============================================================ */
+const SameOriginPrefix = "/__owo_proxy__/";
+function ParseSameOriginTarget(requestUrl) {
+    const rest = requestUrl.pathname.slice(SameOriginPrefix.length);
+    const protocolEnd = rest.indexOf("/");
+    const protocol = rest.slice(0, protocolEnd);
+    const hostAndPath = rest.slice(protocolEnd + 1);
+    const pathStart = hostAndPath.indexOf("/");
+    const host = pathStart < 0 ? hostAndPath : hostAndPath.slice(0, pathStart);
+    const path = pathStart < 0 ? "/" : hostAndPath.slice(pathStart);
+    if (!/^(?:http|https)$/.test(protocol) || !host) throw new ProxyError(400, "同源代理路徑格式錯誤");
+    const target = new URL(`${protocol}://${host}${path}`);
+    requestUrl.searchParams.forEach((value, key) => { if (key !== "_owo_key") target.searchParams.append(key, value); });
+    return target;
+}
+function BuildSameOriginPath(requestUrl, value, baseUrl) {
+    const target = new URL(value, baseUrl);
+    const result = new URL(requestUrl.origin);
+    result.pathname = `${SameOriginPrefix}${target.protocol.slice(0, -1)}/${target.host}${target.pathname}`;
+    result.search = target.search;
+    const key = requestUrl.searchParams.get("_owo_key");
+    if (key) result.searchParams.set("_owo_key", key);
+    result.hash = target.hash;
+    return result.toString();
+}
+function BuildSameOriginCompatibilityAgent(sourceUrl, requestUrl) {
+    const config = JSON.stringify({ pageUrl:new URL(sourceUrl).toString(), pageOrigin:new URL(sourceUrl).origin, proxyOrigin:requestUrl.origin, key:requestUrl.searchParams.get("_owo_key")||"" });
+    return `(function(C){"use strict";
+if(window.__OwOSameOriginCompatibility)return;
+var U=window.URL,F=window.fetch&&window.fetch.bind(window),XO=XMLHttpRequest.prototype.open,P=new WeakMap();
+var MARK="/__owo_proxy__/";
+function extract(v){try{var raw=String(v==null?"":v),pos=raw.lastIndexOf(MARK);if(pos<0)return null;var tail=raw.slice(pos+MARK.length),q=tail.indexOf("?"),pathPart=q<0?tail:tail.slice(0,q),query=q<0?"":tail.slice(q),i=pathPart.indexOf("/"),scheme=pathPart.slice(0,i),hp=pathPart.slice(i+1),j=hp.indexOf("/"),host=j<0?hp:hp.slice(0,j),path=j<0?"/":hp.slice(j);if(!/^(?:http|https)$/.test(scheme)||!host)return null;var out=new U(scheme+"://"+host+path+query);out.searchParams.delete("_owo_key");return out.href;}catch(e){return null;}}
+function isCanonical(v){try{var u=new U(String(v),C.proxyOrigin),first=u.pathname.indexOf(MARK);return u.origin===C.proxyOrigin&&first===0&&u.pathname.indexOf(MARK,MARK.length)<0&&!u.pathname.slice(MARK.length).includes(C.proxyOrigin.replace(/^https?:\\/\\//,""));}catch(e){return false;}}
+function abs(v){var raw=String(v==null?"":v).trim().replace(/^null(?=\\/)/i,""),peeled=extract(raw),t=peeled||raw;try{var u=new U(t,t.charAt(0)==="/"?C.pageOrigin:C.pageUrl),m=u.pathname.match(/\\/null(\\/(?:svc|api|graphql)(?:\\/|$).*)/i);if(m)u.pathname=m[1];return u.href;}catch(e){return null;}}
+function px(v){if(isCanonical(v))return new U(String(v),C.proxyOrigin).href;var t=abs(v);if(!t)return v;var u=new U(t),o=new U(C.proxyOrigin);o.pathname=MARK+u.protocol.slice(0,-1)+"/"+u.host+u.pathname;o.search=u.search;if(C.key)o.searchParams.set("_owo_key",C.key);o.hash=u.hash;return o.href;}
+function map(v){return !!String(v||"")&&!/^(?:data:|blob:|about:|javascript:|mailto:|tel:|#)/i.test(String(v))&&!isCanonical(v);}
+var SA=Element.prototype.setAttribute,AC=Node.prototype.appendChild,IB=Node.prototype.insertBefore;
+function node(n){if(!(n instanceof Element))return n;["src","href","action","formaction","poster"].forEach(function(a){var v=n.getAttribute(a);if(v&&map(v))SA.call(n,a,px(v));});return n;}
+Element.prototype.setAttribute=function(a,v){if(["src","href","action","formaction","poster"].indexOf(String(a).toLowerCase())>=0&&map(v))v=px(v);return SA.call(this,a,v);};Node.prototype.appendChild=function(n){return AC.call(this,node(n));};Node.prototype.insertBefore=function(n,r){return IB.call(this,node(n),r);};
+if(F)window.fetch=function(i,n){var v=i instanceof Request?i.url:String(i);if(map(v)){var m=px(v);i=i instanceof Request?new Request(m,i):m;}return F(i,n);};XMLHttpRequest.prototype.open=function(m,u){var a=[].slice.call(arguments);if(map(u))a[1]=px(u);return XO.apply(this,a);};
+function wait(ms){return new Promise(function(r){setTimeout(r,ms);});}
+function run(el,d,target,holder){if(P.has(el))return;target=abs(target);holder=holder||document.createElement("div");holder.className="owob-same-origin-partial";holder.innerHTML='<div class="owob-so-spinner"></div><div>正在載入更多內容…</div>';if(el.isConnected){el.style.setProperty("display","none","important");el.before(holder);}var q=d.request||{},method=String(q.method||el.getAttribute("method")||"GET").toUpperCase();function attempt(i){return wait([0,450,900][i]||0).then(function(){var h=new Headers(q.headers||{}),init={method:method,headers:h,credentials:"include",cache:"no-store"};if(method!=="GET"&&method!=="HEAD"&&q.body!=null)init.body=q.body;return F(px(target),init);}).then(function(r){return r.text().then(function(b){if(!r.ok||!b.trim()||/shreddit-feed-page-error|feed-page-error|partial-error/i.test(b))throw new Error("Partial "+r.status);return b;});}).catch(function(e){if(i<2)return attempt(i+1);throw e;});}var task=attempt(0).then(function(html){var range=document.createRange();range.selectNode(holder);holder.replaceWith(range.createContextualFragment(html));if(el.isConnected)el.remove();}).catch(function(e){holder.innerHTML='<div>載入下一頁時發生錯誤</div><button type="button">重試</button>';holder.querySelector("button").onclick=function(){P.delete(el);run(el,d,target,holder);};console.error("[OwO Same-Origin Partial]",e,target);}).finally(function(){P.delete(el);});P.set(el,task);}
+var st=document.createElement("style");st.textContent='.owob-same-origin-partial{min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}.owob-so-spinner{width:42px;height:42px;border:4px solid #ffd8ca;border-top-color:#ff4500;border-radius:50%;animation:os .8s linear infinite}@keyframes os{to{transform:rotate(360deg)}}';(document.head||document.documentElement).appendChild(st);
+document.addEventListener("faceplate-request",function(e){var d=e&&e.detail;if(!d||typeof d.resource!=="string")return;var t=abs(d.resource);if(!t)return;d.resource=t;if(/\\/svc\\/shreddit\\/community-more-posts\\//i.test(t)&&e.target&&e.target.tagName==="FACEPLATE-PARTIAL"){e.preventDefault();e.stopImmediatePropagation();run(e.target,d,t);}},true);
+function pttPath(value,fallback){var candidates=[String(value||""),String(fallback||"")];for(var c=0;c<candidates.length;c++){var current=candidates[c];for(var depth=0;depth<10;depth++){if(!current||current==="srcdoc"||current==="about:srcdoc"||current.indexOf("about:")===0)break;try{var parsed=new U(current,"https://www.ptt.cc/");if(parsed.hostname.toLowerCase()!=="www.ptt.cc")break;if(parsed.pathname!=="/ask/over18")return parsed.pathname+parsed.search;var nested=String(parsed.searchParams.get("from")||"").trim();if(!nested||nested===current)break;current=nested;}catch(e){if(current.charAt(0)==="/"&&current.indexOf("/ask/over18")!==0)return current;break;}}}return "/";}
+function ptt(url,body){var original=abs(url);if(!original)return {url:url,body:body};try{var target=new U(original),current=new U(C.pageUrl);if(target.hostname.toLowerCase()==="www.ptt.cc"&&target.pathname==="/ask/over18"){var path=pttPath(target.searchParams.get("from"),current.href);target.search="";target.searchParams.set("from",path);if(typeof body==="string"){var params=new URLSearchParams(body);params.set("from",pttPath(params.get("from"),target.href));body=params.toString();}}return {url:target.href,body:body};}catch(e){return {url:original,body:body};}}
+var lastNav={url:"",type:"",time:0};function sendNav(url,newTab){var normalized=ptt(url);if(!normalized.url)return;var type=newTab?"OpenTab":"Navigate",now=Date.now();if(lastNav.url===normalized.url&&lastNav.type===type&&now-lastNav.time<700)return;lastNav={url:normalized.url,type:type,time:now};parent.postMessage({OwObSameOrigin:true,Type:type,Url:normalized.url},"*");}
+var NativeWindowOpen=window.open;window.open=function(url){if(url&&abs(url)){sendNav(url,true);return null;}return NativeWindowOpen.apply(window,arguments);};
+document.addEventListener("click",function(e){if(e.defaultPrevented||e.button!==0||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;var a=e.target&&e.target.closest?e.target.closest("a[href]"):null;if(!a)return;var raw=a.getAttribute("href");if(!raw||/^(?:javascript:|mailto:|tel:|#)/i.test(raw))return;var original=abs(raw);if(!original)return;e.preventDefault();e.stopImmediatePropagation();sendNav(original,a.target==="_blank");},true);
+document.addEventListener("submit",function(e){var form=e.target;if(!(form instanceof HTMLFormElement))return;var method=String(form.method||"GET").toUpperCase(),action=abs(form.action||C.pageUrl);if(!action)return;e.preventDefault();e.stopImmediatePropagation();if(method==="GET"){var u=new U(action),data=new FormData(form);data.forEach(function(v,k){u.searchParams.append(k,String(v));});sendNav(u.href,false);}else{var normalized=ptt(action,new URLSearchParams(new FormData(form)).toString());parent.postMessage({OwObSameOrigin:true,Type:"Post",Url:normalized.url,Body:normalized.body},"*");}},true);
+function title(){var host=new U(C.pageUrl).hostname.toLowerCase();return /(^|\\.)reddit\\.com$/.test(host)?"Reddit - 網路心之所在":(document.title||host);}
+function sync(){parent.postMessage({OwObSameOrigin:true,Type:"State",Title:title(),Url:abs(location.href)},"*");}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",sync,{once:true});else sync();window.addEventListener("load",sync,{once:true});
+window.__OwOSameOriginCompatibility={version:"2.7.0",absolute:abs,proxy:px,retryPartial:run};
+})(${config});`;
+}
+
+function IsSearchResultPage(url) {
+    try {
+        const u=new URL(url),h=u.hostname.toLowerCase(),p=u.pathname.toLowerCase();
+        return ((h==="bing.com"||h.endsWith(".bing.com"))&&p==="/search")||((h==="google.com"||h.endsWith(".google.com")||/^www\.google\.[a-z.]+$/.test(h))&&p==="/search")||((h==="duckduckgo.com"||h.endsWith(".duckduckgo.com"))&&(p==="/"||p.includes("html")))||((h==="search.yahoo.com"||h.endsWith(".search.yahoo.com"))&&p.includes("search"));
+    } catch { return false; }
+}
+function SimplifySearchResultHtml(html,url) {
+    if(!IsSearchResultPage(url))return String(html);
+    return String(html).replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,"").replace(/<script\b[^>]*\/?>/gi,"").replace(/<link\b[^>]*\brel\s*=\s*["']?(?:preload|prefetch|modulepreload|dns-prefetch|preconnect)["']?[^>]*>/gi,"").replace(/<iframe\b[^>]*(?:ad|analytics|telemetry|tracking)[^>]*>[\s\S]*?<\/iframe\s*>/gi,"");
+}
+
+function RewritePttOver18Redirect(html, sourceUrl, requestUrl) {
+    let page;
+    try { page = new URL(sourceUrl); } catch { return String(html); }
+    if (page.hostname.toLowerCase() !== "www.ptt.cc") return String(html);
+
+    let detected = false;
+    let output = String(html).replace(
+        /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi,
+        (whole, attributes, body) => {
+            const match = /\/ask\/over18/i.test(body) &&
+                /(?:document\.)?(?:window\.)?location(?:\.pathname|\s*=|\.href|\.replace\s*\()/i.test(body);
+            if (!match) return whole;
+            detected = true;
+            return "<!-- OwO: PTT over18 redirect rewritten to same-origin proxy -->";
+        }
+    );
+    if (!detected) return output;
+
+    const target = new URL("/ask/over18", page.origin);
+    target.searchParams.set("from", page.pathname + page.search);
+    const proxyTarget = BuildSameOriginPath(requestUrl, target.href, sourceUrl);
+    const redirectScript = `<script>location.replace(${JSON.stringify(proxyTarget)});<\/script>`;
+    return /<head[^>]*>/i.test(output)
+        ? output.replace(/<head[^>]*>/i, tag => tag + redirectScript)
+        : redirectScript + output;
+}
+
+function RewriteSameOriginHtml(html, sourceUrl, requestUrl) {
+    html = RewritePttOver18Redirect(html, sourceUrl, requestUrl);
+    html = SimplifySearchResultHtml(html, sourceUrl);
+    const map = value => /^(?:data:|blob:|javascript:|mailto:|tel:|#)/i.test(value) ? value : BuildSameOriginPath(requestUrl, value, sourceUrl);
+    let output = String(html).replace(/\s(src|href|action|formaction|poster)\s*=\s*(["'])(.*?)\2/gi,
+        (all, name, quote, value) => ` ${name}=${quote}${map(value)}${quote}`);
+    output = output.replace(/\s(srcset)\s*=\s*(["'])(.*?)\2/gi, (all, name, quote, value) => {
+        const rewritten = value.split(",").map(item => {
+            const part = item.trim();
+            const split = part.search(/\s/);
+            return split < 0 ? map(part) : map(part.slice(0, split)) + part.slice(split);
+        }).join(", ");
+        return ` ${name}=${quote}${rewritten}${quote}`;
+    });
+    const agentUrl=new URL("/__owo_same_origin_agent__.js",requestUrl.origin);agentUrl.searchParams.set("page",new URL(sourceUrl).toString());const agentKey=requestUrl.searchParams.get("_owo_key");if(agentKey)agentUrl.searchParams.set("_owo_key",agentKey);const injected=`<base href="${BuildSameOriginPath(requestUrl,sourceUrl,sourceUrl)}"><script src="${agentUrl.toString()}"></script>`;
+    return /<head[^>]*>/i.test(output) ? output.replace(/<head[^>]*>/i, tag => tag + injected) : injected + output;
+}
+
+function RewriteSameOriginCss(css, sourceUrl, requestUrl) {
+    return String(css).replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/gi, (all, quote, value) => {
+        if (/^(?:data:|blob:|#)/i.test(value)) return all;
+        try { return `url("${BuildSameOriginPath(requestUrl, value, sourceUrl)}")`; } catch { return all; }
+    });
+}
+
+/* ============================================================
+ *  8. 主要處理流程
+ * ============================================================ */
+
+/** 由前端請求標頭建立 Cookie 罐 */
+function BuildRequestJar(request, targetUrl) {
+    const rawJar = request.headers.get("X-Proxy-Cookie-Jar");
+
+    if (rawJar) {
+        try {
+            return CreateCookieJar(JSON.parse(decodeURIComponent(rawJar)));
+        } catch {
+            /* 格式錯誤時改用舊格式 */
+        }
+    }
+
+    return CreateCookieJar(ParseLegacyCookie(request.headers.get("X-Proxy-Cookie"), targetUrl.hostname));
+}
+
+export default {
+    async fetch(request, env) {
+        const origin         = request.headers.get("Origin");
+        const allowedOrigins = GetAllowedOrigins(env);
+
+        /* ---------- 來源檢查 ---------- */
+        const requestOrigin=new URL(request.url).origin;const isWorkerSelfOrigin=origin===requestOrigin;
+        if (!isWorkerSelfOrigin && !IsOriginAllowed(origin, allowedOrigins)) {
+            return JsonResponse(
+                403,
+                `來源未被允許：${origin}（請將此來源加入 ALLOWED_ORIGINS）`,
+                origin,
+                { allowedOrigins }
+            );
+        }
+
+        /* ---------- 預檢請求 ---------- */
+        if (request.method === "OPTIONS") {
+            return new Response(null, {
+                status:  204,
+                headers: BuildCorsHeaders(origin, request.headers.get("Access-Control-Request-Headers"))
+            });
+        }
+
+        /* ---------- 只接受 GET / HEAD / POST ---------- */
+        if (!["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"].includes(request.method)) {
+            return JsonResponse(405, `不支援的方法：${request.method}`, origin);
+        }
+
+        const requestUrl=new URL(request.url);
+        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"9.7.6",...BuildCorsHeaders(origin)}});}
+
+        /* ---------- 存取金鑰檢查（預檢請求不帶金鑰，故放在預檢之後） ---------- */
+        if (!IsKeyValid(request, requestUrl, GetAccessKey(env))) {
+            return JsonResponse(401, "需要存取金鑰或金鑰錯誤", origin);
+        }
+
+        /* ---------- 解析目標網址 ---------- */
+        const sameOriginMode = requestUrl.pathname.startsWith(SameOriginPrefix);
+        const target = sameOriginMode ? null : requestUrl.searchParams.get("url");
+
+        // 沒帶 url 參數且不是同源路徑 → 健康檢查
+        if (!target && !sameOriginMode) {
+            return JsonResponse(200, "OwOb Proxy 運作中", origin, {
+                version:     "9.7.6",
+                usage:       "/?url=<encoded url> 或 /__owo_proxy__/https/example.com/path",
+                keyRequired: Boolean(GetAccessKey(env)),
+                allowedOrigins,
+                time:    new Date().toISOString()
+            });
+        }
+
+        let targetUrl;
+        try {
+            targetUrl = NormalizeRedditChallengeTarget(sameOriginMode ? ParseSameOriginTarget(requestUrl) : new URL(target));
+        } catch (error) {
+            return JsonResponse(400, error.message || `網址格式錯誤：${target}`, origin);
+        }
+
+        /* ---------- 轉送請求 ---------- */
+        try {
+            const hasBody = !["GET", "HEAD"].includes(request.method);
+            const forwardHeaders = DecodeForwardHeaders(request);
+
+            // 前端主頁面 fetch 的 Accept 為預設「*/*」，此時沿用模擬瀏覽器的 HTML Accept；
+            // 圖片等資源請求帶有具體 Accept 時則照實轉送
+            const accept = request.headers.get("Accept") || "";
+
+            const result = await FetchWithRedirects(targetUrl, {
+                Method:      request.method,
+                Body:        hasBody ? await request.arrayBuffer() : null,
+                ForwardHeaders: forwardHeaders,
+                ContentType: request.headers.get("Content-Type") || "application/x-www-form-urlencoded",
+                Jar:         BuildRequestJar(request, targetUrl),
+                Referer:     request.headers.get("X-Proxy-Referer") || "",
+                Accept:      accept && accept !== "*/*" ? accept : "",
+                Range:       request.headers.get("Range") || ""
+            });
+
+            const upstream = result.Response;
+
+            // 複製並清理目標網站回應標頭
+            const headers = new Headers(upstream.headers);
+            StripResponseHeaders.forEach(name => headers.delete(name));
+
+            // 加上 CORS、最終網址與 Cookie
+            Object.entries(BuildCorsHeaders(origin)).forEach(([key, value]) => headers.set(key, value));
+            headers.set("X-Final-URL",    result.FinalUrl);
+            headers.set("X-Proxy-Status", String(upstream.status));
+            headers.set("X-OwOb-Worker-Version", "9.7.6");
+
+            if (result.SetCookies.length > 0) {
+                headers.set("X-Proxy-Set-Cookie", encodeURIComponent(JSON.stringify(result.SetCookies)));
+            }
+
+            let responseBody = request.method === "HEAD" ? null : upstream.body;
+            const responseType = String(headers.get("Content-Type") || "").toLowerCase();
+            if (sameOriginMode && request.method !== "HEAD" && responseType.includes("text/html")) {
+                responseBody = RewriteSameOriginHtml(await upstream.text(), result.FinalUrl, requestUrl);
+                headers.delete("Content-Encoding");
+                headers.set("Content-Type", "text/html; charset=utf-8");
+                headers.set("Cache-Control", "no-store");
+            } else if (sameOriginMode && request.method !== "HEAD" && responseType.includes("text/css")) {
+                responseBody = RewriteSameOriginCss(await upstream.text(), result.FinalUrl, requestUrl);
+                headers.delete("Content-Encoding");
+                headers.set("Content-Type", "text/css; charset=utf-8");
+            } else if (request.method !== "HEAD" && IsJavaScriptResponse(headers, result.FinalUrl)) {
+                const source = await upstream.text();
+                responseBody = RewriteJavaScriptResponse(source, result.FinalUrl, requestUrl);
+                headers.delete("Content-Encoding");
+                headers.set("Content-Type", "application/javascript; charset=utf-8");
+                headers.set("Cache-Control", "no-store");
+            }
+
+            return new Response(responseBody, {
+                status:     upstream.status,
+                statusText: upstream.statusText,
+                headers
+            });
+        } catch (error) {
+            // 任何例外都回傳帶 CORS 的 JSON，避免前端只看到 Failed to fetch
+            const status = error instanceof ProxyError ? error.Status : 502;
+            const reason = error && error.message ? error.message : String(error);
+
+            return JsonResponse(
+                status,
+                status === 502 ? `代理無法連線至目標網站：${reason}` : reason,
+                origin,
+                { target: targetUrl.toString() }
+            );
+        }
+    }
+};

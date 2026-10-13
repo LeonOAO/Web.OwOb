@@ -1,1 +1,4563 @@
-'use strict';const Config={'DefaultProxyBase':'https://owob-proxy.kkwan812.workers.dev/?url=','SearchUrl':'https://www.bing.com/search?q=','HomeUrl':'owob://start','DefaultTimeoutSec':0xf,'MinTimeoutSec':0x5,'MaxTimeoutSec':0x78,'MaxHistory':0x1f4,'MaxClosedTabs':0xa,'MaxSuggestions':0x8,'ZoomLevels':[0.5,0.67,0.75,0.8,0.9,0x1,1.1,1.25,1.5,1.75,0x2],'MaxInlineStylesheets':0x14,'StylesheetTimeoutMs':0x1f40,'StorageKeys':{'Theme':'OwOb.Theme','ProxyBase':'OwOb.ProxyBase','ProxyKey':'OwOb.ProxyKey','TimeoutSec':'OwOb.TimeoutSec','ProxyResources':'OwOb.ProxyResources','ProxyScripts':'OwOb.ProxyScripts','ProxyRequests':'OwOb.ProxyRequests','History':'OwOb.History','Bookmarks':'OwOb.Bookmarks','Shortcuts':'OwOb.Shortcuts','OpenTabs':'OwOb.OpenTabs','ActiveTab':'OwOb.ActiveTab','Cookies':'OwOb.Cookies'},'DefaultFlags':{'ProxyResources':!![],'ProxyScripts':!![],'ProxyRequests':!![]},'DefaultShortcuts':[{'Name':'Wikipedia','Icon':'fa-brands\x20fa-wikipedia-w','Url':'https://zh.wikipedia.org/'},{'Name':'GitHub','Icon':'fa-brands\x20fa-github','Url':'https://github.com/'},{'Name':'Hacker\x20News','Icon':'fa-brands\x20fa-hacker-news','Url':'https://news.ycombinator.com/'},{'Name':'Example','Icon':'fa-solid\x20fa-globe','Url':'https://example.com/'},{'Name':'書籤','Icon':'fa-solid\x20fa-star','Url':'owob://bookmarks'},{'Name':'設定','Icon':'fa-solid\x20fa-gear','Url':'owob://settings'}]};const State={'Tabs':[],'ActiveId':null,'NextId':0x1,'ClosedTabs':[],'DragTabId':null,'Suggest':{'Items':[],'Index':-0x1},'Find':{'Open':![]}};const Dom={'TabList':document['getElementById']('TabList'),'ViewArea':document['getElementById']('ViewArea'),'AddTabButton':document['getElementById']('AddTabButton'),'BackButton':document['getElementById']('BackButton'),'ForwardButton':document['getElementById']('ForwardButton'),'ReloadButton':document['getElementById']('ReloadButton'),'HomeButton':document['getElementById']('HomeButton'),'ProxyModeButton':document['getElementById']('ProxyModeButton'),'ThemeButton':document['getElementById']('ThemeButton'),'SettingsButton':document['getElementById']('SettingsButton'),'AddressForm':document['getElementById']('AddressForm'),'AddressInput':document['getElementById']('AddressInput'),'AddressIcon':document['getElementById']('AddressIcon'),'ZoomButton':document['getElementById']('ZoomButton'),'BookmarkButton':document['getElementById']('BookmarkButton'),'SuggestList':document['getElementById']('SuggestList'),'LoadingBar':document['getElementById']('LoadingBar'),'FindBar':document['getElementById']('FindBar'),'FindInput':document['getElementById']('FindInput'),'FindStatus':document['getElementById']('FindStatus'),'FindPrevButton':document['getElementById']('FindPrevButton'),'FindNextButton':document['getElementById']('FindNextButton'),'FindCloseButton':document['getElementById']('FindCloseButton'),'ImportInput':document['getElementById']('ImportInput'),'Toast':document['getElementById']('Toast')};function EscapeHtml(_0x4b5195){return String(_0x4b5195)['replace'](/&/g,'&amp;')['replace'](/</g,'&lt;')['replace'](/>/g,'&gt;')['replace'](/"/g,'&quot;')['replace'](/'/g,'&#39;');}function DecodeEntities(_0x3301ee){const _0x499920=String(_0x3301ee);if(!_0x499920['includes']('&'))return _0x499920;const _0x35f0d3=document['createElement']('textarea');_0x35f0d3['innerHTML']=_0x499920;return _0x35f0d3['value'];}let ToastTimer=null;function ShowToast(_0x3cecf0){Dom['Toast']['textContent']=_0x3cecf0;Dom['Toast']['classList']['add']('Show');clearTimeout(ToastTimer);ToastTimer=setTimeout(()=>Dom['Toast']['classList']['remove']('Show'),0xa28);}function LoadJson(_0x4e555b,_0x5aee47){try{const _0x1b24d2=localStorage['getItem'](_0x4e555b);return _0x1b24d2?JSON['parse'](_0x1b24d2):_0x5aee47;}catch{return _0x5aee47;}}function SaveJson(_0x249f66,_0x2ddcc6){try{localStorage['setItem'](_0x249f66,JSON['stringify'](_0x2ddcc6));}catch{}}function CreateId(){return Date['now']()['toString'](0x24)+Math['random']()['toString'](0x24)['slice'](0x2,0x8);}function Clamp(_0x1a3868,_0x50b170,_0x4ef0ae){return Math['min'](Math['max'](_0x1a3868,_0x50b170),_0x4ef0ae);}function GetActiveTab(){return State['Tabs']['find'](_0x264c0f=>_0x264c0f['Id']===State['ActiveId'])||null;}function GetTabById(_0x40212a){return State['Tabs']['find'](_0x6e349=>_0x6e349['Id']===_0x40212a)||null;}function GetTabUrl(_0xfab941){return _0xfab941['History'][_0xfab941['Index']]||Config['HomeUrl'];}function GetDisplayUrl(_0x4aca2c){const _0x198783=String(_0x4aca2c);const _0x3b097c=_0x198783['match'](/^owob:\/\/([^/?#]+)/i);if(!_0x3b097c)return _0x198783;const _0x45ed95={'start':'Start','settings':'Settings','history':'History','bookmarks':'Bookmarks','cookies':'Cookies'};const _0x9c9d99=_0x45ed95[_0x3b097c[0x1]['toLowerCase']()]||_0x3b097c[0x1];return'Browser://'+_0x9c9d99;}function NormalizeInternalInput(_0x185a62){const _0x4b5dde=String(_0x185a62)['trim']();const _0x1b597d=_0x4b5dde['match'](/^browser:\/\/([^/?#]+)/i);return _0x1b597d?'owob://'+_0x1b597d[0x1]['toLowerCase']():_0x4b5dde;}function IsInternalUrl(_0x5d4d9c){return String(_0x5d4d9c)['toLowerCase']()['startsWith']('owob://');}function IsWebUrl(_0x3bd4f7){return/^https?:\/\//i['test'](String(_0x3bd4f7));}function GetHostname(_0x3217e9){try{return new URL(_0x3217e9)['hostname'];}catch{return'';}}function FormatDateTime(_0x19503f){return new Date(_0x19503f)['toLocaleString']('zh-TW',{'hour12':![]});}function DecodeBase64Url(_0xd0ce1){try{let _0x3eb18f=String(_0xd0ce1)['replace'](/-/g,'+')['replace'](/_/g,'/');while(_0x3eb18f['length']%0x4)_0x3eb18f+='=';const _0x46bbcb=atob(_0x3eb18f);const _0x5502e3=Uint8Array['from'](_0x46bbcb,_0x3bba36=>_0x3bba36['charCodeAt'](0x0));return new TextDecoder()['decode'](_0x5502e3);}catch{return'';}}function UnwrapRedirectUrl(_0x2c640f){let _0x399f0c;try{_0x399f0c=new URL(_0x2c640f);}catch{return _0x2c640f;}const _0x6dd318=_0x399f0c['hostname']['toLowerCase']();const _0x39cb55=_0x399f0c['pathname'];let _0x1333f6='';if(/(^|\.)bing\.com$/['test'](_0x6dd318)&&_0x39cb55['startsWith']('/ck/a')){const _0x9a1e54=_0x399f0c['searchParams']['get']('u')||'';_0x1333f6=_0x9a1e54['startsWith']('a1')?DecodeBase64Url(_0x9a1e54['slice'](0x2)):_0x9a1e54;}else if(/(^|\.)duckduckgo\.com$/['test'](_0x6dd318)&&_0x39cb55['startsWith']('/l/')){_0x1333f6=_0x399f0c['searchParams']['get']('uddg')||'';}else if(/(^|\.)google\.[a-z.]+$/['test'](_0x6dd318)&&_0x39cb55==='/url'){_0x1333f6=_0x399f0c['searchParams']['get']('q')||_0x399f0c['searchParams']['get']('url')||'';}else if(/(^|\.)search\.yahoo\.com$/['test'](_0x6dd318)){const _0x4accb8=_0x39cb55['match'](/\/RU=([^/]+)\//);if(_0x4accb8){try{_0x1333f6=decodeURIComponent(_0x4accb8[0x1]);}catch{_0x1333f6='';}}}return IsWebUrl(_0x1333f6)?_0x1333f6:_0x2c640f;}function GetCanonicalPttReturnPath(_0x49a31c,_0x46ff74=''){const _0x411165=[String(_0x49a31c||''),String(_0x46ff74||'')];for(const _0x11a8b0 of _0x411165){let _0x3c047f=_0x11a8b0;for(let _0x8493dd=0x0;_0x8493dd<0xa;_0x8493dd++){if(!_0x3c047f||_0x3c047f==='srcdoc'||_0x3c047f==='about:srcdoc'||_0x3c047f['startsWith']('about:'))break;try{const _0x2eb94c=new URL(_0x3c047f,'https://www.ptt.cc/');if(_0x2eb94c['hostname']['toLowerCase']()!=='www.ptt.cc')break;if(_0x2eb94c['pathname']!=='/ask/over18'){if(_0x2eb94c['pathname']['startsWith']('/'))return _0x2eb94c['pathname']+_0x2eb94c['search'];break;}const _0xb4b39d=String(_0x2eb94c['searchParams']['get']('from')||'')['trim']();if(!_0xb4b39d||_0xb4b39d===_0x3c047f)break;_0x3c047f=_0xb4b39d;}catch{if(_0x3c047f['startsWith']('/')&&!_0x3c047f['startsWith']('/ask/over18'))return _0x3c047f;break;}}}return'/';}function HasPttOver18Cookie(){const _0x4e7350=LoadCookieJar();return Object['entries'](_0x4e7350)['some'](([_0x5025f9,_0x444cb7])=>(_0x5025f9==='ptt.cc'||_0x5025f9['endsWith']('.ptt.cc'))&&_0x444cb7&&_0x444cb7['over18']&&String(_0x444cb7['over18']['Value'])==='1');}function NormalizePttOver18Url(_0x488b52,_0x5d1b4f){try{const _0xfeb29=new URL(_0x5d1b4f,'https://www.ptt.cc/');const _0x524a44=new URL(_0x488b52,_0xfeb29);if(_0x524a44['hostname']['toLowerCase']()!=='www.ptt.cc'||_0x524a44['pathname']!=='/ask/over18'){return _0x524a44['href'];}const _0x2a90f2=GetCanonicalPttReturnPath(_0x524a44['searchParams']['get']('from'),_0xfeb29['href']);_0x524a44['search']='';_0x524a44['searchParams']['set']('from',_0x2a90f2);return _0x524a44['href'];}catch{return _0x488b52;}}function NormalizePttOver18PostBody(_0xb3f07e,_0x448fbe,_0x4e0423){try{const _0x464418=new URL(_0xb3f07e,_0x4e0423);if(_0x464418['hostname']['toLowerCase']()!=='www.ptt.cc'||_0x464418['pathname']!=='/ask/over18')return _0x448fbe;const params=new URLSearchParams(_0x448fbe);const _0x430751=GetCanonicalPttReturnPath(params['get']('from'),_0x464418['href']||_0x4e0423);params['set']('from',_0x430751);return params['toString']();}catch{return _0x448fbe;}}function ResolveInput(_0xa9abf6){const _0x13e993=NormalizeInternalInput(_0xa9abf6);if(!_0x13e993){return Config['HomeUrl'];}if(IsInternalUrl(_0x13e993)){return _0x13e993['toLowerCase']();}if(IsWebUrl(_0x13e993)){return _0x13e993;}const _0x51ec58=/^[\w-]+(\.[\w-]+)+(:\d+)?(\/.*)?$/['test'](_0x13e993)&&!/\s/['test'](_0x13e993);if(_0x51ec58){return'https://'+_0x13e993;}return Config['SearchUrl']+encodeURIComponent(_0x13e993);}function NormalizeUserUrl(_0x5161e4){const _0x68b899=String(_0x5161e4||'')['trim']();if(!_0x68b899)return null;if(IsInternalUrl(_0x68b899))return _0x68b899['toLowerCase']();const _0x144864=IsWebUrl(_0x68b899)?_0x68b899:'https://'+_0x68b899;try{return new URL(_0x144864)['toString']();}catch{return null;}}function IsCustomProxy(){return Boolean(localStorage['getItem'](Config['StorageKeys']['ProxyBase']));}function GetProxyBase(){return localStorage['getItem'](Config['StorageKeys']['ProxyBase'])||Config['DefaultProxyBase'];}function GetProxyKey(){return localStorage['getItem'](Config['StorageKeys']['ProxyKey'])||'';}function GetTimeoutSec(){const _0x98f2e1=Number(localStorage['getItem'](Config['StorageKeys']['TimeoutSec']));return Number['isFinite'](_0x98f2e1)&&_0x98f2e1>0x0?Clamp(Math['round'](_0x98f2e1),Config['MinTimeoutSec'],Config['MaxTimeoutSec']):Config['DefaultTimeoutSec'];}function GetTimeoutMs(){return GetTimeoutSec()*0x3e8;}function GetFlag(_0x1fe5f3){const _0x3146c6=localStorage['getItem'](Config['StorageKeys'][_0x1fe5f3]);if(_0x3146c6==='1')return!![];if(_0x3146c6==='0')return![];return Boolean(Config['DefaultFlags'][_0x1fe5f3]);}function SetFlag(_0x177631,_0xd834c1){localStorage['setItem'](Config['StorageKeys'][_0x177631],_0xd834c1?'1':'0');}function NormalizeProxyBase(_0x4f4dcd){const _0x3aa0ea=String(_0x4f4dcd||'')['trim']();if(!_0x3aa0ea)return null;let _0x318d37;try{_0x318d37=new URL(_0x3aa0ea);}catch{return null;}if(_0x318d37['protocol']!=='http:'&&_0x318d37['protocol']!=='https:'){return null;}if(_0x3aa0ea['endsWith']('=')){return _0x3aa0ea;}if(!_0x318d37['search']){return _0x3aa0ea['replace'](/\/+$/,'')+'/?url=';}return _0x3aa0ea+'&url=';}function RewriteSrcset(_0x43dca3,mapper){var _0x109938=String(_0x43dca3);var _0x488c5f=[];var _0x462b11=0x0;while(_0x462b11<_0x109938['length']){while(_0x462b11<_0x109938['length']&&/[\s,]/['test'](_0x109938['charAt'](_0x462b11)))_0x462b11++;if(_0x462b11>=_0x109938['length'])break;var _0x1b095b=_0x462b11;while(_0x1b095b<_0x109938['length']&&!/\s/['test'](_0x109938['charAt'](_0x1b095b)))_0x1b095b++;var _0x302bf0=_0x109938['slice'](_0x462b11,_0x1b095b);var _0xa1508d='';if(/,$/['test'](_0x302bf0)){_0x302bf0=_0x302bf0['replace'](/,+$/,'');_0x462b11=_0x1b095b;}else{var _0x372065=_0x1b095b;while(_0x372065<_0x109938['length']&&_0x109938['charAt'](_0x372065)!==',')_0x372065++;_0xa1508d=_0x109938['slice'](_0x1b095b,_0x372065)['trim']();_0x462b11=_0x372065+0x1;}_0x488c5f['push'](mapper(_0x302bf0)+(_0xa1508d?'\x20'+_0xa1508d:''));}return _0x488c5f['join'](',\x20');}function MakeProxyUrl(_0x57dc98,_0x5985f0,_0x50d5f0){return _0x57dc98+encodeURIComponent(_0x50d5f0)+(_0x5985f0?'&key='+encodeURIComponent(_0x5985f0):'');}function BuildProxyUrl(_0x1cd336){return MakeProxyUrl(GetProxyBase(),GetProxyKey(),_0x1cd336);}function BuildSameOriginProxyUrl(_0x2bc299){const _0xe9d0c3=new URL(_0x2bc299);const proxy=new URL(GetProxyBase());const _0x524449=_0xe9d0c3['protocol']['replace'](':','');proxy['pathname']='/__owo_proxy__/'+_0x524449+'/'+_0xe9d0c3['host']+_0xe9d0c3['pathname'];proxy['search']=_0xe9d0c3['search'];if(GetProxyKey())proxy['searchParams']['set']('_owo_key',GetProxyKey());proxy['hash']=_0xe9d0c3['hash'];return proxy['toString']();}function ToggleCurrentTabLoadMode(){const _0x46dff5=GetActiveTab();if(!_0x46dff5||IsInternalUrl(GetTabUrl(_0x46dff5))){ShowToast('內部頁面不使用代理載入模式');return;}_0x46dff5['LoadMode']=_0x46dff5['LoadMode']==='same-origin'?'standard':'same-origin';RefreshToolbar();ShowToast(_0x46dff5['LoadMode']==='same-origin'?'已切換：同源反向代理模式':'已切換：標準代理模式');Navigate(_0x46dff5,GetTabUrl(_0x46dff5),![]);}function GetProxyOrigin(){try{return new URL(GetProxyBase())['origin'];}catch{return'';}}function ShouldProxyUrl(_0x20249d){if(!IsWebUrl(_0x20249d))return![];const _0xb2091b=GetProxyOrigin();return!_0xb2091b||!_0x20249d['startsWith'](_0xb2091b+'/');}function RewriteDataJavaScriptResource(_0xef2eb8,_0x19a2a7){const _0x15ff2c=String(_0xef2eb8||'');const _0x2dac6b=_0x15ff2c['match'](/^data:(text|application)\/(?:javascript|ecmascript)([^,]*),(.*)$/is);if(!_0x2dac6b)return _0xef2eb8;const _0x292c03=_0x2dac6b[0x2]||'';let _0x4fdef2;try{if(/;base64/i['test'](_0x292c03)){const _0x29e1cd=atob(_0x2dac6b[0x3]||'');const _0x5bfa98=Uint8Array['from'](_0x29e1cd,_0x130f86=>_0x130f86['charCodeAt'](0x0));_0x4fdef2=new TextDecoder()['decode'](_0x5bfa98);}else{_0x4fdef2=decodeURIComponent(_0x2dac6b[0x3]||'');}}catch{return _0xef2eb8;}const _0x1d7e88=RewriteJavaScriptUrls(_0x4fdef2,_0x19a2a7);return _0x1d7e88===_0x4fdef2?_0xef2eb8:'data:'+_0x2dac6b[0x1]+'/javascript;charset=utf-8,'+encodeURIComponent(_0x1d7e88);}function MapResourceUrl(_0x3e08d8,_0x2661b8){const _0x37b894=String(_0x3e08d8)['trim']();if(/^data:(?:text|application)\/(?:javascript|ecmascript)/i['test'](_0x37b894)){return RewriteDataJavaScriptResource(_0x37b894,_0x2661b8);}if(!_0x37b894||/^(data:|blob:|about:|javascript:|#)/i['test'](_0x37b894)){return _0x3e08d8;}let _0x15c4d3;try{_0x15c4d3=new URL(_0x37b894,_0x2661b8)['toString']();}catch{return _0x3e08d8;}return ShouldProxyUrl(_0x15c4d3)?BuildProxyUrl(_0x15c4d3):_0x3e08d8;}function SafeJson(_0x187f9a){return JSON['stringify'](_0x187f9a)['replace'](/</g,'\x5cu003c')['replace'](/\u2028/g,'\x5cu2028')['replace'](/\u2029/g,'\x5cu2029');}function LoadCookieJar(){const _0x564dab=LoadJson(Config['StorageKeys']['Cookies'],{});const _0x34fc5f=Date['now']();Object['keys'](_0x564dab)['forEach'](_0x13ac9e=>{Object['keys'](_0x564dab[_0x13ac9e])['forEach'](_0x402871=>{const _0x1d1d89=_0x564dab[_0x13ac9e][_0x402871]['Expires'];if(_0x1d1d89!==null&&_0x1d1d89<=_0x34fc5f){delete _0x564dab[_0x13ac9e][_0x402871];}});if(Object['keys'](_0x564dab[_0x13ac9e])['length']===0x0){delete _0x564dab[_0x13ac9e];}});return _0x564dab;}function ApplySetCookie(_0x48e007,_0xc38375,_0x1b048d){const _0x36a11a=String(_0x1b048d)['split'](';');const _0x39868d=_0x36a11a['shift']();const _0x4c46d3=_0x39868d['indexOf']('=');if(_0x4c46d3<=0x0)return;const _0x1ae2f2=_0x39868d['slice'](0x0,_0x4c46d3)['trim']();const _0xbc202=_0x39868d['slice'](_0x4c46d3+0x1)['trim']();let _0x35336f=_0xc38375['toLowerCase']();let _0x1881e1=!![];let _0x3a1e4e=null;let _0x102b24=![];_0x36a11a['forEach'](_0xf79c3a=>{const [_0x447b99,..._0x4e8868]=_0xf79c3a['split']('=');const _0x928340=_0x447b99['trim']()['toLowerCase']();const _0x11bd32=_0x4e8868['join']('=')['trim']();if(_0x928340==='domain'&&_0x11bd32){const _0x3c317b=_0x11bd32['replace'](/^\./,'')['toLowerCase']();if(_0x35336f===_0x3c317b||_0x35336f['endsWith']('.'+_0x3c317b)){_0x35336f=_0x3c317b;_0x1881e1=![];}else{_0x102b24=!![];}}else if(_0x928340==='max-age'&&_0x11bd32){_0x3a1e4e=Date['now']()+Number(_0x11bd32)*0x3e8;}else if(_0x928340==='expires'&&_0x11bd32&&_0x3a1e4e===null){const _0x46754f=Date['parse'](_0x11bd32);if(!Number['isNaN'](_0x46754f))_0x3a1e4e=_0x46754f;}});if(_0x102b24)return;_0x48e007[_0x35336f]=_0x48e007[_0x35336f]||{};if(_0x3a1e4e!==null&&_0x3a1e4e<=Date['now']()){delete _0x48e007[_0x35336f][_0x1ae2f2];}else{_0x48e007[_0x35336f][_0x1ae2f2]={'Value':_0xbc202,'Expires':_0x3a1e4e,'HostOnly':_0x1881e1};}}function StoreProxyCookies(_0x1b19cc){if(!_0x1b19cc)return;let _0xd2d039;try{_0xd2d039=JSON['parse'](decodeURIComponent(_0x1b19cc));}catch{return;}if(!Array['isArray'](_0xd2d039))return;const _0x25f5b2=LoadCookieJar();_0xd2d039['forEach'](_0x25cff4=>{if(_0x25cff4&&typeof _0x25cff4['Host']==='string'&&typeof _0x25cff4['Cookie']==='string'){ApplySetCookie(_0x25f5b2,_0x25cff4['Host'],_0x25cff4['Cookie']);}});SaveJson(Config['StorageKeys']['Cookies'],_0x25f5b2);}function GetSiteDomain(_0x192b1d){const _0x1e2e6d=_0x192b1d['toLowerCase']()['split']('.');if(_0x1e2e6d['length']<=0x2){return _0x1e2e6d['join']('.');}const _0x3e66cd=_0x1e2e6d[_0x1e2e6d['length']-0x2];const _0x15cf91=_0x1e2e6d[_0x1e2e6d['length']-0x1];const _0x2df53d=_0x15cf91['length']===0x2&&['com','net','org','edu','gov','co','ac','or','ne','idv']['includes'](_0x3e66cd);return _0x1e2e6d['slice'](_0x2df53d?-0x3:-0x2)['join']('.');}function GetSiteCookieJar(_0x4baab2){let _0x5688fe;try{_0x5688fe=GetSiteDomain(new URL(_0x4baab2)['hostname']);}catch{return[];}const _0x33eca7=LoadCookieJar();const _0x108789=[];Object['keys'](_0x33eca7)['forEach'](_0x52e19e=>{if(_0x52e19e!==_0x5688fe&&!_0x52e19e['endsWith']('.'+_0x5688fe))return;Object['entries'](_0x33eca7[_0x52e19e])['forEach'](([_0x7aa769,_0x1f03bf])=>{_0x108789['push']({'Domain':_0x52e19e,'Name':_0x7aa769,'Value':_0x1f03bf['Value'],'HostOnly':_0x1f03bf['HostOnly']});});});return _0x108789;}function CountCookies(){const _0x1dee45=LoadCookieJar();return Object['values'](_0x1dee45)['reduce']((_0x1e7807,_0x34fcb1)=>_0x1e7807+Object['keys'](_0x34fcb1)['length'],0x0);}function DeleteCookie(_0x29232b,_0x1dd9e7=null){const _0x354dfd=LoadCookieJar();if(!_0x354dfd[_0x29232b])return;if(_0x1dd9e7===null){delete _0x354dfd[_0x29232b];}else{delete _0x354dfd[_0x29232b][_0x1dd9e7];if(Object['keys'](_0x354dfd[_0x29232b])['length']===0x0)delete _0x354dfd[_0x29232b];}SaveJson(Config['StorageKeys']['Cookies'],_0x354dfd);}function LoadHistory(){const _0x1a5bc0=LoadJson(Config['StorageKeys']['History'],[]);if(!Array['isArray'](_0x1a5bc0))return[];let _0x1b0b16=![];_0x1a5bc0['forEach'](_0x531a02=>{if(!_0x531a02['Id']){_0x531a02['Id']=CreateId();_0x1b0b16=!![];}});if(_0x1b0b16)SaveJson(Config['StorageKeys']['History'],_0x1a5bc0);return _0x1a5bc0;}function AddHistoryRecord(_0x1661ab){const _0x3e0f35=LoadHistory();if(_0x3e0f35[0x0]&&_0x3e0f35[0x0]['Url']===_0x1661ab){_0x3e0f35[0x0]['Time']=Date['now']();}else{_0x3e0f35['unshift']({'Id':CreateId(),'Url':_0x1661ab,'Title':'','Time':Date['now']()});}SaveJson(Config['StorageKeys']['History'],_0x3e0f35['slice'](0x0,Config['MaxHistory']));}function ReplaceHistoryUrl(_0x230ccb,_0x2a57e5){const _0x10cae0=LoadHistory();const _0x2937ec=_0x10cae0['find'](_0x1cb5b5=>_0x1cb5b5['Url']===_0x230ccb);if(!_0x2937ec)return;_0x2937ec['Url']=_0x2a57e5;const _0x423c84=_0x10cae0['indexOf'](_0x2937ec);if(_0x10cae0[_0x423c84+0x1]&&_0x10cae0[_0x423c84+0x1]['Url']===_0x2a57e5){_0x10cae0['splice'](_0x423c84+0x1,0x1);}SaveJson(Config['StorageKeys']['History'],_0x10cae0);}function UpdateHistoryTitle(_0x25b3a1,_0x3a2177){const _0x53c18f=LoadHistory();const _0x2e3cfc=_0x53c18f['find'](_0x4351d6=>_0x4351d6['Url']===_0x25b3a1);if(_0x2e3cfc&&_0x3a2177&&_0x2e3cfc['Title']!==_0x3a2177){_0x2e3cfc['Title']=_0x3a2177;SaveJson(Config['StorageKeys']['History'],_0x53c18f);}}function DeleteHistoryRecord(_0x2604a8){SaveJson(Config['StorageKeys']['History'],LoadHistory()['filter'](_0x2c43d4=>_0x2c43d4['Id']!==_0x2604a8));}function LoadBookmarks(){const _0x1617b3=LoadJson(Config['StorageKeys']['Bookmarks'],[]);return Array['isArray'](_0x1617b3)?_0x1617b3:[];}function SaveBookmarks(_0x2e470a){SaveJson(Config['StorageKeys']['Bookmarks'],_0x2e470a);}function FindBookmark(_0x13ada8){return LoadBookmarks()['find'](_0x2f3640=>_0x2f3640['Url']===_0x13ada8)||null;}function ToggleBookmark(_0x2562c0=GetActiveTab()){if(!_0x2562c0)return;const _0x4da177=GetTabUrl(_0x2562c0);if(IsInternalUrl(_0x4da177)){ShowToast('內部頁面無法加入書籤');return;}const _0x5ade3c=LoadBookmarks();const _0x12fdbe=_0x5ade3c['findIndex'](_0x354c6a=>_0x354c6a['Url']===_0x4da177);if(_0x12fdbe!==-0x1){_0x5ade3c['splice'](_0x12fdbe,0x1);ShowToast('已移除書籤');}else{_0x5ade3c['unshift']({'Id':CreateId(),'Url':_0x4da177,'Title':_0x2562c0['Title']||GetHostname(_0x4da177),'Time':Date['now']()});ShowToast('已加入書籤');}SaveBookmarks(_0x5ade3c);RefreshToolbar();}function DeleteBookmark(_0x53782d){SaveBookmarks(LoadBookmarks()['filter'](_0xfa96f2=>_0xfa96f2['Id']!==_0x53782d));RefreshToolbar();}function LoadShortcuts(){const _0x466914=LoadJson(Config['StorageKeys']['Shortcuts'],null);return Array['isArray'](_0x466914)?_0x466914:Config['DefaultShortcuts']['map'](_0x2935d4=>({..._0x2935d4}));}function SaveShortcuts(_0x4c0a06){SaveJson(Config['StorageKeys']['Shortcuts'],_0x4c0a06);}async function EditShortcut(_0x18041f=-0x1,_0xf2874c=null){const _0x21a7c5=LoadShortcuts();const _0x411e5d=_0x18041f>=0x0?_0x21a7c5[_0x18041f]:_0xf2874c||{'Name':'','Url':''};const _0x12ad78=await ShowDialog({'Title':_0x18041f>=0x0?'編輯捷徑':'新增捷徑','ConfirmText':'儲存','Fields':[{'Name':'Name','Label':'名稱','Value':_0x411e5d['Name'],'Placeholder':'例如：維基百科'},{'Name':'Url','Label':'網址','Value':_0x411e5d['Url'],'Placeholder':'https://example.com/'}]});if(!_0x12ad78)return![];const _0xbfacd=NormalizeUserUrl(_0x12ad78['Url']);const _0x48c3b6=_0x12ad78['Name']['trim']()||(_0xbfacd?GetHostname(_0xbfacd):'');if(!_0xbfacd){ShowToast('網址格式錯誤');return![];}const _0x4764f2={'Name':_0x48c3b6||_0xbfacd,'Url':_0xbfacd};if(_0x18041f>=0x0&&_0x411e5d['Icon']&&_0x411e5d['Url']===_0xbfacd){_0x4764f2['Icon']=_0x411e5d['Icon'];}if(_0x18041f>=0x0){_0x21a7c5[_0x18041f]=_0x4764f2;}else{_0x21a7c5['push'](_0x4764f2);}SaveShortcuts(_0x21a7c5);ShowToast(_0x18041f>=0x0?'已更新捷徑':'已新增捷徑');return!![];}function DeleteShortcut(_0x16a6b3){const _0x43adcc=LoadShortcuts();_0x43adcc['splice'](_0x16a6b3,0x1);SaveShortcuts(_0x43adcc);ShowToast('已刪除捷徑');}function MoveShortcut(_0x300987,_0x128382){const _0x3772fa=LoadShortcuts();if(_0x300987===_0x128382||!_0x3772fa[_0x300987])return;const [_0x2916de]=_0x3772fa['splice'](_0x300987,0x1);_0x3772fa['splice'](Clamp(_0x128382,0x0,_0x3772fa['length']),0x0,_0x2916de);SaveShortcuts(_0x3772fa);}function ShowDialog({Title:_0x33da98,Fields:_0x1c1614,ConfirmText:ConfirmText='確定'}){return new Promise(resolve=>{const _0x1d9c26=document['createElement']('div');_0x1d9c26['className']='DialogOverlay';const _0xaf7385=_0x1c1614['map'](_0x570e73=>'\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<label\x20class=\x22DialogField\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span>'+EscapeHtml(_0x570e73['Label'])+'</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<input\x20class=\x22SettingInput\x22\x20name=\x22'+EscapeHtml(_0x570e73['Name'])+'\x22\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20type=\x22'+EscapeHtml(_0x570e73['Type']||'text')+'\x22\x20spellcheck=\x22false\x22\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20placeholder=\x22'+EscapeHtml(_0x570e73['Placeholder']||'')+'\x22\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20value=\x22'+EscapeHtml(_0x570e73['Value']||'')+'\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</label>')['join']('');_0x1d9c26['innerHTML']='\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<form\x20class=\x22Dialog\x22\x20autocomplete=\x22off\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<h3>'+EscapeHtml(_0x33da98)+'</h3>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20'+_0xaf7385+'\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ButtonRow\x20DialogButtons\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20type=\x22button\x22\x20class=\x22ActionButton\x20Secondary\x22\x20data-role=\x22cancel\x22>取消</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20type=\x22submit\x22\x20class=\x22ActionButton\x22>'+EscapeHtml(ConfirmText)+'</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</form>\x0a\x20\x20\x20\x20\x20\x20\x20\x20';const _0x36779e=_0x1d9c26['querySelector']('form');const close=_0x1c981a=>{_0x1d9c26['remove']();document['removeEventListener']('keydown',onKey,!![]);resolve(_0x1c981a);};const onKey=_0x3e3c5b=>{if(_0x3e3c5b['key']==='Escape'){_0x3e3c5b['preventDefault']();_0x3e3c5b['stopPropagation']();close(null);}};_0x36779e['addEventListener']('submit',_0x2e6b7b=>{_0x2e6b7b['preventDefault']();const _0x3db577={};_0x1c1614['forEach'](_0x3753e1=>{_0x3db577[_0x3753e1['Name']]=_0x36779e['elements'][_0x3753e1['Name']]['value'];});close(_0x3db577);});_0x1d9c26['querySelector']('[data-role=\x22cancel\x22]')['addEventListener']('click',()=>close(null));_0x1d9c26['addEventListener']('mousedown',_0x4ded0b=>{if(_0x4ded0b['target']===_0x1d9c26)close(null);});document['addEventListener']('keydown',onKey,!![]);document['body']['appendChild'](_0x1d9c26);const _0x17e9b7=_0x36779e['querySelector']('input');if(_0x17e9b7){_0x17e9b7['focus']();_0x17e9b7['select']();}});}let ActiveContextMenu=null;function ShowContextMenu(_0x19917,_0xc0642e,_0x51d51b){HideContextMenu();const _0x47e048=document['createElement']('div');_0x47e048['className']='ContextMenu';_0x51d51b['forEach'](_0x4cf99d=>{if(_0x4cf99d==='-'){const _0x51069c=document['createElement']('div');_0x51069c['className']='MenuSeparator';_0x47e048['appendChild'](_0x51069c);return;}const _0x50b1ff=document['createElement']('button');_0x50b1ff['type']='button';_0x50b1ff['className']='MenuItem';_0x50b1ff['disabled']=Boolean(_0x4cf99d['Disabled']);_0x50b1ff['innerHTML']='\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<i\x20class=\x22'+EscapeHtml(_0x4cf99d['Icon']||'fa-solid\x20fa-circle-dot')+'\x22></i>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span\x20class=\x22MenuLabel\x22>'+EscapeHtml(_0x4cf99d['Label'])+'</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20'+(_0x4cf99d['Hint']?'<span\x20class=\x22MenuHint\x22>'+EscapeHtml(_0x4cf99d['Hint'])+'</span>':'')+'\x0a\x20\x20\x20\x20\x20\x20\x20\x20';_0x50b1ff['addEventListener']('click',()=>{HideContextMenu();_0x4cf99d['Action']();});_0x47e048['appendChild'](_0x50b1ff);});document['body']['appendChild'](_0x47e048);const _0x22075f=_0x47e048['getBoundingClientRect']();_0x47e048['style']['left']=Clamp(_0x19917,0x4,window['innerWidth']-_0x22075f['width']-0x4)+'px';_0x47e048['style']['top']=Clamp(_0xc0642e,0x4,window['innerHeight']-_0x22075f['height']-0x4)+'px';ActiveContextMenu=_0x47e048;}function HideContextMenu(){if(ActiveContextMenu){ActiveContextMenu['remove']();ActiveContextMenu=null;}}function CreateTab(_0x3d9a01=Config['HomeUrl'],_0x18a25b=!![],_0x65d03f={}){const _0xfbd422=State['NextId']++;const _0x2425f7=document['createElement']('div');_0x2425f7['className']='Tab';_0x2425f7['dataset']['id']=_0xfbd422;_0x2425f7['draggable']=!![];_0x2425f7['innerHTML']='\x0a\x20\x20\x20\x20\x20\x20\x20\x20<span\x20class=\x22TabTitle\x22>新分頁</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22TabClose\x22\x20title=\x22關閉分頁\x20(Alt+W)\x22><i\x20class=\x22fa-solid\x20fa-xmark\x22></i></button>\x0a\x20\x20\x20\x20';const _0x14e04c=document['createElement']('section');_0x14e04c['className']='TabView';const _0x2a8c6d={'Id':_0xfbd422,'History':[],'Index':-0x1,'Title':'新分頁','Loading':![],'Zoom':_0x65d03f['Zoom']||0x1,'HasAgent':![],'LoadMode':_0x65d03f['LoadMode']==='same-origin'?'same-origin':'standard','TabEl':_0x2425f7,'ViewEl':_0x14e04c,'Abort':null};BindTabEvents(_0x2a8c6d);const _0x1cb5ac=_0x65d03f['AfterId']?GetTabById(_0x65d03f['AfterId']):null;if(_0x1cb5ac){_0x1cb5ac['TabEl']['after'](_0x2425f7);State['Tabs']['splice'](State['Tabs']['indexOf'](_0x1cb5ac)+0x1,0x0,_0x2a8c6d);}else{Dom['TabList']['appendChild'](_0x2425f7);State['Tabs']['push'](_0x2a8c6d);}Dom['ViewArea']['appendChild'](_0x14e04c);if(_0x18a25b){ActivateTab(_0xfbd422);}if(Array['isArray'](_0x65d03f['History'])&&_0x65d03f['History']['length']>0x0){_0x2a8c6d['History']=[..._0x65d03f['History']];_0x2a8c6d['Index']=Clamp(_0x65d03f['Index']??_0x2a8c6d['History']['length']-0x1,0x0,_0x2a8c6d['History']['length']-0x1);Navigate(_0x2a8c6d,GetTabUrl(_0x2a8c6d),![]);}else{Navigate(_0x2a8c6d,_0x3d9a01||Config['HomeUrl']);}_0x2425f7['scrollIntoView']({'inline':'nearest'});return _0x2a8c6d;}function BindTabEvents(_0x3b6ede){const _0x1a7c9f=_0x3b6ede['TabEl'];_0x1a7c9f['addEventListener']('click',()=>ActivateTab(_0x3b6ede['Id']));_0x1a7c9f['addEventListener']('auxclick',_0x55c073=>{if(_0x55c073['button']===0x1)CloseTab(_0x3b6ede['Id']);});_0x1a7c9f['querySelector']('.TabClose')['addEventListener']('click',_0x53f1ef=>{_0x53f1ef['stopPropagation']();CloseTab(_0x3b6ede['Id']);});_0x1a7c9f['addEventListener']('contextmenu',_0x29d403=>{_0x29d403['preventDefault']();ShowTabMenu(_0x3b6ede,_0x29d403['clientX'],_0x29d403['clientY']);});_0x1a7c9f['addEventListener']('dragstart',_0x59b93c=>{State['DragTabId']=_0x3b6ede['Id'];_0x59b93c['dataTransfer']['effectAllowed']='move';_0x59b93c['dataTransfer']['setData']('text/plain',GetTabUrl(_0x3b6ede));_0x1a7c9f['classList']['add']('Dragging');});_0x1a7c9f['addEventListener']('dragend',()=>{State['DragTabId']=null;document['querySelectorAll']('.Tab')['forEach'](_0x26b882=>_0x26b882['classList']['remove']('Dragging','DropBefore','DropAfter'));});_0x1a7c9f['addEventListener']('dragover',_0x230a9d=>{if(!State['DragTabId']||State['DragTabId']===_0x3b6ede['Id'])return;_0x230a9d['preventDefault']();const _0x168eed=_0x1a7c9f['getBoundingClientRect']();const _0x4df29b=_0x230a9d['clientX']>_0x168eed['left']+_0x168eed['width']/0x2;_0x1a7c9f['classList']['toggle']('DropAfter',_0x4df29b);_0x1a7c9f['classList']['toggle']('DropBefore',!_0x4df29b);});_0x1a7c9f['addEventListener']('dragleave',()=>{_0x1a7c9f['classList']['remove']('DropBefore','DropAfter');});_0x1a7c9f['addEventListener']('drop',_0xcc4584=>{if(!State['DragTabId']||State['DragTabId']===_0x3b6ede['Id'])return;_0xcc4584['preventDefault']();const _0x421338=_0x1a7c9f['classList']['contains']('DropAfter');_0x1a7c9f['classList']['remove']('DropBefore','DropAfter');MoveTab(State['DragTabId'],_0x3b6ede['Id'],_0x421338);});}function ShowTabMenu(_0x3946a0,_0x229967,_0xea959c){const _0x39c7c7=State['Tabs']['indexOf'](_0x3946a0);ShowContextMenu(_0x229967,_0xea959c,[{'Label':'新增分頁','Icon':'fa-solid\x20fa-plus','Hint':'Alt+T','Action':()=>CreateTab()},{'Label':'重新整理','Icon':'fa-solid\x20fa-rotate-right','Hint':'F5','Action':()=>Navigate(_0x3946a0,GetTabUrl(_0x3946a0),![])},{'Label':'複製分頁','Icon':'fa-regular\x20fa-clone','Action':()=>DuplicateTab(_0x3946a0)},'-',{'Label':'關閉分頁','Icon':'fa-solid\x20fa-xmark','Hint':'Alt+W','Action':()=>CloseTab(_0x3946a0['Id'])},{'Label':'關閉其他分頁','Icon':'fa-solid\x20fa-square-xmark','Disabled':State['Tabs']['length']<=0x1,'Action':()=>State['Tabs']['filter'](_0x3ec6aa=>_0x3ec6aa!==_0x3946a0)['forEach'](_0x32e329=>CloseTab(_0x32e329['Id']))},{'Label':'關閉右側分頁','Icon':'fa-solid\x20fa-angles-right','Disabled':_0x39c7c7>=State['Tabs']['length']-0x1,'Action':()=>State['Tabs']['slice'](_0x39c7c7+0x1)['forEach'](_0x3baa97=>CloseTab(_0x3baa97['Id']))},'-',{'Label':'重新開啟已關閉的分頁','Icon':'fa-solid\x20fa-clock-rotate-left','Hint':'Alt+Shift+T','Disabled':State['ClosedTabs']['length']===0x0,'Action':ReopenClosedTab}]);}function MoveTab(_0x31d533,_0x38396d,_0x40b0f0){const _0x51e63d=GetTabById(_0x31d533);const _0x22ce75=GetTabById(_0x38396d);if(!_0x51e63d||!_0x22ce75)return;State['Tabs']['splice'](State['Tabs']['indexOf'](_0x51e63d),0x1);const _0x1a762f=State['Tabs']['indexOf'](_0x22ce75);State['Tabs']['splice'](_0x1a762f+(_0x40b0f0?0x1:0x0),0x0,_0x51e63d);State['Tabs']['forEach'](_0x10792f=>Dom['TabList']['appendChild'](_0x10792f['TabEl']));SaveOpenTabs();}function DuplicateTab(_0x4290e2){CreateTab(null,!![],{'History':_0x4290e2['History'],'Index':_0x4290e2['Index'],'Zoom':_0x4290e2['Zoom'],'AfterId':_0x4290e2['Id']});}function ActivateTab(_0x51e157){State['ActiveId']=_0x51e157;State['Tabs']['forEach'](_0x25330c=>{const _0x14fed2=_0x25330c['Id']===_0x51e157;_0x25330c['TabEl']['classList']['toggle']('Active',_0x14fed2);_0x25330c['ViewEl']['classList']['toggle']('Active',_0x14fed2);});HideSuggestions();ResetFindStatus();RefreshToolbar();SaveOpenTabs();}function CloseTab(_0x4a805b){const _0x40d1fc=State['Tabs']['findIndex'](_0x5297c2=>_0x5297c2['Id']===_0x4a805b);if(_0x40d1fc===-0x1)return;const _0x1585e8=State['Tabs'][_0x40d1fc];if(_0x1585e8['Abort'])_0x1585e8['Abort']['abort']();if(_0x1585e8['History']['length']>0x0){State['ClosedTabs']['push']({'History':[..._0x1585e8['History']],'Index':_0x1585e8['Index'],'Zoom':_0x1585e8['Zoom']});State['ClosedTabs']=State['ClosedTabs']['slice'](-Config['MaxClosedTabs']);}_0x1585e8['TabEl']['remove']();_0x1585e8['ViewEl']['remove']();State['Tabs']['splice'](_0x40d1fc,0x1);if(State['Tabs']['length']===0x0){CreateTab();return;}if(State['ActiveId']===_0x4a805b){const _0x1f0ac5=State['Tabs'][_0x40d1fc]||State['Tabs'][_0x40d1fc-0x1];ActivateTab(_0x1f0ac5['Id']);}SaveOpenTabs();}function ReopenClosedTab(){const _0x3cca7d=State['ClosedTabs']['pop']();if(!_0x3cca7d){ShowToast('沒有最近關閉的分頁');return;}CreateTab(null,!![],_0x3cca7d);}function UpdateTabHeader(_0x4329c6){const _0x223da9=_0x4329c6['TabEl']['querySelector']('.TabTitle');_0x223da9['textContent']=_0x4329c6['Title']||'未命名';_0x4329c6['TabEl']['title']=_0x4329c6['Title'];const _0x7e5285=_0x4329c6['TabEl']['querySelector']('.TabSpinner');if(_0x4329c6['Loading']&&!_0x7e5285){const _0x2e670e=document['createElement']('span');_0x2e670e['className']='TabSpinner';_0x4329c6['TabEl']['insertBefore'](_0x2e670e,_0x223da9);}else if(!_0x4329c6['Loading']&&_0x7e5285){_0x7e5285['remove']();}}function SaveOpenTabs(){SaveJson(Config['StorageKeys']['OpenTabs'],State['Tabs']['map'](GetTabUrl));const _0x2f6fdd=State['Tabs']['findIndex'](_0x3c6728=>_0x3c6728['Id']===State['ActiveId']);localStorage['setItem'](Config['StorageKeys']['ActiveTab'],String(Math['max'](_0x2f6fdd,0x0)));}function RestoreTabs(){const _0x3577aa=LoadJson(Config['StorageKeys']['OpenTabs'],[]);if(!Array['isArray'](_0x3577aa)||_0x3577aa['length']===0x0){CreateTab();return;}_0x3577aa['forEach'](_0x158c6b=>CreateTab(_0x158c6b,![]));const _0x44850b=Number(localStorage['getItem'](Config['StorageKeys']['ActiveTab']))||0x0;const _0x2cba40=State['Tabs'][_0x44850b]||State['Tabs'][0x0];ActivateTab(_0x2cba40['Id']);}function SetTabContent(_0x599eaa,_0x37bf99,_0x96dfc4=![]){_0x599eaa['ViewEl']['innerHTML']='';if(typeof _0x37bf99==='string'){_0x599eaa['ViewEl']['innerHTML']=_0x37bf99;}else{_0x599eaa['ViewEl']['appendChild'](_0x37bf99);}_0x599eaa['ViewEl']['classList']['toggle']('HasFrame',_0x96dfc4);if(!_0x96dfc4)_0x599eaa['HasAgent']=![];}function Navigate(_0x2a32c3,_0x1f4a12,_0xe01924=!![],_0x1c5920=null){if(!_0x1c5920&&!IsInternalUrl(_0x1f4a12)){_0x1f4a12=UnwrapRedirectUrl(_0x1f4a12);}if(_0xe01924){_0x2a32c3['History']=_0x2a32c3['History']['slice'](0x0,_0x2a32c3['Index']+0x1);_0x2a32c3['History']['push'](_0x1f4a12);_0x2a32c3['Index']=_0x2a32c3['History']['length']-0x1;}if(_0x2a32c3['Abort']){_0x2a32c3['Abort']['abort']();_0x2a32c3['Abort']=null;}if(_0x2a32c3['Id']===State['ActiveId']){ResetFindStatus();}if(IsInternalUrl(_0x1f4a12)){RenderInternalPage(_0x2a32c3,_0x1f4a12);}else{AddHistoryRecord(_0x1f4a12);LoadExternalPage(_0x2a32c3,_0x1f4a12,_0x1c5920);}RefreshToolbar();SaveOpenTabs();}function NavigateFromInput(_0x192ff9){const _0xd52b76=GetActiveTab();if(!_0xd52b76)return;Navigate(_0xd52b76,ResolveInput(_0x192ff9));}function GoBack(){const _0x214596=GetActiveTab();if(!_0x214596||_0x214596['Index']<=0x0)return;_0x214596['Index']--;Navigate(_0x214596,GetTabUrl(_0x214596),![]);}function GoForward(){const _0x21a8be=GetActiveTab();if(!_0x21a8be||_0x21a8be['Index']>=_0x21a8be['History']['length']-0x1)return;_0x21a8be['Index']++;Navigate(_0x21a8be,GetTabUrl(_0x21a8be),![]);}function Reload(){const _0x5e2c3a=GetActiveTab();if(!_0x5e2c3a)return;Navigate(_0x5e2c3a,GetTabUrl(_0x5e2c3a),![]);}function RefreshToolbar(){const _0x490bb3=GetActiveTab();if(!_0x490bb3)return;const _0x38d0d6=GetTabUrl(_0x490bb3);const _0x4468bd=IsInternalUrl(_0x38d0d6);if(Dom['ProxyModeButton']){const _0x1c9bf8=!_0x4468bd&&_0x490bb3['LoadMode']==='same-origin';Dom['ProxyModeButton']['disabled']=_0x4468bd;Dom['ProxyModeButton']['classList']['toggle']('Active',_0x1c9bf8);Dom['ProxyModeButton']['title']=_0x4468bd?'內部頁面不使用代理載入模式':_0x1c9bf8?'目前：同源反向代理模式。按一下切回標準模式':'目前：標準代理模式。按一下切換同源反向代理模式';const _0x3460c6=Dom['ProxyModeButton']['querySelector']('.ProxyModeBadge');if(_0x3460c6)_0x3460c6['textContent']=_0x1c9bf8?'同源':'標準';}if(document['activeElement']!==Dom['AddressInput']){Dom['AddressInput']['value']=_0x38d0d6===Config['HomeUrl']?'':GetDisplayUrl(_0x38d0d6);}Dom['BackButton']['disabled']=_0x490bb3['Index']<=0x0;Dom['ForwardButton']['disabled']=_0x490bb3['Index']>=_0x490bb3['History']['length']-0x1;Dom['AddressIcon']['className']='AddressIcon\x20fa-solid\x20'+(_0x4468bd?'fa-house':_0x38d0d6['startsWith']('https:')?'fa-lock\x20Secure':_0x38d0d6['startsWith']('http:')?'fa-lock-open':'fa-magnifying-glass');const _0x539e7a=!_0x4468bd&&Boolean(FindBookmark(_0x38d0d6));Dom['BookmarkButton']['hidden']=_0x4468bd;Dom['BookmarkButton']['innerHTML']='<i\x20class=\x22'+(_0x539e7a?'fa-solid':'fa-regular')+'\x20fa-star\x22></i>';Dom['BookmarkButton']['classList']['toggle']('Marked',_0x539e7a);Dom['BookmarkButton']['title']=_0x539e7a?'移除書籤\x20(Ctrl+D)':'加入書籤\x20(Ctrl+D)';const _0x244066=Math['round'](_0x490bb3['Zoom']*0x64);Dom['ZoomButton']['hidden']=_0x4468bd||_0x244066===0x64;Dom['ZoomButton']['textContent']=_0x244066+'%';Dom['LoadingBar']['className']='LoadingBar'+(_0x490bb3['Loading']?'\x20Running':'');}function SetLoading(_0x3a2797,_0x4f7c3e){_0x3a2797['Loading']=_0x4f7c3e;UpdateTabHeader(_0x3a2797);if(_0x3a2797['Id']===State['ActiveId']){if(_0x4f7c3e){Dom['LoadingBar']['className']='LoadingBar';void Dom['LoadingBar']['offsetWidth'];Dom['LoadingBar']['className']='LoadingBar\x20Running';}else{Dom['LoadingBar']['className']='LoadingBar\x20Done';}}}function StripUrlPrefix(_0x31376c){return String(_0x31376c)['replace'](/^https?:\/\//i,'')['replace'](/^www\./i,'')['toLowerCase']();}function GetSuggestions(_0x338b51){const _0x617e75=_0x338b51['trim']()['toLowerCase']();if(!_0x617e75)return[];const map=new Map();const add=(_0x40350a,_0x26d2d4,_0x4cf418,_0x40e35a)=>{const _0x51084c=map['get'](_0x40350a)||{'Url':_0x40350a,'Title':'','Bookmark':![],'Count':0x0,'Time':0x0};_0x51084c['Title']=_0x51084c['Title']||_0x26d2d4||'';_0x51084c['Bookmark']=_0x51084c['Bookmark']||_0x40e35a;_0x51084c['Count']+=_0x40e35a?0x0:0x1;_0x51084c['Time']=Math['max'](_0x51084c['Time'],_0x4cf418||0x0);map['set'](_0x40350a,_0x51084c);};LoadBookmarks()['forEach'](_0x134de6=>add(_0x134de6['Url'],_0x134de6['Title'],_0x134de6['Time'],!![]));LoadHistory()['forEach'](_0x124bdd=>add(_0x124bdd['Url'],_0x124bdd['Title'],_0x124bdd['Time'],![]));return[...map['values']()]['filter'](_0x2c0271=>!_0x2c0271['Url']['startsWith'](Config['SearchUrl'])&&(_0x2c0271['Url']['toLowerCase']()['includes'](_0x617e75)||_0x2c0271['Title']['toLowerCase']()['includes'](_0x617e75)))['map'](_0x379fcf=>({..._0x379fcf,'Score':(_0x379fcf['Bookmark']?0x3e8:0x0)+(StripUrlPrefix(_0x379fcf['Url'])['startsWith'](_0x617e75)?0x1f4:0x0)+Math['min'](_0x379fcf['Count'],0x32)*0x5}))['sort']((_0x51060d,_0xa4a95a)=>_0xa4a95a['Score']-_0x51060d['Score']||_0xa4a95a['Time']-_0x51060d['Time'])['slice'](0x0,Config['MaxSuggestions']);}function UpdateSuggestions(){State['Suggest']['Items']=GetSuggestions(Dom['AddressInput']['value']);State['Suggest']['Index']=-0x1;RenderSuggestions();}function RenderSuggestions(){const _0x3060b0=State['Suggest']['Items'];if(_0x3060b0['length']===0x0){HideSuggestions();return;}Dom['SuggestList']['innerHTML']=_0x3060b0['map']((_0x529403,_0x50ad08)=>'\x0a\x20\x20\x20\x20\x20\x20\x20\x20<li\x20class=\x22SuggestItem'+(_0x50ad08===State['Suggest']['Index']?'\x20Selected':'')+'\x22\x20data-index=\x22'+_0x50ad08+'\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<i\x20class=\x22'+(_0x529403['Bookmark']?'fa-solid\x20fa-star':'fa-solid\x20fa-clock-rotate-left')+'\x22></i>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span\x20class=\x22SuggestTitle\x22>'+EscapeHtml(_0x529403['Title']||_0x529403['Url'])+'</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span\x20class=\x22SuggestUrl\x22>'+EscapeHtml(_0x529403['Url'])+'</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20</li>')['join']('');Dom['SuggestList']['hidden']=![];}function HideSuggestions(){Dom['SuggestList']['hidden']=!![];State['Suggest']['Items']=[];State['Suggest']['Index']=-0x1;}function MoveSuggestion(_0x15b3f4){const _0x1ed7d2=State['Suggest']['Items']['length'];if(_0x1ed7d2===0x0)return;State['Suggest']['Index']=(State['Suggest']['Index']+0x1+_0x15b3f4+_0x1ed7d2+0x1)%(_0x1ed7d2+0x1)-0x1;RenderSuggestions();}function OpenSuggestion(_0x19487a){const _0x272ec1=State['Suggest']['Items'][_0x19487a];if(!_0x272ec1)return;HideSuggestions();Dom['AddressInput']['blur']();const _0x5c0629=GetActiveTab();if(_0x5c0629)Navigate(_0x5c0629,_0x272ec1['Url']);}function RenderInternalPage(_0x997a1,_0x38f4b7){SetLoading(_0x997a1,![]);switch(_0x38f4b7){case'owob://start':RenderStartPage(_0x997a1);break;case'owob://settings':RenderSettingsPage(_0x997a1);break;case'owob://history':RenderHistoryPage(_0x997a1);break;case'owob://bookmarks':RenderBookmarksPage(_0x997a1);break;case'owob://cookies':RenderCookiesPage(_0x997a1);break;default:RenderErrorPage(_0x997a1,'找不到內部頁面','未知的內部網址：'+_0x38f4b7,_0x38f4b7);}}function IsOnPage(_0x385efd,_0x1fb2d7){return GetTabUrl(_0x385efd)===_0x1fb2d7&&State['Tabs']['includes'](_0x385efd);}function RenderStartPage(_0x3684fe){_0x3684fe['Title']='新分頁';UpdateTabHeader(_0x3684fe);const _0xe15460=LoadShortcuts()['map']((_0x38de6f,_0x473dfe)=>{const _0x2c5705=_0x38de6f['Icon']?'<i\x20class=\x22'+EscapeHtml(_0x38de6f['Icon'])+'\x22></i>':'<span\x20class=\x22ShortcutLetter\x22>'+EscapeHtml((_0x38de6f['Name']||'?')['trim']()['charAt'](0x0)['toUpperCase']())+'</span>';return'\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22Shortcut\x22\x20draggable=\x22true\x22\x20data-index=\x22'+_0x473dfe+'\x22\x20title=\x22'+EscapeHtml(_0x38de6f['Url'])+'\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20'+_0x2c5705+'\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span\x20class=\x22ShortcutName\x22>'+EscapeHtml(_0x38de6f['Name'])+'</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ShortcutTools\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22MiniButton\x22\x20data-tool=\x22edit\x22\x20\x20\x20title=\x22編輯\x22><i\x20class=\x22fa-solid\x20fa-pen\x22></i></button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22MiniButton\x22\x20data-tool=\x22delete\x22\x20title=\x22刪除\x22><i\x20class=\x22fa-solid\x20fa-xmark\x22></i></button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>';})['join']('');SetTabContent(_0x3684fe,'\x0a\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22StartPage\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<h1\x20class=\x22StartLogo\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span\x20class=\x22StartLogoMain\x22>OwO</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span\x20class=\x22StartLogoSub\x22>Simple\x20Browser</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</h1>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<form\x20class=\x22StartSearch\x22\x20autocomplete=\x22off\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<i\x20class=\x22fa-brands\x20fa-microsoft\x22></i>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<input\x20type=\x22text\x22\x20placeholder=\x22使用\x20Bing\x20搜尋或輸入網址（Ctrl+K）\x22\x20spellcheck=\x22false\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</form>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22Shortcuts\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20'+_0xe15460+'\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22Shortcut\x20AddShortcut\x22\x20data-role=\x22add\x22\x20title=\x22新增捷徑\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<i\x20class=\x22fa-solid\x20fa-plus\x22></i>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span\x20class=\x22ShortcutName\x22>新增捷徑</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20');const _0x1d1a5e=_0x3684fe['ViewEl']['querySelector']('.StartSearch');const _0x359fcf=_0x1d1a5e['querySelector']('input');_0x1d1a5e['addEventListener']('submit',_0x4dd44=>{_0x4dd44['preventDefault']();if(_0x359fcf['value']['trim']())Navigate(_0x3684fe,ResolveInput(_0x359fcf['value']));});const rerender=()=>{if(IsOnPage(_0x3684fe,'owob://start'))RenderStartPage(_0x3684fe);};_0x3684fe['ViewEl']['querySelector']('[data-role=\x22add\x22]')['addEventListener']('click',async()=>{if(await EditShortcut(-0x1))rerender();});let _0x148164=null;_0x3684fe['ViewEl']['querySelectorAll']('.Shortcut[data-index]')['forEach'](_0xf77a4=>{const _0x2d778b=Number(_0xf77a4['dataset']['index']);_0xf77a4['addEventListener']('click',async _0x48bf55=>{const _0x4e6c80=_0x48bf55['target']['closest']('[data-tool]');if(_0x4e6c80){_0x48bf55['stopPropagation']();if(_0x4e6c80['dataset']['tool']==='edit'){if(await EditShortcut(_0x2d778b))rerender();}else if(confirm('確定刪除捷徑「'+(LoadShortcuts()[_0x2d778b]?.['Name']||'')+'」？')){DeleteShortcut(_0x2d778b);rerender();}return;}Navigate(_0x3684fe,LoadShortcuts()[_0x2d778b]['Url']);});_0xf77a4['addEventListener']('dragstart',_0x50311a=>{_0x148164=_0x2d778b;_0x50311a['dataTransfer']['effectAllowed']='move';_0x50311a['dataTransfer']['setData']('text/plain',String(_0x2d778b));_0xf77a4['classList']['add']('Dragging');});_0xf77a4['addEventListener']('dragend',()=>{_0x148164=null;_0x3684fe['ViewEl']['querySelectorAll']('.Shortcut')['forEach'](_0x5c6a1b=>_0x5c6a1b['classList']['remove']('Dragging','DropTarget'));});_0xf77a4['addEventListener']('dragover',_0x39a223=>{if(_0x148164===null||_0x148164===_0x2d778b)return;_0x39a223['preventDefault']();_0xf77a4['classList']['add']('DropTarget');});_0xf77a4['addEventListener']('dragleave',()=>_0xf77a4['classList']['remove']('DropTarget'));_0xf77a4['addEventListener']('drop',_0x385c1d=>{if(_0x148164===null||_0x148164===_0x2d778b)return;_0x385c1d['preventDefault']();MoveShortcut(_0x148164,_0x2d778b);rerender();});});if(_0x3684fe['Id']===State['ActiveId']){setTimeout(()=>_0x359fcf['focus'](),0x0);}}function RenderSettingsPage(_0x198f2e){_0x198f2e['Title']='設定';UpdateTabHeader(_0x198f2e);const _0x515cc1=document['body']['classList']['contains']('theme-dark');const _0x4d65f8=GetProxyKey();const checkbox=(_0x4cadbd,_0x151983,_0xbfd947)=>'\x0a\x20\x20\x20\x20\x20\x20\x20\x20<label\x20class=\x22ToggleRow\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<input\x20type=\x22checkbox\x22\x20data-flag=\x22'+_0x4cadbd+'\x22\x20'+(GetFlag(_0x4cadbd)?'checked':'')+'>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<strong>'+_0x151983+'</strong>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<small>'+_0xbfd947+'</small>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20</label>';SetTabContent(_0x198f2e,'\x0a\x20\x20\x20\x20\x20\x20\x20\x20<form\x20id=\x22ProxySettingForm\x22\x20autocomplete=\x22off\x22\x20hidden></form>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22InternalPage\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<header\x20class=\x22SettingsHeader\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22SettingsHeaderIcon\x22><i\x20class=\x22fa-solid\x20fa-gear\x22></i></div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<h1>設定</h1>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<p>OwO\x20Simple\x20Browser</p>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</header>\x0a\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22Card\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<h2>外觀</h2>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<p\x20class=\x22CardIntro\x22>選擇瀏覽器的顯示主題。</p>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ButtonRow\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22ActionButton'+(_0x515cc1?'\x20Secondary':'')+'\x22\x20data-action=\x22light\x22>亮色</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22ActionButton'+(_0x515cc1?'':'\x20Secondary')+'\x22\x20data-action=\x22dark\x22>深色</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22Card\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<h2>代理伺服器</h2>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<p\x20class=\x22CardIntro\x22>設定載入外部網頁時使用的代理伺服器。</p>\x0a\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22SettingStatus\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span\x20class=\x22SettingStatusLabel\x22>使用狀態</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<strong>'+(IsCustomProxy()?'自訂代理伺服器':'預設代理伺服器')+'</strong>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20'+(_0x4d65f8?'<span\x20class=\x22StatusBadge\x22>已設定金鑰</span>':'')+'\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<label\x20class=\x22FieldLabel\x22\x20for=\x22ProxyInput\x22>代理網址</label>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<input\x20id=\x22ProxyInput\x22\x20class=\x22SettingInput\x22\x20type=\x22text\x22\x20spellcheck=\x22false\x22\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20placeholder=\x22留空時，將使用預設代理伺服器。\x22\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20value=\x22'+(IsCustomProxy()?EscapeHtml(GetProxyBase()):'')+'\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<p\x20class=\x22FieldHint\x22>留空時，將使用預設代理伺服器。</p>\x0a\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<label\x20class=\x22FieldLabel\x22\x20for=\x22ProxyKeyInput\x22>存取金鑰</label>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22InputRow\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<input\x20id=\x22ProxyKeyInput\x22\x20class=\x22SettingInput\x22\x20type=\x22password\x22\x20name=\x22proxy-key\x22\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20form=\x22ProxySettingForm\x22\x20spellcheck=\x22false\x22\x20autocomplete=\x22new-password\x22\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20placeholder=\x22未設定\x22\x20value=\x22'+EscapeHtml(_0x4d65f8)+'\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22ToolButton\x22\x20data-action=\x22toggle-key\x22\x20title=\x22顯示或隱藏存取金鑰。\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<i\x20class=\x22fa-solid\x20fa-eye\x22></i>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<p\x20class=\x22FieldHint\x22>若代理伺服器已啟用存取驗證，請輸入相同的金鑰。</p>\x0a\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ButtonRow\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22ActionButton\x22\x20data-action=\x22save-proxy\x22>儲存設定</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22ActionButton\x20Secondary\x22\x20data-action=\x22reset-proxy\x22>還原預設</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22ActionButton\x20Secondary\x22\x20data-action=\x22test-proxy\x22>測試連線</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22Card\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<h2>網頁載入</h2>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<p\x20class=\x22CardIntro\x22>調整網頁載入方式與連線等待時間。</p>\x0a\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22TimeoutSetting\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<label\x20class=\x22TimeoutLabel\x22\x20for=\x22TimeoutInput\x22>連線逾時</label>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22TimeoutValueArea\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22TimeoutControl\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22TimeoutStep\x22\x20type=\x22button\x22\x20data-timeout-step=\x22-1\x22\x20aria-label=\x22減少一秒\x22>−</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<input\x20id=\x22TimeoutInput\x22\x20class=\x22SettingInput\x20ShortInput\x22\x20type=\x22number\x22\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20min=\x22'+Config['MinTimeoutSec']+'\x22\x20max=\x22'+Config['MaxTimeoutSec']+'\x22\x20step=\x221\x22\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20value=\x22'+GetTimeoutSec()+'\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22TimeoutStep\x22\x20type=\x22button\x22\x20data-timeout-step=\x221\x22\x20aria-label=\x22增加一秒\x22>＋</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span\x20class=\x22TimeoutUnit\x22>秒</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<p\x20class=\x22FieldHint\x22>可設定\x20'+Config['MinTimeoutSec']+'\x20至\x20'+Config['MaxTimeoutSec']+'\x20秒。</p>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20'+checkbox('ProxyResources','圖片與影音使用代理','可改善圖片或影音無法載入的情況，但會增加代理請求數量。')+'\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20'+checkbox('ProxyRequests','動態內容使用代理','可改善部分網頁的動態內容無法載入的情況。')+'\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20'+checkbox('ProxyScripts','網頁腳本使用代理','此功能仍在測試中，啟用後可能造成部分網站無法正常運作。')+'\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<p\x20class=\x22CardNote\x22>變更將於重新整理網頁後生效。</p>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22Card\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<h2>書籤與首頁捷徑</h2>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<p\x20class=\x22CardIntro\x22>管理已儲存的書籤與首頁捷徑。</p>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<p\x20class=\x22CardSummary\x22>目前有\x20'+LoadBookmarks()['length']+'\x20個書籤，以及\x20'+LoadShortcuts()['length']+'\x20個首頁捷徑。</p>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ButtonRow\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22ActionButton\x22\x20data-action=\x22bookmarks\x22>管理書籤</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22ActionButton\x20Secondary\x22\x20data-action=\x22reset-shortcuts\x22>還原預設捷徑</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22Card\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<h2>網站資料</h2>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<p\x20class=\x22CardIntro\x22>管理網站儲存在瀏覽器中的\x20Cookie。</p>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<p\x20class=\x22CardSummary\x22>目前已儲存\x20'+CountCookies()+'\x20筆\x20Cookie。</p>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ButtonRow\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22ActionButton\x22\x20data-action=\x22cookies\x22>管理\x20Cookie</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22ActionButton\x20Danger\x22\x20data-action=\x22clear-cookies\x22>清除全部\x20Cookie</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22Card\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<h2>瀏覽紀錄</h2>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<p\x20class=\x22CardIntro\x22>查看或清除瀏覽紀錄。</p>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<p\x20class=\x22CardSummary\x22>目前共有\x20'+LoadHistory()['length']+'\x20筆瀏覽紀錄。</p>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ButtonRow\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22ActionButton\x22\x20data-action=\x22history\x22>查看瀏覽紀錄</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22ActionButton\x20Danger\x22\x20data-action=\x22clear\x22>清除瀏覽資料</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<p\x20class=\x22CardNote\x22>清除後，瀏覽紀錄、已開啟的分頁與\x20Cookie\x20將被移除；瀏覽器設定、書籤與首頁捷徑將會保留。</p>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22Card\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<h2>備份與還原</h2>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<p\x20class=\x22CardIntro\x22>匯出或匯入瀏覽器設定、書籤與首頁捷徑。</p>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ButtonRow\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22ActionButton\x22\x20data-action=\x22export\x22>匯出設定</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22ActionButton\x20Secondary\x22\x20data-action=\x22import\x22>匯入設定</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<p\x20class=\x22CardNote\x22>匯出的設定檔可能包含代理伺服器的存取金鑰，請妥善保管。</p>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22Card\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<h2>隱藏視窗</h2>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<p\x20class=\x22CardIntro\x22>在空白瀏覽器標籤中開啟\x20OwO\x20Simple\x20Browser。</p>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ButtonRow\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22ActionButton\x22\x20data-action=\x22cloak\x22>開啟隱藏視窗</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<p\x20class=\x22CardNote\x22>開啟後，外層瀏覽器的標籤名稱將顯示為「新分頁」。</p>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22Card\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<h2>鍵盤快捷鍵</h2>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<p\x20class=\x22CardIntro\x22>使用鍵盤快速執行常用操作。</p>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ShortcutGrid\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ShortcutColumn\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ShortcutRow\x22><kbd>Ctrl\x20+\x20K</kbd><span>聚焦首頁搜尋框。</span></div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ShortcutRow\x22><kbd>Ctrl\x20+\x20L</kbd><span>聚焦網址列。</span></div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ShortcutRow\x22><kbd>Ctrl\x20+\x20F</kbd><span>在頁面中尋找文字。</span></div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ShortcutRow\x22><kbd>Ctrl\x20+\x20D</kbd><span>加入或移除書籤。</span></div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ShortcutRow\x22><kbd>Alt\x20+\x20T</kbd><span>新增分頁。</span></div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ShortcutRow\x22><kbd>Alt\x20+\x20W</kbd><span>關閉目前分頁。</span></div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ShortcutRow\x22><kbd>Alt\x20+\x20Shift\x20+\x20T</kbd><span>重新開啟最近關閉的分頁。</span></div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ShortcutColumn\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ShortcutRow\x22><kbd>Alt\x20+\x20←</kbd><span>返回上一頁。</span></div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ShortcutRow\x22><kbd>Alt\x20+\x20→</kbd><span>前往下一頁。</span></div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ShortcutRow\x22><kbd>Ctrl\x20+\x20+</kbd><span>放大頁面。</span></div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ShortcutRow\x22><kbd>Ctrl\x20+\x20-</kbd><span>縮小頁面。</span></div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ShortcutRow\x22><kbd>Ctrl\x20+\x200</kbd><span>重設頁面縮放。</span></div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ShortcutRow\x22><kbd>F5</kbd><span>重新整理目前頁面。</span></div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20');const rerender=()=>{if(IsOnPage(_0x198f2e,'owob://settings'))RenderSettingsPage(_0x198f2e);};const _0x538935=_0x198f2e['ViewEl']['querySelector']('#ProxySettingForm');if(_0x538935){_0x538935['addEventListener']('submit',_0x4ce6e2=>_0x4ce6e2['preventDefault']());}const _0x39249f={'light':()=>{ApplyTheme('light');rerender();},'dark':()=>{ApplyTheme('dark');rerender();},'toggle-key':()=>{const _0x328e48=_0x198f2e['ViewEl']['querySelector']('#ProxyKeyInput');_0x328e48['type']=_0x328e48['type']==='password'?'text':'password';},'save-proxy':()=>{if(SaveProxySetting(_0x198f2e))rerender();},'reset-proxy':()=>{ResetProxySetting();rerender();},'test-proxy':()=>TestProxy(),'bookmarks':()=>Navigate(_0x198f2e,'owob://bookmarks'),'reset-shortcuts':()=>{if(!confirm('確定將首頁捷徑還原為預設？'))return;localStorage['removeItem'](Config['StorageKeys']['Shortcuts']);ShowToast('已還原預設捷徑');rerender();},'cookies':()=>Navigate(_0x198f2e,'owob://cookies'),'clear-cookies':()=>{localStorage['removeItem'](Config['StorageKeys']['Cookies']);ShowToast('已清除\x20Cookie');rerender();},'history':()=>Navigate(_0x198f2e,'owob://history'),'clear':()=>{if(!confirm('確定清除瀏覽紀錄、已開啟分頁與\x20Cookie？'))return;ClearBrowsingData();requestAnimationFrame(()=>{if(IsOnPage(_0x198f2e,'owob://settings'))RenderSettingsPage(_0x198f2e);});},'export':()=>ExportSettings(),'import':()=>{Dom['ImportInput']['value']='';Dom['ImportInput']['click']();},'cloak':()=>OpenCloaked()};_0x198f2e['ViewEl']['querySelectorAll']('[data-action]')['forEach'](_0x1e926a=>{_0x1e926a['addEventListener']('click',()=>_0x39249f[_0x1e926a['dataset']['action']]());});['#ProxyInput','#ProxyKeyInput']['forEach'](_0x5b0ca9=>{_0x198f2e['ViewEl']['querySelector'](_0x5b0ca9)['addEventListener']('keydown',_0x5c7728=>{if(_0x5c7728['key']==='Enter'){_0x5c7728['preventDefault']();if(SaveProxySetting(_0x198f2e))rerender();}});});const _0x6b29ec=_0x198f2e['ViewEl']['querySelector']('#TimeoutInput');_0x198f2e['ViewEl']['querySelectorAll']('[data-timeout-step]')['forEach'](_0x24ac2a=>{_0x24ac2a['addEventListener']('click',()=>{const _0x2dce3c=Number(_0x6b29ec['value'])||GetTimeoutSec();const _0x498e6d=Number(_0x24ac2a['dataset']['timeoutStep']);_0x6b29ec['value']=Clamp(_0x2dce3c+_0x498e6d,Config['MinTimeoutSec'],Config['MaxTimeoutSec']);_0x6b29ec['dispatchEvent'](new Event('change',{'bubbles':!![]}));});});_0x6b29ec['addEventListener']('change',_0x3d9264=>{const _0x91925f=Number(_0x3d9264['target']['value']);if(!Number['isFinite'](_0x91925f)||_0x91925f<=0x0){_0x3d9264['target']['value']=GetTimeoutSec();ShowToast('請輸入有效秒數');return;}const _0x53014a=Clamp(Math['round'](_0x91925f),Config['MinTimeoutSec'],Config['MaxTimeoutSec']);localStorage['setItem'](Config['StorageKeys']['TimeoutSec'],String(_0x53014a));_0x3d9264['target']['value']=_0x53014a;ShowToast('連線逾時已設為\x20'+_0x53014a+'\x20秒');});_0x198f2e['ViewEl']['querySelectorAll']('[data-flag]')['forEach'](_0x3441a0=>{_0x3441a0['addEventListener']('change',()=>{SetFlag(_0x3441a0['dataset']['flag'],_0x3441a0['checked']);ShowToast('已儲存，重新整理網頁後生效');});});}function SaveProxySetting(_0x45ffb4){const _0x2c452b=_0x45ffb4['ViewEl']['querySelector']('#ProxyInput')['value']['trim']();const _0x1ca9bb=_0x45ffb4['ViewEl']['querySelector']('#ProxyKeyInput')['value']['trim']();if(_0x2c452b){const _0x30183d=NormalizeProxyBase(_0x2c452b);if(!_0x30183d){ShowToast('代理網址格式錯誤，需為\x20http://\x20或\x20https://\x20開頭');return![];}localStorage['setItem'](Config['StorageKeys']['ProxyBase'],_0x30183d);}else{localStorage['removeItem'](Config['StorageKeys']['ProxyBase']);}if(_0x1ca9bb){localStorage['setItem'](Config['StorageKeys']['ProxyKey'],_0x1ca9bb);}else{localStorage['removeItem'](Config['StorageKeys']['ProxyKey']);}ShowToast(_0x2c452b?'已改用自訂代理伺服器':'已儲存（使用預設代理伺服器）');return!![];}function ResetProxySetting(){localStorage['removeItem'](Config['StorageKeys']['ProxyBase']);localStorage['removeItem'](Config['StorageKeys']['ProxyKey']);ShowToast('已還原為預設代理伺服器');}async function TestProxy(){ShowToast('測試中…');const _0x55b258=performance['now']();try{const _0x3d4694=await fetch(BuildProxyUrl('https://example.com/'));const _0x560f25=Math['round'](performance['now']()-_0x55b258);if(_0x3d4694['ok']){ShowToast('代理正常（'+_0x560f25+'\x20ms）');}else if(_0x3d4694['status']===0x191){ShowToast('代理需要金鑰，或金鑰錯誤（HTTP\x20401）');}else if(_0x3d4694['status']===0x193){ShowToast('代理拒絕此來源（HTTP\x20403），請檢查\x20ALLOWED_ORIGINS');}else{ShowToast('代理回應\x20HTTP\x20'+_0x3d4694['status']);}}catch(_0x42efbc){ShowToast('代理無法連線：'+_0x42efbc['message']);}}function RenderHistoryPage(_0x19db71){_0x19db71['Title']='瀏覽紀錄';UpdateTabHeader(_0x19db71);SetTabContent(_0x19db71,'\x0a\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22InternalPage\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<h1><i\x20class=\x22fa-solid\x20fa-clock-rotate-left\x22></i>\x20瀏覽紀錄</h1>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22PageTools\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<input\x20class=\x22SettingInput\x22\x20data-role=\x22filter\x22\x20type=\x22search\x22\x20placeholder=\x22搜尋紀錄（標題或網址）\x22\x20spellcheck=\x22false\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22ActionButton\x20Danger\x22\x20data-role=\x22clear\x22>清除全部紀錄</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20data-role=\x22list\x22></div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20');const _0xde5139=_0x19db71['ViewEl']['querySelector']('[data-role=\x22filter\x22]');const _0x568d1f=_0x19db71['ViewEl']['querySelector']('[data-role=\x22list\x22]');const renderList=()=>{const _0x5c18a4=_0xde5139['value']['trim']()['toLowerCase']();const _0x209389=LoadHistory()['filter'](_0x4aa43d=>!_0x5c18a4||_0x4aa43d['Url']['toLowerCase']()['includes'](_0x5c18a4)||(_0x4aa43d['Title']||'')['toLowerCase']()['includes'](_0x5c18a4));if(_0x209389['length']===0x0){_0x568d1f['innerHTML']='<div\x20class=\x22Card\x22><p\x20class=\x22Empty\x22>'+(_0x5c18a4?'找不到符合的紀錄':'尚無紀錄')+'</p></div>';return;}const _0x2423f4=new Map();_0x209389['forEach'](_0x2df13d=>{const _0x2596e7=new Date(_0x2df13d['Time'])['toLocaleDateString']('zh-TW',{'year':'numeric','month':'long','day':'numeric','weekday':'short'});if(!_0x2423f4['has'](_0x2596e7))_0x2423f4['set'](_0x2596e7,[]);_0x2423f4['get'](_0x2596e7)['push'](_0x2df13d);});_0x568d1f['innerHTML']=[..._0x2423f4['entries']()]['map'](([_0x4449db,_0x6a4146])=>'\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22Card\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<h2\x20class=\x22GroupTitle\x22>'+EscapeHtml(_0x4449db)+'</h2>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<ul\x20class=\x22ItemList\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20'+_0x6a4146['map'](_0x1553ea=>'\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<li>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<time>'+new Date(_0x1553ea['Time'])['toLocaleTimeString']('zh-TW',{'hour12':![],'hour':'2-digit','minute':'2-digit'})+'</time>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<a\x20href=\x22#\x22\x20data-url=\x22'+EscapeHtml(_0x1553ea['Url'])+'\x22\x20title=\x22'+EscapeHtml(_0x1553ea['Url'])+'\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span\x20class=\x22ItemTitle\x22>'+EscapeHtml(_0x1553ea['Title']||_0x1553ea['Url'])+'</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span\x20class=\x22ItemUrl\x22>'+EscapeHtml(GetHostname(_0x1553ea['Url']))+'</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</a>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22MiniButton\x22\x20data-delete=\x22'+EscapeHtml(_0x1553ea['Id'])+'\x22\x20title=\x22刪除此筆\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<i\x20class=\x22fa-solid\x20fa-xmark\x22></i>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</li>')['join']('')+'\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</ul>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>')['join']('');};_0x568d1f['addEventListener']('click',_0x4cab90=>{const _0x29e9c2=_0x4cab90['target']['closest']('[data-delete]');if(_0x29e9c2){DeleteHistoryRecord(_0x29e9c2['dataset']['delete']);renderList();return;}const _0x1abf1e=_0x4cab90['target']['closest']('[data-url]');if(_0x1abf1e){_0x4cab90['preventDefault']();Navigate(_0x19db71,_0x1abf1e['dataset']['url']);}});_0xde5139['addEventListener']('input',renderList);_0x19db71['ViewEl']['querySelector']('[data-role=\x22clear\x22]')['addEventListener']('click',()=>{if(!confirm('確定清除全部瀏覽紀錄？'))return;localStorage['removeItem'](Config['StorageKeys']['History']);ShowToast('已清除瀏覽紀錄');renderList();});renderList();}function RenderBookmarksPage(_0x50b248){_0x50b248['Title']='書籤';UpdateTabHeader(_0x50b248);SetTabContent(_0x50b248,'\x0a\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22InternalPage\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<h1><i\x20class=\x22fa-solid\x20fa-star\x22></i>\x20書籤</h1>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22PageTools\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<input\x20class=\x22SettingInput\x22\x20data-role=\x22filter\x22\x20type=\x22search\x22\x20placeholder=\x22搜尋書籤（標題或網址）\x22\x20spellcheck=\x22false\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22ActionButton\x22\x20data-role=\x22add\x22>新增書籤</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22Card\x22><ul\x20class=\x22ItemList\x22\x20data-role=\x22list\x22></ul></div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20');const _0x18d14f=_0x50b248['ViewEl']['querySelector']('[data-role=\x22filter\x22]');const _0x2d2795=_0x50b248['ViewEl']['querySelector']('[data-role=\x22list\x22]');const renderList=()=>{const _0x3f5d0d=_0x18d14f['value']['trim']()['toLowerCase']();const _0x2b802c=LoadBookmarks()['filter'](_0x4fdbf6=>!_0x3f5d0d||_0x4fdbf6['Url']['toLowerCase']()['includes'](_0x3f5d0d)||(_0x4fdbf6['Title']||'')['toLowerCase']()['includes'](_0x3f5d0d));_0x2d2795['innerHTML']=_0x2b802c['length']?_0x2b802c['map'](_0x28a2ba=>'\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<li>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<i\x20class=\x22fa-solid\x20fa-star\x20ItemIcon\x22></i>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<a\x20href=\x22#\x22\x20data-url=\x22'+EscapeHtml(_0x28a2ba['Url'])+'\x22\x20title=\x22'+EscapeHtml(_0x28a2ba['Url'])+'\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span\x20class=\x22ItemTitle\x22>'+EscapeHtml(_0x28a2ba['Title']||_0x28a2ba['Url'])+'</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span\x20class=\x22ItemUrl\x22>'+EscapeHtml(_0x28a2ba['Url'])+'</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</a>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22MiniButton\x22\x20data-op=\x22edit\x22\x20\x20\x20\x20\x20data-id=\x22'+EscapeHtml(_0x28a2ba['Id'])+'\x22\x20title=\x22編輯\x22><i\x20class=\x22fa-solid\x20fa-pen\x22></i></button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22MiniButton\x22\x20data-op=\x22shortcut\x22\x20data-id=\x22'+EscapeHtml(_0x28a2ba['Id'])+'\x22\x20title=\x22加到首頁捷徑\x22><i\x20class=\x22fa-solid\x20fa-thumbtack\x22></i></button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22MiniButton\x22\x20data-op=\x22delete\x22\x20\x20\x20data-id=\x22'+EscapeHtml(_0x28a2ba['Id'])+'\x22\x20title=\x22刪除\x22><i\x20class=\x22fa-solid\x20fa-xmark\x22></i></button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</li>')['join'](''):'<li\x20class=\x22Empty\x22>'+(_0x3f5d0d?'找不到符合的書籤':'尚無書籤，瀏覽網頁時按網址列的星號或\x20Ctrl+D\x20即可加入。')+'</li>';};const editBookmark=async(_0x289252=null)=>{const _0x499e1e=LoadBookmarks();const _0xa2b751=_0x289252?_0x499e1e['find'](_0x4ab424=>_0x4ab424['Id']===_0x289252):{'Title':'','Url':''};if(!_0xa2b751)return;const _0x317e56=await ShowDialog({'Title':_0x289252?'編輯書籤':'新增書籤','ConfirmText':'儲存','Fields':[{'Name':'Title','Label':'名稱','Value':_0xa2b751['Title']},{'Name':'Url','Label':'網址','Value':_0xa2b751['Url'],'Placeholder':'https://example.com/'}]});if(!_0x317e56)return;const _0xc2d640=NormalizeUserUrl(_0x317e56['Url']);if(!_0xc2d640||IsInternalUrl(_0xc2d640)){ShowToast('網址格式錯誤');return;}const _0x38fbf6=_0x317e56['Title']['trim']()||GetHostname(_0xc2d640);if(_0x289252){Object['assign'](_0xa2b751,{'Title':_0x38fbf6,'Url':_0xc2d640});}else{_0x499e1e['unshift']({'Id':CreateId(),'Url':_0xc2d640,'Title':_0x38fbf6,'Time':Date['now']()});}SaveBookmarks(_0x499e1e);ShowToast(_0x289252?'已更新書籤':'已新增書籤');renderList();};_0x2d2795['addEventListener']('click',async _0x5741c0=>{const _0x4640b6=_0x5741c0['target']['closest']('[data-op]');if(_0x4640b6){const _0x460955=_0x4640b6['dataset']['id'];const _0xb9d9f6=LoadBookmarks()['find'](_0x410049=>_0x410049['Id']===_0x460955);if(!_0xb9d9f6)return;if(_0x4640b6['dataset']['op']==='edit'){await editBookmark(_0x460955);}else if(_0x4640b6['dataset']['op']==='shortcut'){await EditShortcut(-0x1,{'Name':_0xb9d9f6['Title'],'Url':_0xb9d9f6['Url']});}else if(_0x4640b6['dataset']['op']==='delete'){DeleteBookmark(_0x460955);ShowToast('已刪除書籤');renderList();}return;}const _0x5d83f6=_0x5741c0['target']['closest']('[data-url]');if(_0x5d83f6){_0x5741c0['preventDefault']();Navigate(_0x50b248,_0x5d83f6['dataset']['url']);}});_0x18d14f['addEventListener']('input',renderList);_0x50b248['ViewEl']['querySelector']('[data-role=\x22add\x22]')['addEventListener']('click',()=>editBookmark());renderList();}function RenderCookiesPage(_0x347aca){_0x347aca['Title']='Cookie\x20管理';UpdateTabHeader(_0x347aca);SetTabContent(_0x347aca,'\x0a\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22InternalPage\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<h1><i\x20class=\x22fa-solid\x20fa-cookie-bite\x22></i>\x20Cookie\x20管理</h1>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22PageTools\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<input\x20class=\x22SettingInput\x22\x20data-role=\x22filter\x22\x20type=\x22search\x22\x20placeholder=\x22搜尋網域\x22\x20spellcheck=\x22false\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22ActionButton\x20Danger\x22\x20data-role=\x22clear\x22>清除全部\x20Cookie</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20data-role=\x22list\x22></div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20');const _0x1c57d8=_0x347aca['ViewEl']['querySelector']('[data-role=\x22filter\x22]');const _0x53a5d8=_0x347aca['ViewEl']['querySelector']('[data-role=\x22list\x22]');const _0x49622c=new Set();const renderList=()=>{const _0x12e6c8=_0x1c57d8['value']['trim']()['toLowerCase']();const _0x2bbea0=LoadCookieJar();const _0xf9ffd1=Object['keys'](_0x2bbea0)['filter'](_0x20cea8=>!_0x12e6c8||_0x20cea8['includes'](_0x12e6c8))['sort']();if(_0xf9ffd1['length']===0x0){_0x53a5d8['innerHTML']='<div\x20class=\x22Card\x22><p\x20class=\x22Empty\x22>'+(_0x12e6c8?'找不到符合的網域':'目前沒有保存任何\x20Cookie')+'</p></div>';return;}_0x53a5d8['innerHTML']=_0xf9ffd1['map'](_0x5890ef=>{const _0x16af03=Object['entries'](_0x2bbea0[_0x5890ef]);const _0x4d399c=_0x16af03['map'](([_0x37314d,_0x46cdd8])=>{const _0x1d542a=_0x46cdd8['Value']['length']>0x30?_0x46cdd8['Value']['slice'](0x0,0x30)+'…':_0x46cdd8['Value'];return'\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<li>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span\x20class=\x22CookieName\x22>'+EscapeHtml(_0x37314d)+'</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<code\x20class=\x22CookieValue\x22\x20title=\x22'+EscapeHtml(_0x46cdd8['Value'])+'\x22>'+EscapeHtml(_0x1d542a)+'</code>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span\x20class=\x22CookieExpire\x22>'+(_0x46cdd8['Expires']===null?'工作階段':FormatDateTime(_0x46cdd8['Expires']))+'</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22MiniButton\x22\x20data-domain=\x22'+EscapeHtml(_0x5890ef)+'\x22\x20data-name=\x22'+EscapeHtml(_0x37314d)+'\x22\x20title=\x22刪除此\x20Cookie\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<i\x20class=\x22fa-solid\x20fa-xmark\x22></i>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</li>';})['join']('');return'\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<details\x20class=\x22Card\x20CookieDomain\x22\x20data-domain-card=\x22'+EscapeHtml(_0x5890ef)+'\x22\x20'+(_0x49622c['has'](_0x5890ef)?'open':'')+'>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<summary>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span\x20class=\x22CookieDomainName\x22>'+EscapeHtml(_0x5890ef)+'</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span\x20class=\x22Badge\x22>'+_0x16af03['length']+'</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22ActionButton\x20Danger\x20Small\x22\x20data-domain=\x22'+EscapeHtml(_0x5890ef)+'\x22>刪除此網域</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</summary>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<ul\x20class=\x22CookieList\x22>'+_0x4d399c+'</ul>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</details>';})['join']('');_0x53a5d8['querySelectorAll']('details')['forEach'](_0x493379=>{_0x493379['addEventListener']('toggle',()=>{const _0x18f1f9=_0x493379['dataset']['domainCard'];if(_0x493379['open'])_0x49622c['add'](_0x18f1f9);else _0x49622c['delete'](_0x18f1f9);});});};_0x53a5d8['addEventListener']('click',_0x144fd7=>{const _0x7bdb2a=_0x144fd7['target']['closest']('[data-domain]');if(!_0x7bdb2a)return;_0x144fd7['preventDefault']();const _0x548c35=_0x7bdb2a['dataset']['domain'];const _0x4ba379=_0x7bdb2a['dataset']['name'];DeleteCookie(_0x548c35,_0x4ba379===undefined?null:_0x4ba379);ShowToast(_0x4ba379===undefined?'已刪除\x20'+_0x548c35+'\x20的\x20Cookie':'已刪除\x20Cookie：'+_0x4ba379);renderList();});_0x1c57d8['addEventListener']('input',renderList);_0x347aca['ViewEl']['querySelector']('[data-role=\x22clear\x22]')['addEventListener']('click',()=>{if(!confirm('確定清除全部\x20Cookie？'))return;localStorage['removeItem'](Config['StorageKeys']['Cookies']);ShowToast('已清除\x20Cookie');renderList();});renderList();}function RenderErrorPage(_0x34b4d5,_0x4878a2,_0x29f545,_0x128106){_0x34b4d5['Title']='載入失敗';UpdateTabHeader(_0x34b4d5);SetTabContent(_0x34b4d5,'\x0a\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ErrorPage\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<i\x20class=\x22fa-solid\x20fa-triangle-exclamation\x22></i>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<h2>'+EscapeHtml(_0x4878a2)+'</h2>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<pre>'+EscapeHtml(_0x29f545)+'</pre>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22ButtonRow\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22ActionButton\x22\x20data-action=\x22retry\x22>重試</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22ActionButton\x20Secondary\x22\x20data-action=\x22direct\x22>直接開啟原網址</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20');_0x34b4d5['ViewEl']['querySelector']('[data-action=\x22retry\x22]')['addEventListener']('click',()=>Navigate(_0x34b4d5,_0x128106,![]));_0x34b4d5['ViewEl']['querySelector']('[data-action=\x22direct\x22]')['addEventListener']('click',()=>window['open'](_0x128106,'_blank','noopener'));}async function LoadExternalPage(_0x183c83,_0x5b463f,_0x3e223e=null){const _0x1a1d15=GetTimeoutMs();const _0xf484e9=new AbortController();const _0x11597d=setTimeout(()=>_0xf484e9['abort']('timeout'),_0x1a1d15);_0x183c83['Abort']=_0xf484e9;_0x183c83['Title']='載入中…';SetLoading(_0x183c83,!![]);if(!_0x3e223e&&_0x183c83['LoadMode']==='same-origin'){try{const _0x3bae72=CreateFrame(_0x183c83,!![]);_0x3bae72['src']=BuildSameOriginProxyUrl(_0x5b463f);_0x3bae72['addEventListener']('load',()=>{if(_0x183c83['Abort']===_0xf484e9)_0x183c83['Abort']=null;clearTimeout(_0x11597d);SetLoading(_0x183c83,![]);_0x183c83['Title']=GetHostname(_0x5b463f)||'同源代理頁面';UpdateTabHeader(_0x183c83);RefreshToolbar();},{'once':!![]});SetTabContent(_0x183c83,_0x3bae72,!![]);_0x183c83['HasAgent']=![];return;}catch(_0x90c300){clearTimeout(_0x11597d);if(_0x183c83['Abort']===_0xf484e9)_0x183c83['Abort']=null;SetLoading(_0x183c83,![]);RenderErrorPage(_0x183c83,'同源反向代理模式無法啟動',_0x5b463f+'\x0a\x0a'+_0x90c300['message']+'\x0a\x0a請確認已部署\x20v21\x20worker.js，或切回標準模式。',_0x5b463f);return;}}try{const _0x203f3e={};const _0x11cf06=GetSiteCookieJar(_0x5b463f);if(_0x11cf06['length']>0x0){_0x203f3e['X-Proxy-Cookie-Jar']=encodeURIComponent(JSON['stringify'](_0x11cf06));}const _0x39ad51={'method':'GET','headers':_0x203f3e,'signal':_0xf484e9['signal']};if(_0x3e223e){_0x39ad51['method']='POST';_0x39ad51['body']=_0x3e223e['Body'];_0x203f3e['Content-Type']='application/x-www-form-urlencoded';if(_0x3e223e['Referer']&&IsWebUrl(_0x3e223e['Referer'])){_0x203f3e['X-Proxy-Referer']=_0x3e223e['Referer'];}}const _0x50199e=await fetch(BuildProxyUrl(_0x5b463f),_0x39ad51);const _0x477647=_0x50199e['headers']['get']('Content-Type')||'';const _0x1a2fc9=_0x50199e['headers']['get']('X-Final-URL')||_0x5b463f;StoreProxyCookies(_0x50199e['headers']['get']('X-Proxy-Set-Cookie'));let _0x455665=NormalizePttOver18Url(_0x1a2fc9,_0x5b463f);const _0xc03d81=Boolean(_0x3e223e)&&/https:\/\/www\.ptt\.cc\/ask\/over18/i['test'](_0x5b463f);if(_0xc03d81&&HasPttOver18Cookie()){const _0x284aa1=new URLSearchParams(_0x3e223e['Body']||'');const _0x2d11ff=GetCanonicalPttReturnPath(_0x284aa1['get']('from'),_0x5b463f);_0x455665=new URL(_0x2d11ff,'https://www.ptt.cc')['href'];}if(!_0x50199e['ok']&&_0x477647['includes']('application/json')){const _0x2f765c=await _0x50199e['json']()['catch'](()=>({}));const _0x456e15=new Error('代理錯誤\x20'+_0x50199e['status']+'：'+(_0x2f765c['message']||_0x50199e['statusText']));_0x456e15['Status']=_0x50199e['status'];throw _0x456e15;}if(GetTabUrl(_0x183c83)!==_0x5b463f)return;if(_0x455665!==_0x5b463f){_0x183c83['History'][_0x183c83['Index']]=_0x455665;ReplaceHistoryUrl(_0x5b463f,_0x455665);}if(_0x477647['includes']('text/html')||_0x477647['includes']('application/xhtml')){const _0x1fb907=await _0x50199e['text']();const _0x2de0c4=IsSearchResultPage(_0x455665);const _0x319b8c=SimplifySearchResultHtml(_0x1fb907,_0x455665);const _0x3fc545=_0x2de0c4?_0x319b8c:await InlineStylesheets(_0x319b8c,_0x455665,_0xf484e9['signal']);if(GetTabUrl(_0x183c83)!==_0x455665&&GetTabUrl(_0x183c83)!==_0x5b463f)return;const _0x18c86a=RewriteHtmlResources(_0x3fc545,_0x455665);RenderHtmlInFrame(_0x183c83,_0x18c86a,_0x455665);}else{RenderRawInFrame(_0x183c83,_0x455665);}UpdateHistoryTitle(_0x455665,_0x183c83['Title']);if(!_0x50199e['ok']){ShowToast('網站回應\x20HTTP\x20'+_0x50199e['status']);}}catch(_0xf2f1cf){if(_0xf484e9['signal']['aborted']&&_0xf484e9['signal']['reason']!=='timeout'){return;}let _0x1683e3;if(_0xf484e9['signal']['reason']==='timeout'){_0x1683e3='連線逾時（超過\x20'+_0x1a1d15/0x3e8+'\x20秒）。\x0a\x0a可至設定頁調整「代理逾時」。';}else if(_0xf2f1cf['Status']===0x191){_0x1683e3=_0xf2f1cf['message']+'\x0a\x0a代理伺服器要求存取金鑰，請至設定頁填入正確的「代理金鑰」。';}else if(String(_0xf2f1cf['message'])['startsWith']('代理錯誤')){_0x1683e3=_0xf2f1cf['message']+'\x0a\x0a可改用「直接開啟原網址」，或至設定頁更換代理伺服器。';}else{_0x1683e3=_0xf2f1cf['message']+'\x0a\x0a可能原因：\x0a•\x20代理的\x20ALLOWED_ORIGINS\x20未包含目前網站來源（'+location['origin']+'）\x0a•\x20代理尚未更新為最新版本\x0a•\x20網路連線異常';}RenderErrorPage(_0x183c83,'無法載入此網頁',_0x5b463f+'\x0a\x0a'+_0x1683e3,_0x5b463f);}finally{clearTimeout(_0x11597d);if(_0x183c83['Abort']===_0xf484e9)_0x183c83['Abort']=null;SetLoading(_0x183c83,![]);if(_0x183c83['Id']===State['ActiveId'])RefreshToolbar();SaveOpenTabs();}}function IsSearchResultPage(_0x1ba013){try{const _0x5584df=new URL(_0x1ba013),_0x47d7e5=_0x5584df['hostname']['toLowerCase'](),_0x2458df=_0x5584df['pathname']['toLowerCase']();return(_0x47d7e5==='bing.com'||_0x47d7e5['endsWith']('.bing.com'))&&_0x2458df==='/search'||(_0x47d7e5==='google.com'||_0x47d7e5['endsWith']('.google.com')||/^www\.google\.[a-z.]+$/['test'](_0x47d7e5))&&_0x2458df==='/search'||(_0x47d7e5==='duckduckgo.com'||_0x47d7e5['endsWith']('.duckduckgo.com'))&&(_0x2458df==='/'||_0x2458df['includes']('html'))||(_0x47d7e5==='search.yahoo.com'||_0x47d7e5['endsWith']('.search.yahoo.com'))&&_0x2458df['includes']('search');}catch{return![];}}function SimplifySearchResultHtml(_0x54212f,_0x546b35){if(!IsSearchResultPage(_0x546b35))return String(_0x54212f);return String(_0x54212f)['replace'](/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,'')['replace'](/<script\b[^>]*\/?>/gi,'')['replace'](/<link\b[^>]*\brel\s*=\s*["']?(?:preload|prefetch|modulepreload|dns-prefetch|preconnect)["']?[^>]*>/gi,'')['replace'](/<iframe\b[^>]*(?:ad|analytics|telemetry|tracking)[^>]*>[\s\S]*?<\/iframe\s*>/gi,'');}function GetTagAttribute(_0x14695a,_0xf8a8d){const _0x57d6b8=_0x14695a['match'](new RegExp('\x5cs'+_0xf8a8d+'\x5cs*=\x5cs*(?:\x22([^\x22]*)\x22|\x27([^\x27]*)\x27|([^\x5cs>]+))','i'));return _0x57d6b8?DecodeEntities(_0x57d6b8[0x1]??_0x57d6b8[0x2]??_0x57d6b8[0x3]??''):null;}function AbsolutizeCss(_0xddd701,_0x5e8419){const resolve=_0x428531=>{const _0x22fb25=_0x428531['trim']();if(!_0x22fb25||/^(data:|#|about:|blob:)/i['test'](_0x22fb25))return _0x22fb25;try{return new URL(_0x22fb25,_0x5e8419)['toString']();}catch{return _0x22fb25;}};return _0xddd701['replace'](/url\(\s*(["']?)([^"')]*)\1\s*\)/gi,(_0x41411a,_0x364277,_0x3872c0)=>'url(\x22'+resolve(_0x3872c0)+'\x22)')['replace'](/@import\s+(["'])([^"']+)\1/gi,(_0x144e9a,_0x17878c,_0x15b64d)=>'@import\x20\x22'+resolve(_0x15b64d)+'\x22');}function ProxyCssUrls(_0x31a97c,_0x31d8ef){return _0x31a97c['replace'](/url\(\s*(["']?)([^"')]*)\1\s*\)/gi,(_0x192eb0,_0xaec3f8,_0x493041)=>{const _0x6db40a=MapResourceUrl(_0x493041,_0x31d8ef);return _0x6db40a===_0x493041?_0x192eb0:'url(\x22'+_0x6db40a+'\x22)';});}async function FetchStylesheet(_0x523a99,_0x138752,_0x373d13){const _0x4c97c2=new AbortController();const _0x7fdaa0=setTimeout(()=>_0x4c97c2['abort'](),Config['StylesheetTimeoutMs']);const onPageAbort=()=>_0x4c97c2['abort']();_0x373d13['addEventListener']('abort',onPageAbort);try{const _0x3af78f=await fetch(BuildProxyUrl(_0x523a99),{'headers':{'X-Proxy-Referer':_0x138752},'signal':_0x4c97c2['signal']});if(!_0x3af78f['ok'])return null;const _0x555acd=_0x3af78f['headers']['get']('Content-Type')||'';if(_0x555acd&&!/css|text\/plain|octet-stream/i['test'](_0x555acd))return null;return AbsolutizeCss(await _0x3af78f['text'](),_0x523a99);}catch{return null;}finally{clearTimeout(_0x7fdaa0);_0x373d13['removeEventListener']('abort',onPageAbort);}}async function InlineStylesheets(_0x13eed5,_0x348182,_0x22bfe5){const _0x3161d6=(_0x13eed5['match'](/<link\b[^>]*>/gi)||[])['filter'](_0x18d4da=>/(^|\s)stylesheet(\s|$)/i['test'](GetTagAttribute(_0x18d4da,'rel')||''))['slice'](0x0,Config['MaxInlineStylesheets']);if(_0x3161d6['length']===0x0)return _0x13eed5;const _0x5cf728=await Promise['all'](_0x3161d6['map'](async _0x2350a1=>{const _0xa24a5a=GetTagAttribute(_0x2350a1,'href');if(!_0xa24a5a)return null;let _0x5cd02a;try{_0x5cd02a=new URL(_0xa24a5a,_0x348182)['toString']();}catch{return null;}if(!IsWebUrl(_0x5cd02a))return null;const _0x376f32=await FetchStylesheet(_0x5cd02a,_0x348182,_0x22bfe5);if(_0x376f32===null)return null;const _0x4ca093=GetTagAttribute(_0x2350a1,'media');const _0x2917d6=_0x4ca093?'\x20media=\x22'+EscapeHtml(_0x4ca093)+'\x22':'';const _0x109cee=_0x376f32['replace'](/<\/style/gi,'<\x5c/style');return'<style\x20data-owob-href=\x22'+EscapeHtml(_0x5cd02a)+'\x22'+_0x2917d6+'>\x0a'+_0x109cee+'\x0a</style>';}));let _0x558bb5=_0x13eed5;_0x3161d6['forEach']((_0x38bf2d,_0x3b837d)=>{if(_0x5cf728[_0x3b837d]){_0x558bb5=_0x558bb5['replace'](_0x38bf2d,()=>_0x5cf728[_0x3b837d]);}});return _0x558bb5;}function RewriteTagAttributes(_0x16ffd1,_0x226168){return _0x16ffd1['replace'](/(\s(data-srcset|data-src|srcset|src|poster)\s*=\s*)(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi,(_0x4c0113,_0x1005c6,_0x1133cc,_0x429cb4,_0x18321f,_0x4167c0)=>{const _0x762eb1=DecodeEntities(_0x429cb4??_0x18321f??_0x4167c0??'');const mapper=_0x312b3d=>MapResourceUrl(_0x312b3d,_0x226168);const _0x1b97e5=/srcset$/i['test'](_0x1133cc)?RewriteSrcset(_0x762eb1,mapper):mapper(_0x762eb1);return _0x1b97e5===_0x762eb1?_0x4c0113:_0x1005c6+'\x22'+EscapeHtml(_0x1b97e5)+'\x22';});}function RewriteJavaScriptUrls(_0x4b8c16,_0x4954f3){const map=_0x1deedd=>MapResourceUrl(_0x1deedd,_0x4954f3);let _0x30d000=String(_0x4b8c16);_0x30d000=_0x30d000['replace'](/(\b(?:import\s*\(\s*|import\s+|(?:import|export)\b[^;]*?\bfrom\s*))(["'`])([^"'`$]+)\2/g,(_0x206fa5,_0x3ab8ac,_0x3abcd1,_0x44599b)=>{const _0x1e3f75=map(_0x44599b);return _0x1e3f75===_0x44599b?_0x206fa5:''+_0x3ab8ac+_0x3abcd1+_0x1e3f75+_0x3abcd1;});_0x30d000=_0x30d000['replace'](/(\b(?:src\s*=|setAttribute\(\s*["']src["']\s*,)\s*)(["'`])([^"'`$]+)\2/g,(_0x5c1b3d,_0x1990c7,_0x4e6948,_0x58180d)=>{const _0x168569=map(_0x58180d);return _0x168569===_0x58180d?_0x5c1b3d:''+_0x1990c7+_0x4e6948+_0x168569+_0x4e6948;});return _0x30d000;}function RewriteHtmlResources(_0x15011f,_0x203dd6){const _0x2ac22e=GetFlag('ProxyResources');const _0x183580=GetFlag('ProxyScripts');if(!_0x2ac22e&&!_0x183580)return _0x15011f;const _0x351fcf=/<!--[\s\S]*?-->|<(textarea|noscript)\b[\s\S]*?<\/\1\s*>|<style\b([^>]*)>([\s\S]*?)<\/style\s*>|<script\b([^>]*)>([\s\S]*?)<\/script\s*>|<(?:img|source|video|audio|track|embed|input)\b[^>]*>/gi;return _0x15011f['replace'](_0x351fcf,(_0x1cd33e,_0x583ca6,_0x4fe70c,_0xc45823,_0x118335,_0x5b4a66)=>{if(_0xc45823!==undefined){return _0x2ac22e?'<style'+_0x4fe70c+'>'+ProxyCssUrls(_0xc45823,_0x203dd6)+'</style>':_0x1cd33e;}if(_0x118335!==undefined){if(!_0x183580)return _0x1cd33e;const _0x6622cc=RewriteTagAttributes(_0x118335,_0x203dd6);const _0x170d3d=RewriteJavaScriptUrls(_0x5b4a66,_0x203dd6);return'<script'+_0x6622cc+'>'+_0x170d3d+'</script>';}if(_0x583ca6!==undefined||_0x1cd33e['startsWith']('<!--')){return _0x1cd33e;}return _0x2ac22e?RewriteTagAttributes(_0x1cd33e,_0x203dd6):_0x1cd33e;});}function ExtractPttOver18ScriptRedirect(_0x8a2caf,_0x2e7cbd){let _0x4e5480;try{_0x4e5480=new URL(_0x2e7cbd);}catch{return null;}if(_0x4e5480['hostname']['toLowerCase']()!=='www.ptt.cc')return null;let _0x59b89e=![];const _0x2a6a62=String(_0x8a2caf)['replace'](/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi,(_0x5abd53,_0xd5671f,_0x59ae8f)=>{const _0x3fa51c=/\/ask\/over18/i['test'](_0x59ae8f)&&/(?:document\.)?(?:window\.)?location(?:\.pathname|\s*=|\.href|\.replace\s*\()/i['test'](_0x59ae8f);if(!_0x3fa51c)return _0x5abd53;_0x59b89e=!![];return'<!--\x20OwO:\x20PTT\x20over18\x20srcdoc\x20redirect\x20moved\x20to\x20outer\x20proxy\x20navigation\x20-->';});if(!_0x59b89e)return null;if(HasPttOver18Cookie())return{'Html':_0x2a6a62,'Url':null};const _0x472a77=new URL('/ask/over18',_0x4e5480['origin']);_0x472a77['searchParams']['set']('from',GetCanonicalPttReturnPath(_0x4e5480['href']));return{'Html':_0x2a6a62,'Url':_0x472a77['href']};}function RenderHtmlInFrame(_0x253652,_0x481ff3,_0x55cbeb){const _0x191568=ExtractPttOver18ScriptRedirect(_0x481ff3,_0x55cbeb);if(_0x191568)_0x481ff3=_0x191568['Html'];const _0x1c3840=ExtractMetaRefresh(_0x481ff3,_0x55cbeb);if(_0x1c3840){_0x481ff3=_0x481ff3['replace'](/<meta[^>]+http-equiv\s*=\s*["']?refresh["']?[^>]*>/gi,'');}const _0x50b33b={'TabId':_0x253652['Id'],'PageUrl':_0x55cbeb,'CookieJar':GetSiteCookieJar(_0x55cbeb),'ProxyBase':GetProxyBase(),'ProxyKey':GetProxyKey(),'ProxyResources':GetFlag('ProxyResources'),'ProxyScripts':GetFlag('ProxyScripts'),'ProxyRequests':GetFlag('ProxyRequests')};const _0x1cc501='\x0a<base\x20href=\x22'+EscapeHtml(_0x55cbeb)+'\x22>\x0a<script>\x0a'+RewriteSrcset['toString']()+'\x0a'+MakeProxyUrl['toString']()+'\x0a('+OwObFrameAgent['toString']()+')('+SafeJson(_0x50b33b)+');\x0a</script>';const _0x1b5ca2=/<head[^>]*>/i['test'](_0x481ff3)?_0x481ff3['replace'](/<head[^>]*>/i,_0x5d0735=>_0x5d0735+_0x1cc501):_0x1cc501+_0x481ff3;const _0x10b4ad=_0x481ff3['match'](/<title[^>]*>([\s\S]*?)<\/title>/i);_0x253652['Title']=_0x10b4ad&&_0x10b4ad[0x1]['trim']()?DecodeEntities(_0x10b4ad[0x1]['trim']()):GetHostname(_0x55cbeb);UpdateTabHeader(_0x253652);const _0x3fc02f=CreateFrame(_0x253652);_0x3fc02f['srcdoc']=_0x1b5ca2;SetTabContent(_0x253652,_0x3fc02f,!![]);_0x253652['HasAgent']=!![];const _0x3ee382=_0x191568&&_0x191568['Url']?{'Url':_0x191568['Url'],'DelayMs':0x0}:!_0x191568?_0x1c3840:null;if(_0x3ee382){const _0x541aac=GetTabUrl(_0x253652);setTimeout(()=>{if(GetTabUrl(_0x253652)===_0x541aac){Navigate(_0x253652,NormalizePttOver18Url(_0x3ee382['Url'],_0x55cbeb));}},_0x3ee382['DelayMs']);}}function ExtractMetaRefresh(_0x4abf9d,_0x384ef2){const _0x5dfcb4=_0x4abf9d['match'](/<meta[^>]+http-equiv\s*=\s*["']?refresh["']?[^>]*>/i);if(!_0x5dfcb4)return null;const _0x3fed6e=_0x5dfcb4[0x0]['match'](/content\s*=\s*(["'])([\s\S]*?)\1/i);if(!_0x3fed6e)return null;const _0x3046ca=DecodeEntities(_0x3fed6e[0x2]);const _0x43b312=_0x3046ca['match'](/url\s*=\s*['"]?([^'"]+)['"]?/i);if(!_0x43b312)return null;try{const _0x4dd981=new URL(_0x43b312[0x1]['trim'](),_0x384ef2)['toString']();if(!IsWebUrl(_0x4dd981))return null;const _0x3e8c57=parseFloat(_0x3046ca)||0x0;return{'Url':_0x4dd981,'DelayMs':Clamp(_0x3e8c57,0x0,0xa)*0x3e8};}catch{return null;}}function RenderRawInFrame(_0x54c6de,_0x414b43){let _0xdea981=_0x414b43['split']('/')['pop']()||_0x414b43;try{_0xdea981=decodeURIComponent(_0xdea981);}catch{}_0x54c6de['Title']=_0xdea981||GetHostname(_0x414b43);UpdateTabHeader(_0x54c6de);const _0x146e6a=CreateFrame(_0x54c6de);_0x146e6a['src']=BuildProxyUrl(_0x414b43);SetTabContent(_0x54c6de,_0x146e6a,!![]);_0x54c6de['HasAgent']=![];}function CreateFrame(_0xcd241c,_0x165e26=![]){const _0xb87739=document['createElement']('iframe');_0xb87739['setAttribute']('sandbox',_0x165e26?'allow-scripts\x20allow-forms\x20allow-modals\x20allow-downloads\x20allow-same-origin\x20allow-popups\x20allow-popups-to-escape-sandbox':'allow-scripts\x20allow-forms\x20allow-modals\x20allow-downloads');_0xb87739['setAttribute']('referrerpolicy','no-referrer');ApplyFrameZoom(_0xb87739,_0xcd241c['Zoom']);return _0xb87739;}function OwObFrameAgent(_0xdc744b){'use strict';function CreateMemoryStorage(){var _0x120d5e=Object['create'](null);return{get 'length'(){return Object['keys'](_0x120d5e)['length'];},'key':function(_0x463a80){var _0x1c1f11=Object['keys'](_0x120d5e);return _0x463a80>=0x0&&_0x463a80<_0x1c1f11['length']?_0x1c1f11[_0x463a80]:null;},'getItem':function(_0x289206){_0x289206=String(_0x289206);return Object['prototype']['hasOwnProperty']['call'](_0x120d5e,_0x289206)?_0x120d5e[_0x289206]:null;},'setItem':function(_0x463a92,_0x3f73c9){_0x120d5e[String(_0x463a92)]=String(_0x3f73c9);},'removeItem':function(_0x2af428){delete _0x120d5e[String(_0x2af428)];},'clear':function(){_0x120d5e=Object['create'](null);}};}var _0x2e6fb3=CreateMemoryStorage();var _0x1f7c6c=CreateMemoryStorage();var _0x320957=Object['create'](null);var _0x17b323=Array['isArray'](_0xdc744b['CookieJar'])?_0xdc744b['CookieJar']['slice']():[];_0x17b323['forEach'](function(_0x1d33ae){if(_0x1d33ae&&_0x1d33ae['Name']&&_0x1d33ae['Value']!=null){_0x320957[String(_0x1d33ae['Name'])]=String(_0x1d33ae['Value']);}});function InstallWindowValue(_0x4d5ab3,_0x219033){try{Object['defineProperty'](window,_0x4d5ab3,{'configurable':!![],'enumerable':!![],'get':function(){return _0x219033;}});}catch(_0x3d9f11){try{window[_0x4d5ab3]=_0x219033;}catch(_0x3d7092){}}}InstallWindowValue('sessionStorage',_0x2e6fb3);InstallWindowValue('localStorage',_0x1f7c6c);try{Object['defineProperty'](document,'cookie',{'configurable':!![],'enumerable':!![],'get':function(){return Object['keys'](_0x320957)['map'](function(_0x5bc5eb){return _0x5bc5eb+'='+_0x320957[_0x5bc5eb];})['join'](';\x20');},'set':function(_0x530a95){var _0x2d20db=String(_0x530a95||'')['split'](';',0x1)[0x0];var _0xbe1fee=_0x2d20db['indexOf']('=');if(_0xbe1fee<=0x0)return;var _0x5bcbab=_0x2d20db['slice'](0x0,_0xbe1fee)['trim']();var _0x1ad055=_0x2d20db['slice'](_0xbe1fee+0x1)['trim']();if(_0x5bcbab){_0x320957[_0x5bcbab]=_0x1ad055;var _0x244168='';try{_0x244168=new URL(_0xdc744b['PageUrl'])['hostname'];}catch(_0xd020fc){_0x244168='';}var _0x3f56a2=![];_0x17b323['forEach'](function(_0x2d92e2){if(_0x2d92e2&&_0x2d92e2['Name']===_0x5bcbab&&_0x2d92e2['Domain']===_0x244168){_0x2d92e2['Value']=_0x1ad055;_0x3f56a2=!![];}});if(!_0x3f56a2&&_0x244168){_0x17b323['push']({'Domain':_0x244168,'Name':_0x5bcbab,'Value':_0x1ad055,'HostOnly':!![]});}}}});}catch(_0x372399){}var _0x34dbf3=window['URL'];if(typeof _0x34dbf3==='function'){function CompatibleURL(_0x561e13,_0x2bcfe5){if(!(this instanceof CompatibleURL))return _0x34dbf3(_0x561e13,_0x2bcfe5);var _0x2f8c61=_0x2bcfe5;if(_0x2f8c61==null||_0x2f8c61==='null'||_0x2f8c61==='about:srcdoc'){_0x2f8c61=_0xdc744b['PageUrl'];}return new _0x34dbf3(_0x561e13,_0x2f8c61);}CompatibleURL['prototype']=_0x34dbf3['prototype'];Object['getOwnPropertyNames'](_0x34dbf3)['forEach'](function(_0xcdf5ab){if(_0xcdf5ab==='prototype'||_0xcdf5ab==='length'||_0xcdf5ab==='name')return;try{Object['defineProperty'](CompatibleURL,_0xcdf5ab,Object['getOwnPropertyDescriptor'](_0x34dbf3,_0xcdf5ab));}catch(_0x172ffb){}});try{window['URL']=CompatibleURL;}catch(_0x1a18f7){}}var _0x19cc02={'controller':null,'ready':Promise['resolve'](null),'register':function(){return Promise['resolve'](null);},'getRegistration':function(){return Promise['resolve'](undefined);},'getRegistrations':function(){return Promise['resolve']([]);},'addEventListener':function(){},'removeEventListener':function(){},'startMessages':function(){}};try{Object['defineProperty'](navigator,'serviceWorker',{'configurable':!![],'enumerable':!![],'get':function(){return _0x19cc02;}});}catch(_0x3ed1d7){try{Object['defineProperty'](Object['getPrototypeOf'](navigator),'serviceWorker',{'configurable':!![],'get':function(){return _0x19cc02;}});}catch(_0x9fccdd){}}if(window['performance']&&typeof window['performance']['measure']==='function'){var _0xbb13ce=window['performance']['measure']['bind'](window['performance']);try{var CompatiblePerformanceMeasure=function(){try{return _0xbb13ce['apply'](null,arguments);}catch(_0x3e2b55){if(_0x3e2b55&&(_0x3e2b55['name']==='InvalidAccessError'||_0x3e2b55['name']==='SyntaxError')){return undefined;}throw _0x3e2b55;}};Object['defineProperty'](window['performance'],'measure',{'configurable':!![],'writable':!![],'value':CompatiblePerformanceMeasure});}catch(_0x21226d){try{window['performance']['measure']=CompatiblePerformanceMeasure;}catch(_0x533671){}}}var _0x1cf019='';try{_0x1cf019=new URL(_0xdc744b['ProxyBase'])['origin'];}catch(_0x3ed25c){_0x1cf019='';}function Send(_0x587bc0){_0x587bc0['OwOb']=!![];_0x587bc0['TabId']=_0xdc744b['TabId'];parent['postMessage'](_0x587bc0,'*');}function RewriteDataJavaScriptUrl(_0x49b52c){var _0x3e7670=String(_0x49b52c==null?'':_0x49b52c);var _0xf19754=_0x3e7670['match'](/^data:(text|application)\/(?:javascript|ecmascript)([^,]*),(.*)$/is);if(!_0xf19754)return _0x49b52c;var _0x36ca80=_0xf19754[0x2]||'';var _0x348e06=_0xf19754[0x3]||'';var _0x3c9964=/;base64/i['test'](_0x36ca80);var _0x3a2313;try{_0x3a2313=_0x3c9964?atob(_0x348e06):decodeURIComponent(_0x348e06);}catch(_0x515219){return _0x49b52c;}var _0x56d260=_0x3a2313['replace'](/(\b(?:import\s*\(\s*|import\s+|(?:import|export)\b[^;]*?\bfrom\s*))(["'`])([^"'`$]+)\2/g,function(_0x3f06e9,_0x9c5746,_0x11c815,_0x387370){var _0x2962cf=ToAbsolute(_0x387370);var _0x287f9c=_0x2962cf&&ShouldProxy(_0x2962cf)?MakeProxyUrl(_0xdc744b['ProxyBase'],_0xdc744b['ProxyKey'],_0x2962cf):_0x387370;return _0x9c5746+_0x11c815+_0x287f9c+_0x11c815;});if(_0x56d260===_0x3a2313)return _0x49b52c;try{return'data:'+_0xf19754[0x1]+'/javascript;charset=utf-8,'+encodeURIComponent(_0x56d260);}catch(_0x37527e){return _0x49b52c;}}function CleanNullPathPollution(_0x3ef20c){var _0x2707ab=String(_0x3ef20c==null?'':_0x3ef20c)['trim']();if(!_0x2707ab)return _0x2707ab;_0x2707ab=_0x2707ab['replace'](/^null(?=\/)/i,'');try{var _0x3dbf67=new _0x34dbf3(_0x2707ab,_0xdc744b['PageUrl']);var _0x1e7ffd=_0x3dbf67['pathname']['match'](/\/null(\/(?:svc|api|graphql)(?:\/|$).*)/i);if(_0x1e7ffd){_0x3dbf67['pathname']=_0x1e7ffd[0x1];return _0x3dbf67['href'];}}catch(_0x26243d){}return _0x2707ab['replace'](/^.*?\/null(?=\/(?:svc|api|graphql)(?:\/|\?|$))/i,'')['replace'](/\/null(?=\/(?:svc|api|graphql)(?:\/|\?|$))/i,'');}function ToAbsolute(_0x110d6c){try{var _0x1653cc=CleanNullPathPollution(_0x110d6c);var _0x57941e=new _0x34dbf3(_0xdc744b['PageUrl']);if(/^\/\//['test'](_0x1653cc)){return _0x57941e['protocol']+_0x1653cc;}if(_0x1653cc['charAt'](0x0)==='/'){return new _0x34dbf3(_0x1653cc,_0x57941e['origin'])['href'];}return new _0x34dbf3(_0x1653cc,document['baseURI']||_0xdc744b['PageUrl'])['href'];}catch(_0x4dd0c7){return null;}}function ShouldProxy(_0xdf425b){return Boolean(_0xdf425b)&&/^https?:\/\//i['test'](_0xdf425b)&&(!_0x1cf019||_0xdf425b['indexOf'](_0x1cf019+'/')!==0x0);}function RepairExistingProxyUrl(_0x2b7bf9){var _0x49f335=String(_0x2b7bf9==null?'':_0x2b7bf9)['trim']();if(!_0x49f335||!_0x1cf019||_0x49f335['indexOf'](_0x1cf019+'/')!==0x0)return _0x49f335;try{var _0x1aa039=new _0x34dbf3(_0x49f335);var _0x68082c=_0x1aa039['searchParams']['get']('url');if(!_0x68082c)return _0x49f335;var _0x57f7dd=ToAbsolute(_0x68082c);if(_0x57f7dd&&_0x57f7dd!==_0x68082c){_0x1aa039['searchParams']['set']('url',_0x57f7dd);return _0x1aa039['href'];}}catch(_0x5ae0ef){}return _0x49f335;}function ToProxy(_0x43c509){var _0x4dc3de=String(_0x43c509==null?'':_0x43c509)['trim']();if(/^data:(?:text|application)\/(?:javascript|ecmascript)/i['test'](_0x4dc3de)){return RewriteDataJavaScriptUrl(_0x4dc3de);}if(!_0x4dc3de||/^(data:|blob:|about:|javascript:|#)/i['test'](_0x4dc3de))return _0x43c509;var _0x34a15f=RepairExistingProxyUrl(_0x4dc3de);if(_0x34a15f!==_0x4dc3de||_0x1cf019&&_0x34a15f['indexOf'](_0x1cf019+'/')===0x0){return _0x34a15f;}var _0x343906=ToAbsolute(_0x4dc3de);return ShouldProxy(_0x343906)?MakeProxyUrl(_0xdc744b['ProxyBase'],_0xdc744b['ProxyKey'],_0x343906):_0x43c509;}var _0x9b42a6=new WeakMap();var _0x4d6707=document['createElement']('style');_0x4d6707['id']='owob-partial-loading-style';_0x4d6707['textContent']='faceplate-partial[data-owob-partial-loading=\x22true\x22]\x20shreddit-feed-page-error,'+'faceplate-partial[data-owob-partial-loading=\x22true\x22]\x20[data-testid*=\x22error\x22],'+'faceplate-partial[data-owob-partial-loading=\x22true\x22]\x20[class*=\x22feed-page-error\x22],'+'faceplate-partial[data-owob-partial-loading=\x22true\x22]\x20[class*=\x22partial-error\x22]{display:none!important}'+'.owob-partial-placeholder{min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#576273;font:500\x2014px/1.5\x20system-ui,-apple-system,BlinkMacSystemFont,\x22Segoe\x20UI\x22,sans-serif}'+'.owob-partial-spinner{width:42px;height:42px;border:4px\x20solid\x20#ffd8ca;border-top-color:#ff4500;border-radius:50%;animation:owob-partial-spin\x20.8s\x20linear\x20infinite}'+'.owob-partial-loading-text{letter-spacing:.02em}'+'.owob-partial-final-error{color:#202832}'+'.owob-partial-error-title{font-weight:600}'+'.owob-partial-retry{padding:11px\x2022px;border:0;border-radius:999px;background:#111;color:#fff;font:700\x2014px/1\x20system-ui;cursor:pointer}'+'@keyframes\x20owob-partial-spin{to{transform:rotate(360deg)}}';(document['head']||document['documentElement'])['appendChild'](_0x4d6707);function ExecuteCommunityPartialRequest(_0x4ed02c,_0x32ad3e,_0x2054b1,_0x4292ab){if(_0x9b42a6['has'](_0x32ad3e))return;var _0xec7b6c=_0x2054b1['request']||{};var _0x2ec7a3=String(_0xec7b6c['method']||_0x32ad3e['getAttribute']('method')||'GET')['toUpperCase']();var _0x59f26b=new Headers(_0xec7b6c['headers']||{});var _0x3f86b9=0x3;var _0x2305cc=[0x0,0x1c2,0x384];function BuildRequestInit(_0x4409e0){var _0x4fb785=new Headers(_0x59f26b);_0x4fb785['set']('X-Reddit-Retry','attempt='+_0x4409e0+',\x20max='+(_0x3f86b9-0x1));var _0x384058={'method':_0x2ec7a3,'headers':_0x4fb785,'credentials':'include','cache':'no-store'};if(_0x2ec7a3!=='GET'&&_0x2ec7a3!=='HEAD'&&_0xec7b6c['body']!=null){if(typeof _0xec7b6c['body']==='string'||_0xec7b6c['body']instanceof FormData||_0xec7b6c['body']instanceof URLSearchParams||_0xec7b6c['body']instanceof Blob){_0x384058['body']=_0xec7b6c['body'];}else{_0x384058['body']=JSON['stringify'](_0xec7b6c['body']);if(!_0x4fb785['has']('Content-Type'))_0x4fb785['set']('Content-Type','application/json');}}return _0x384058;}function IsTemporaryErrorHtml(_0x1d8e6f){var _0x3005f9=String(_0x1d8e6f||'');return!_0x3005f9['trim']()||/載入下一頁時發生錯誤|請再試一次|shreddit-feed-page-error|feed-page-error|partial-error/i['test'](_0x3005f9);}function Delay(_0x910ae1){return new Promise(function(resolve){setTimeout(resolve,_0x910ae1);});}function RequestAttempt(_0x494ab8){return Delay(_0x2305cc[_0x494ab8]||0x0)['then'](function(){return window['fetch'](_0x4292ab,BuildRequestInit(_0x494ab8));})['then'](function(_0x3bba2a){return _0x3bba2a['text']()['then'](function(_0x5491f7){if(!_0x3bba2a['ok']){throw new Error('Partial\x20request\x20failed:\x20'+_0x3bba2a['status']+'\x20'+_0x5491f7['slice'](0x0,0x12c));}if(IsTemporaryErrorHtml(_0x5491f7)){throw new Error('Partial\x20server\x20returned\x20a\x20temporary\x20error\x20page.');}return _0x5491f7;});})['catch'](function(_0x265c29){if(_0x494ab8+0x1<_0x3f86b9){console['warn']('[OwO\x20Partial]\x20第\x20'+(_0x494ab8+0x1)+'\x20次載入未完成，立即重試',_0x265c29);return RequestAttempt(_0x494ab8+0x1);}throw _0x265c29;});}var _0x321a98=document['createElement']('div');_0x321a98['className']='owob-partial-placeholder';_0x321a98['setAttribute']('role','status');_0x321a98['setAttribute']('aria-live','polite');_0x321a98['innerHTML']='<div\x20class=\x22owob-partial-spinner\x22\x20aria-hidden=\x22true\x22></div>'+'<div\x20class=\x22owob-partial-loading-text\x22>正在載入更多內容…</div>';_0x32ad3e['setAttribute']('data-owob-partial-loading','true');_0x32ad3e['style']['setProperty']('display','none','important');_0x32ad3e['insertAdjacentElement']('beforebegin',_0x321a98);function RemoveRedditTemporaryErrorNodes(){var _0x5516a2=_0x321a98['parentElement'];if(!_0x5516a2)return;Array['prototype']['slice']['call'](_0x5516a2['children'])['forEach'](function(_0x15f0ca){if(_0x15f0ca===_0x321a98||_0x15f0ca===_0x32ad3e)return;var _0x156ae9=String(_0x15f0ca['innerText']||_0x15f0ca['textContent']||'');var _0x4848ef=/載入下一頁時發生錯誤|請再試一次/i['test'](_0x156ae9)||_0x15f0ca['matches']&&_0x15f0ca['matches']('shreddit-feed-page-error,\x20[data-testid*=\x22error\x22],\x20[class*=\x22feed-page-error\x22],\x20[class*=\x22partial-error\x22]');if(_0x4848ef)_0x15f0ca['remove']();});}var _0x327845=new MutationObserver(RemoveRedditTemporaryErrorNodes);if(_0x321a98['parentElement']){_0x327845['observe'](_0x321a98['parentElement'],{'childList':!![],'subtree':![]});}RemoveRedditTemporaryErrorNodes();var _0x195b19=RequestAttempt(0x0)['then'](function(_0x135374){var _0x46c983=document['createRange']();_0x46c983['selectNode'](_0x321a98);var _0x2f915b=_0x46c983['createContextualFragment'](_0x135374);if(!_0x2f915b||!_0x2f915b['childNodes']['length']){throw new Error('Partial\x20response\x20did\x20not\x20contain\x20replaceable\x20HTML.');}_0x327845['disconnect']();_0x321a98['replaceWith'](_0x2f915b);if(_0x32ad3e['isConnected'])_0x32ad3e['remove']();})['catch'](function(_0x1b417a){_0x327845['disconnect']();if(_0x32ad3e['isConnected'])_0x32ad3e['remove']();_0x321a98['classList']['add']('owob-partial-final-error');_0x321a98['removeAttribute']('role');_0x321a98['innerHTML']='<div\x20class=\x22owob-partial-error-title\x22>載入下一頁時發生錯誤</div>'+'<button\x20type=\x22button\x22\x20class=\x22owob-partial-retry\x22>重試</button>';var _0x421568=_0x321a98['querySelector']('.owob-partial-retry');_0x421568['addEventListener']('click',function(){_0x321a98['remove']();location['reload']();},{'once':!![]});console['error']('[OwO\x20Partial]\x20三次動態內容載入均失敗',_0x1b417a,_0x4292ab);})['finally'](function(){_0x9b42a6['delete'](_0x32ad3e);});_0x9b42a6['set'](_0x32ad3e,_0x195b19);}document['addEventListener']('faceplate-request',function(_0x1c52ed){var _0x2e5edd=_0x1c52ed&&_0x1c52ed['detail'];if(!_0x2e5edd||typeof _0x2e5edd['resource']!=='string')return;var _0x3dd5b0=ToAbsolute(_0x2e5edd['resource']);if(!_0x3dd5b0)return;_0x2e5edd['resource']=_0x3dd5b0;var _0x2c5a73=_0x1c52ed['target'];var _0x3ceb00=/\/svc\/shreddit\/community-more-posts\//i['test'](_0x3dd5b0);if(_0x3ceb00&&_0x2c5a73&&_0x2c5a73['tagName']==='FACEPLATE-PARTIAL'){_0x1c52ed['preventDefault']();_0x1c52ed['stopImmediatePropagation']();ExecuteCommunityPartialRequest(_0x1c52ed,_0x2c5a73,_0x2e5edd,_0x3dd5b0);}},!![]);var _0x3ef413=EventTarget['prototype']['dispatchEvent'];EventTarget['prototype']['dispatchEvent']=function(_0xc16b33){try{if(_0xc16b33&&_0xc16b33['type']==='faceplate-request'&&_0xc16b33['detail']&&typeof _0xc16b33['detail']['resource']==='string'){var _0x5f296f=ToAbsolute(_0xc16b33['detail']['resource']);if(_0x5f296f)_0xc16b33['detail']['resource']=_0x5f296f;}}catch(_0x4d7a48){}return _0x3ef413['call'](this,_0xc16b33);};window['open']=function(_0x3ca50b){var _0xe4c4bd=ToAbsolute(_0x3ca50b);if(_0xe4c4bd&&/^https?:\/\//i['test'](_0xe4c4bd)){Send({'Type':'OpenTab','Url':_0xe4c4bd});}return{'closed':![],'opener':window,'close':function(){this['closed']=!![];},'focus':function(){},'blur':function(){},'postMessage':function(){}};};var _0x5a9b78={'Url':'','Type':'','Time':0x0};function SendNavigationOnce(_0x1223fa,_0x34ddf0){var _0x4e4dbc=Date['now']();if(_0x5a9b78['Url']===_0x34ddf0&&_0x5a9b78['Type']===_0x1223fa&&_0x4e4dbc-_0x5a9b78['Time']<0x2bc){return;}_0x5a9b78['Url']=_0x34ddf0;_0x5a9b78['Type']=_0x1223fa;_0x5a9b78['Time']=_0x4e4dbc;Send({'Type':_0x1223fa,'Url':_0x34ddf0});}document['addEventListener']('click',function(_0x3aa97e){var _0x18e6da=_0x3aa97e['target']&&_0x3aa97e['target']['closest']&&_0x3aa97e['target']['closest']('a[href]');if(!_0x18e6da||_0x3aa97e['defaultPrevented'])return;var _0x324f6a=_0x18e6da['getAttribute']('href')||'';if(_0x324f6a['charAt'](0x0)==='#'||/^(javascript|mailto|tel|data|blob):/i['test'](_0x324f6a))return;var _0x4a437d=ToAbsolute(_0x18e6da['getAttribute']('href')||_0x18e6da['href']);if(!_0x4a437d||!/^https?:\/\//i['test'](_0x4a437d))return;_0x3aa97e['preventDefault']();_0x3aa97e['stopImmediatePropagation']();var _0x3c657d=_0x18e6da['target']==='_blank'||_0x3aa97e['ctrlKey']||_0x3aa97e['metaKey']||_0x3aa97e['button']===0x1;SendNavigationOnce(_0x3c657d?'OpenTab':'Navigate',_0x4a437d);},!![]);document['addEventListener']('submit',function(_0x2dfebc){var _0x19ba43=_0x2dfebc['target'];_0x2dfebc['preventDefault']();var _0x4871e6=_0x2dfebc['submitter']||null;var _0x5d5d45;try{_0x5d5d45=new FormData(_0x19ba43,_0x4871e6);}catch(_0x50fdb9){_0x5d5d45=new FormData(_0x19ba43);if(_0x4871e6&&_0x4871e6['name'])_0x5d5d45['append'](_0x4871e6['name'],_0x4871e6['value']||'');}var params=new URLSearchParams();var _0x5bcbad=![];_0x5d5d45['forEach'](function(_0x178c4d,_0x55d28f){if(typeof _0x178c4d==='string'){params['append'](_0x55d28f,_0x178c4d);}else if(_0x178c4d&&_0x178c4d['size']>0x0){_0x5bcbad=!![];}});if(_0x5bcbad){Send({'Type':'Toast','Message':'含檔案上傳的表單無法經由代理送出'});return;}var _0x3b273d=_0x4871e6&&_0x4871e6['getAttribute']('formaction')||_0x19ba43['getAttribute']('action');var _0x1e86d2=new URL(_0x3b273d||document['baseURI'],document['baseURI']);var _0x31746a=_0x4871e6&&_0x4871e6['getAttribute']('formmethod')||_0x19ba43['getAttribute']('method')||'get';if(_0x31746a['toLowerCase']()==='post'){Send({'Type':'Post','Url':_0x1e86d2['href'],'Body':params['toString']()});}else{_0x1e86d2['search']=params['toString']();Send({'Type':'Navigate','Url':_0x1e86d2['href']});}},!![]);var _0x244d07={'IMG':['src','srcset'],'SOURCE':['src','srcset'],'VIDEO':['src','poster'],'AUDIO':['src'],'TRACK':['src'],'EMBED':['src'],'INPUT':['src'],'SCRIPT':['src'],'LINK':['href']};var _0x156d54=Element['prototype']['setAttribute'];function IsRewritable(_0x214dab){if(!_0x214dab||!_0x244d07[_0x214dab['tagName']])return![];if(_0x214dab['tagName']==='SCRIPT')return _0xdc744b['ProxyScripts'];if(_0x214dab['tagName']==='LINK'){var _0xdc5938=String(_0x214dab['getAttribute']('rel')||'')['toLowerCase']();return _0xdc744b['ProxyScripts']&&/(?:modulepreload|preload|prefetch)/['test'](_0xdc5938);}return _0xdc744b['ProxyResources'];}function MapAttribute(_0x20dbb1,_0x44653d){return/srcset$/i['test'](_0x20dbb1)?RewriteSrcset(_0x44653d,ToProxy):ToProxy(_0x44653d);}function FixElement(_0x1b4100){if(!IsRewritable(_0x1b4100))return;_0x244d07[_0x1b4100['tagName']]['forEach'](function(_0x304b56){var _0x13c90a=_0x1b4100['getAttribute'](_0x304b56);if(!_0x13c90a)return;var _0x4eab8b=MapAttribute(_0x304b56,_0x13c90a);if(_0x4eab8b!==_0x13c90a)_0x156d54['call'](_0x1b4100,_0x304b56,_0x4eab8b);});}function FixTree(_0xb2e459){if(!_0xb2e459||_0xb2e459['nodeType']!==0x1)return;FixElement(_0xb2e459);if(_0xb2e459['querySelectorAll']){var _0x1085ea=_0xb2e459['querySelectorAll']('img,source,video,audio,track,embed,input,script');for(var _0x648e8a=0x0;_0x648e8a<_0x1085ea['length'];_0x648e8a++)FixElement(_0x1085ea[_0x648e8a]);}}function HookProperty(_0x56c7c5,_0x31aca4){if(!_0x56c7c5||!_0x56c7c5['prototype'])return;var _0x3a5d7f=Object['getOwnPropertyDescriptor'](_0x56c7c5['prototype'],_0x31aca4);if(!_0x3a5d7f||!_0x3a5d7f['set']||!_0x3a5d7f['configurable'])return;Object['defineProperty'](_0x56c7c5['prototype'],_0x31aca4,{'configurable':!![],'enumerable':_0x3a5d7f['enumerable'],'get':_0x3a5d7f['get'],'set':function(_0x24f3ff){if(IsRewritable(this)&&_0x24f3ff!=null){_0x24f3ff=MapAttribute(_0x31aca4,String(_0x24f3ff));}_0x3a5d7f['set']['call'](this,_0x24f3ff);}});}if(_0xdc744b['ProxyResources']||_0xdc744b['ProxyScripts']){HookProperty(window['HTMLImageElement'],'src');HookProperty(window['HTMLImageElement'],'srcset');HookProperty(window['HTMLSourceElement'],'src');HookProperty(window['HTMLSourceElement'],'srcset');HookProperty(window['HTMLMediaElement'],'src');HookProperty(window['HTMLVideoElement'],'poster');HookProperty(window['HTMLTrackElement'],'src');HookProperty(window['HTMLEmbedElement'],'src');HookProperty(window['HTMLInputElement'],'src');HookProperty(window['HTMLScriptElement'],'src');HookProperty(window['HTMLLinkElement'],'href');Element['prototype']['setAttribute']=function(_0xd80e50,_0x159319){var _0x1ab4b3=String(_0xd80e50)['toLowerCase']();if(IsRewritable(this)&&_0x244d07[this['tagName']]['indexOf'](_0x1ab4b3)!==-0x1&&_0x159319!=null){_0x159319=MapAttribute(_0x1ab4b3,String(_0x159319));}return _0x156d54['call'](this,_0xd80e50,_0x159319);};new MutationObserver(function(_0x16ec56){_0x16ec56['forEach'](function(_0x53e45c){if(_0x53e45c['type']==='attributes'){FixElement(_0x53e45c['target']);}else{for(var _0x523586=0x0;_0x523586<_0x53e45c['addedNodes']['length'];_0x523586++)FixTree(_0x53e45c['addedNodes'][_0x523586]);}});})['observe'](document['documentElement'],{'childList':!![],'subtree':!![],'attributes':!![],'attributeFilter':['src','srcset','poster','href','rel']});}if(_0xdc744b['ProxyRequests']){var _0x21a3ce=window['fetch'];var _0x5e8b14=new Map();var _0x579eb6=new Map();var _0x33424f=0x352;function IsNonEssentialBackgroundRequest(_0x4e9f92){var _0x355a30=ToAbsolute(_0x4e9f92)||String(_0x4e9f92||'');return/(?:\/svc\/shreddit\/(?:events|client-errors)|error-tracking\.|w3-reporting\.|pi\.[^/]+\/v4\/p|google-analytics\.|googletagmanager\.|doubleclick\.|\/pagead\/|\/collect(?:\?|$))/i['test'](_0x355a30);}function CreateQuietResponse(){return Promise['resolve'](new Response('',{'status':0xcc,'statusText':'No\x20Content','headers':{'X-OwOb-Suppressed':'1'}}));}function GetRequestMethod(_0x3605aa,_0x544e96){return String(_0x544e96&&_0x544e96['method']||_0x3605aa instanceof Request&&_0x3605aa['method']||'GET')['toUpperCase']();}if(typeof _0x21a3ce==='function'){window['fetch']=function(_0x2e7fad,_0x2e068f){try{var _0x59801e=typeof _0x2e7fad==='string'||_0x2e7fad instanceof URL?String(_0x2e7fad):_0x2e7fad&&typeof _0x2e7fad['url']==='string'?_0x2e7fad['url']:'';var _0xff9a7b=GetRequestMethod(_0x2e7fad,_0x2e068f);if(IsNonEssentialBackgroundRequest(_0x59801e)){return CreateQuietResponse();}var _0x60f8ba=ToAbsolute(_0x59801e)||_0x59801e;var _0x1bf7d5=_0xff9a7b==='GET'?_0x60f8ba:'';var _0x59ab7f=Date['now']();var _0x1c0c71=_0x1bf7d5?Number(_0x579eb6['get'](_0x1bf7d5)||0x0):0x0;if(_0x1bf7d5&&_0x5e8b14['has'](_0x1bf7d5)){return _0x5e8b14['get'](_0x1bf7d5)['then'](function(_0x1138d9){return _0x1138d9['clone']();});}if(_0x1bf7d5&&_0x1c0c71&&_0x59ab7f-_0x1c0c71<_0x33424f){return new Promise(function(resolve){setTimeout(function(){resolve(window['fetch'](_0x2e7fad,_0x2e068f));},_0x33424f-(_0x59ab7f-_0x1c0c71));});}var _0x3ff48a=ToProxy(_0x59801e);var _0x24e580=Object['assign']({},_0x2e068f||{});var _0x2d7af6=new Headers(_0x24e580['headers']||(_0x2e7fad instanceof Request?_0x2e7fad['headers']:undefined));var _0x3494f6={};_0x2d7af6['forEach'](function(_0x1810d8,_0x9501df){var _0x33fd07=_0x9501df['toLowerCase']();if(!['host','cookie','origin','referer','content-length']['includes'](_0x33fd07)&&!_0x33fd07['startsWith']('sec-')&&!_0x33fd07['startsWith']('proxy-')){_0x3494f6[_0x9501df]=_0x1810d8;}});if(Object['keys'](_0x3494f6)['length']>0x0){_0x2d7af6['set']('X-Proxy-Headers',encodeURIComponent(JSON['stringify'](_0x3494f6)));}_0x2d7af6['set']('X-Proxy-Referer',_0xdc744b['PageUrl']);if(_0x17b323['length']>0x0){_0x2d7af6['set']('X-Proxy-Cookie-Jar',encodeURIComponent(JSON['stringify'](_0x17b323)));}_0x24e580['headers']=_0x2d7af6;if(_0x2e7fad instanceof Request){_0x2e7fad=new Request(_0x3ff48a,_0x2e7fad);}else{_0x2e7fad=_0x3ff48a;}var _0x375599=_0x21a3ce['call'](this,_0x2e7fad,_0x24e580)['then'](function(_0x5be8c7){var _0x3a02a3=_0x5be8c7['headers']['get']('X-Proxy-Set-Cookie');if(_0x3a02a3)Send({'Type':'Cookies','Value':_0x3a02a3});return _0x5be8c7;});if(_0x1bf7d5){_0x5e8b14['set'](_0x1bf7d5,_0x375599);_0x375599['finally'](function(){_0x5e8b14['delete'](_0x1bf7d5);_0x579eb6['set'](_0x1bf7d5,Date['now']());setTimeout(function(){_0x579eb6['delete'](_0x1bf7d5);},_0x33424f*0x2);});}return _0x375599;}catch(_0x115623){return _0x21a3ce['call'](this,_0x2e7fad,_0x2e068f);}};}if(navigator&&typeof navigator['sendBeacon']==='function'){var _0x4ceef7=navigator['sendBeacon']['bind'](navigator);try{navigator['sendBeacon']=function(_0x52a504,_0x151040){return _0x4ceef7(ToProxy(String(_0x52a504)),_0x151040);};}catch(_0x4546b4){}}var _0x2edeb2=XMLHttpRequest['prototype']['open'];XMLHttpRequest['prototype']['open']=function(_0x1fb613,_0x25cfa0){var _0x228a8f=Array['prototype']['slice']['call'](arguments);try{_0x228a8f[0x1]=ToProxy(String(_0x25cfa0));}catch(_0x3953bb){}return _0x2edeb2['apply'](this,_0x228a8f);};}var _0x322742='';var _0x16a440=0x0;function CountMatches(_0x446b9e){var _0x43d4c5=String(document['body']&&document['body']['innerText']||'')['toLowerCase']();var _0x4b898d=_0x446b9e['toLowerCase']();if(!_0x4b898d)return 0x0;var _0x359d64=0x0;var _0x4133df=_0x43d4c5['indexOf'](_0x4b898d);while(_0x4133df!==-0x1){_0x359d64++;_0x4133df=_0x43d4c5['indexOf'](_0x4b898d,_0x4133df+_0x4b898d['length']);}return _0x359d64;}function ClearSelection(){var _0x3e7a4b=window['getSelection']&&window['getSelection']();if(_0x3e7a4b)_0x3e7a4b['removeAllRanges']();}function HandleFind(_0x4bdae5){var _0x2bae8d=String(_0x4bdae5['Text']||'');if(!_0x2bae8d){_0x322742='';_0x16a440=0x0;ClearSelection();Send({'Type':'FindResult','Count':0x0,'Index':0x0,'Empty':!![]});return;}var _0x1b2eee=CountMatches(_0x2bae8d);var _0x2f5771=![];if(typeof window['find']==='function'){if(_0x4bdae5['Restart']||_0x2bae8d!==_0x322742){_0x322742=_0x2bae8d;ClearSelection();_0x2f5771=window['find'](_0x2bae8d,![],![],!![],![],![],![]);_0x16a440=_0x2f5771?0x1:0x0;}else{_0x2f5771=window['find'](_0x2bae8d,![],Boolean(_0x4bdae5['Backwards']),!![],![],![],![]);if(_0x2f5771&&_0x1b2eee>0x0){_0x16a440=_0x4bdae5['Backwards']?_0x16a440<=0x1?_0x1b2eee:_0x16a440-0x1:_0x16a440>=_0x1b2eee?0x1:_0x16a440+0x1;}}}Send({'Type':'FindResult','Count':_0x1b2eee,'Index':_0x2f5771?Math['min'](_0x16a440,_0x1b2eee):0x0});}window['addEventListener']('message',function(_0x2b1167){if(_0x2b1167['source']!==parent)return;var _0x2b28fc=_0x2b1167['data'];if(!_0x2b28fc||_0x2b28fc['OwObCommand']!==!![])return;if(_0x2b28fc['Type']==='Find'){HandleFind(_0x2b28fc);}else if(_0x2b28fc['Type']==='ClearFind'){_0x322742='';_0x16a440=0x0;ClearSelection();}else if(_0x2b28fc['Type']==='HumanVerificationReload'){Send({'Type':'Navigate','Url':_0xdc744b['PageUrl']});}});document['addEventListener']('keydown',function(_0xf27dac){var _0x4de38e=String(_0xf27dac['key']||'')['toLowerCase']();var _0x1907ab=_0xf27dac['ctrlKey']||_0xf27dac['metaKey'];var _0x59aa39=_0xf27dac['altKey'];var _0x3299f8=_0x1907ab&&!_0x59aa39&&['f','k','l','d','=','+','-','0']['indexOf'](_0x4de38e)!==-0x1||_0x59aa39&&!_0x1907ab&&['t','w','arrowleft','arrowright']['indexOf'](_0x4de38e)!==-0x1||_0x4de38e==='f5'&&!_0x1907ab;if(!_0x3299f8)return;_0xf27dac['preventDefault']();_0xf27dac['stopPropagation']();Send({'Type':'Key','Key':_0x4de38e,'Ctrl':_0x1907ab,'Alt':_0x59aa39,'Shift':_0xf27dac['shiftKey']});},!![]);}function ShouldIgnoreRepeatedNavigation(_0x36a608,_0x4320ce,_0x15a074){const _0x4d1b61=Date['now']();if(_0x36a608['LastFrameNavigationUrl']===_0x15a074&&_0x36a608['LastFrameNavigationType']===_0x4320ce&&_0x4d1b61-Number(_0x36a608['LastFrameNavigationTime']||0x0)<0x2bc){return!![];}_0x36a608['LastFrameNavigationUrl']=_0x15a074;_0x36a608['LastFrameNavigationType']=_0x4320ce;_0x36a608['LastFrameNavigationTime']=_0x4d1b61;return![];}window['addEventListener']('message',_0x9952c4=>{const _0x3d9134=_0x9952c4['data'];if(!_0x3d9134)return;if(_0x3d9134['OwObSameOrigin']===!![]){const _0x52b36e=State['Tabs']['find'](_0x198f46=>_0x198f46['ViewEl']['querySelector']('iframe')?.['contentWindow']===_0x9952c4['source']);if(!_0x52b36e)return;const _0x464bc0=GetTabUrl(_0x52b36e);if(_0x3d9134['Type']==='State'){_0x52b36e['Title']=String(_0x3d9134['Title']||GetHostname(_0x464bc0)||'頁面');UpdateTabHeader(_0x52b36e);SetLoading(_0x52b36e,![]);if(_0x52b36e['Id']===State['ActiveId'])RefreshToolbar();return;}if(_0x3d9134['Type']==='Navigate'&&IsWebUrl(_0x3d9134['Url'])){const _0x163b76=NormalizePttOver18Url(UnwrapRedirectUrl(_0x3d9134['Url']),_0x464bc0);if(!ShouldIgnoreRepeatedNavigation(_0x52b36e,'Navigate',_0x163b76))Navigate(_0x52b36e,_0x163b76);return;}if(_0x3d9134['Type']==='OpenTab'&&IsWebUrl(_0x3d9134['Url'])){const _0x1d11cd=NormalizePttOver18Url(UnwrapRedirectUrl(_0x3d9134['Url']),_0x464bc0);if(!ShouldIgnoreRepeatedNavigation(_0x52b36e,'OpenTab',_0x1d11cd)){CreateTab(_0x1d11cd,!![],{'AfterId':_0x52b36e['Id'],'LoadMode':_0x52b36e['LoadMode']});}return;}if(_0x3d9134['Type']==='Post'&&IsWebUrl(_0x3d9134['Url'])&&typeof _0x3d9134['Body']==='string'){const _0x219966=NormalizePttOver18Url(_0x3d9134['Url'],_0x464bc0);Navigate(_0x52b36e,_0x219966,!![],{'Body':NormalizePttOver18PostBody(_0x219966,_0x3d9134['Body'],_0x464bc0),'Referer':_0x464bc0});return;}}if(_0x3d9134['OwOb']!==!![])return;const _0xc3ce7d=GetTabById(_0x3d9134['TabId']);if(!_0xc3ce7d)return;const _0x948e53=_0xc3ce7d['ViewEl']['querySelector']('iframe');if(!_0x948e53||_0x9952c4['source']!==_0x948e53['contentWindow'])return;switch(_0x3d9134['Type']){case'Navigate':if(IsWebUrl(_0x3d9134['Url'])){const _0x443ab8=NormalizePttOver18Url(_0x3d9134['Url'],GetTabUrl(_0xc3ce7d));if(!ShouldIgnoreRepeatedNavigation(_0xc3ce7d,'Navigate',_0x443ab8)){Navigate(_0xc3ce7d,_0x443ab8);}}break;case'OpenTab':if(IsWebUrl(_0x3d9134['Url'])){const _0x5d6218=NormalizePttOver18Url(_0x3d9134['Url'],GetTabUrl(_0xc3ce7d));if(!ShouldIgnoreRepeatedNavigation(_0xc3ce7d,'OpenTab',_0x5d6218)){CreateTab(_0x5d6218,!![],{'AfterId':_0xc3ce7d['Id'],'LoadMode':_0xc3ce7d['LoadMode']});}}break;case'Post':if(IsWebUrl(_0x3d9134['Url'])&&typeof _0x3d9134['Body']==='string'){const _0x26a977=GetTabUrl(_0xc3ce7d);const _0x28947d=NormalizePttOver18Url(_0x3d9134['Url'],_0x26a977);Navigate(_0xc3ce7d,_0x28947d,!![],{'Body':NormalizePttOver18PostBody(_0x28947d,_0x3d9134['Body'],_0x26a977),'Referer':_0x26a977});}break;case'Cookies':if(typeof _0x3d9134['Value']==='string')StoreProxyCookies(_0x3d9134['Value']);break;case'Toast':if(typeof _0x3d9134['Message']==='string')ShowToast(_0x3d9134['Message']);break;case'Key':if(_0xc3ce7d['Id']===State['ActiveId']){HandleShortcut({'Key':String(_0x3d9134['Key']||''),'Ctrl':Boolean(_0x3d9134['Ctrl']),'Alt':Boolean(_0x3d9134['Alt']),'Shift':Boolean(_0x3d9134['Shift'])});}break;case'FindResult':if(_0xc3ce7d['Id']===State['ActiveId']){UpdateFindStatus(Number(_0x3d9134['Count'])||0x0,Number(_0x3d9134['Index'])||0x0,Boolean(_0x3d9134['Empty']));}break;}});function OpenFindBar(){const _0x55c2bb=GetActiveTab();if(!_0x55c2bb)return;if(!_0x55c2bb['HasAgent']){ShowToast(IsInternalUrl(GetTabUrl(_0x55c2bb))?'內部頁面不支援頁內搜尋':'此頁面類型不支援頁內搜尋');return;}State['Find']['Open']=!![];Dom['FindBar']['hidden']=![];Dom['FindInput']['focus']();Dom['FindInput']['select']();if(Dom['FindInput']['value'])SendFind({'Restart':!![]});}function CloseFindBar(){if(!State['Find']['Open'])return;State['Find']['Open']=![];Dom['FindBar']['hidden']=!![];PostToFrame(GetActiveTab(),{'Type':'ClearFind'});}function PostToFrame(_0x51af04,_0x4d0cf9){if(!_0x51af04||!_0x51af04['HasAgent'])return![];const _0x4fe38c=_0x51af04['ViewEl']['querySelector']('iframe');if(!_0x4fe38c||!_0x4fe38c['contentWindow'])return![];_0x4fe38c['contentWindow']['postMessage']({'OwObCommand':!![],..._0x4d0cf9},'*');return!![];}function SendFind({Backwards:Backwards=![],Restart:Restart=![]}={}){const _0x57369f=PostToFrame(GetActiveTab(),{'Type':'Find','Text':Dom['FindInput']['value'],'Backwards':Backwards,'Restart':Restart});if(!_0x57369f)UpdateFindStatus(0x0,0x0,!Dom['FindInput']['value']);}function UpdateFindStatus(_0x30dcf4,_0x21b8d3,_0x4aa90d=![]){if(_0x4aa90d){Dom['FindStatus']['textContent']='';Dom['FindBar']['classList']['remove']('NoMatch');return;}Dom['FindStatus']['textContent']=_0x30dcf4>0x0?_0x21b8d3+'/'+_0x30dcf4:'無符合';Dom['FindBar']['classList']['toggle']('NoMatch',_0x30dcf4===0x0);}function ResetFindStatus(){if(!Dom['FindStatus'])return;UpdateFindStatus(0x0,0x0,!![]);if(State['Find']['Open']){CloseFindBar();}}function ApplyFrameZoom(_0x22463f,_0x4c4593){if(!_0x22463f)return;if(_0x4c4593===0x1){_0x22463f['style']['width']='';_0x22463f['style']['height']='';_0x22463f['style']['transform']='';return;}_0x22463f['style']['width']=0x64/_0x4c4593+'%';_0x22463f['style']['height']=0x64/_0x4c4593+'%';_0x22463f['style']['transform']='scale('+_0x4c4593+')';_0x22463f['style']['transformOrigin']='0\x200';}function ChangeZoom(_0x75799){const _0x2e9ec0=GetActiveTab();if(!_0x2e9ec0||IsInternalUrl(GetTabUrl(_0x2e9ec0)))return![];const _0x135779=Config['ZoomLevels'];if(_0x75799===0x0){_0x2e9ec0['Zoom']=0x1;}else{let _0x320cef=_0x135779['findIndex'](_0x267d79=>_0x267d79>=_0x2e9ec0['Zoom']-0.001);if(_0x320cef===-0x1)_0x320cef=_0x135779['length']-0x1;_0x2e9ec0['Zoom']=_0x135779[Clamp(_0x320cef+_0x75799,0x0,_0x135779['length']-0x1)];}ApplyFrameZoom(_0x2e9ec0['ViewEl']['querySelector']('iframe'),_0x2e9ec0['Zoom']);RefreshToolbar();ShowToast('縮放\x20'+Math['round'](_0x2e9ec0['Zoom']*0x64)+'%');return!![];}function ApplyTheme(_0x1f47c1){const _0x5c0303=_0x1f47c1==='dark';document['body']['classList']['toggle']('theme-dark',_0x5c0303);document['body']['classList']['toggle']('theme-light',!_0x5c0303);Dom['ThemeButton']['innerHTML']=_0x5c0303?'<i\x20class=\x22fa-solid\x20fa-sun\x22></i>':'<i\x20class=\x22fa-solid\x20fa-moon\x22></i>';Dom['ThemeButton']['title']=_0x5c0303?'切換為亮色':'切換為深色';localStorage['setItem'](Config['StorageKeys']['Theme'],_0x5c0303?'dark':'light');}function ToggleTheme(){ApplyTheme(document['body']['classList']['contains']('theme-dark')?'light':'dark');}function ClearBrowsingData(){[Config['StorageKeys']['History'],Config['StorageKeys']['OpenTabs'],Config['StorageKeys']['ActiveTab'],Config['StorageKeys']['Cookies']]['forEach'](_0x236d2d=>localStorage['removeItem'](_0x236d2d));sessionStorage['clear']();State['ClosedTabs']=[];ShowToast('已清除瀏覽紀錄、分頁與\x20Cookie');}const ExportStringKeys=['Theme','ProxyBase','ProxyKey','TimeoutSec'];const ExportFlagKeys=Object['keys'](Config['DefaultFlags']);function ExportSettings(){const _0x45a5bc={};ExportStringKeys['forEach'](_0x2765b5=>{const _0x5e30a5=localStorage['getItem'](Config['StorageKeys'][_0x2765b5]);if(_0x5e30a5!==null)_0x45a5bc[_0x2765b5]=_0x5e30a5;});ExportFlagKeys['forEach'](_0x2f633e=>{_0x45a5bc[_0x2f633e]=GetFlag(_0x2f633e);});_0x45a5bc['Bookmarks']=LoadBookmarks();_0x45a5bc['Shortcuts']=LoadShortcuts();const _0x121bd9={'App':'OwOb','Version':0x1,'ExportedAt':new Date()['toISOString'](),'Data':_0x45a5bc};const _0x8a2b9c=new Date()['toISOString']()['slice'](0x0,0xa)['replace'](/-/g,'');const _0x165d21=new Blob([JSON['stringify'](_0x121bd9,null,0x2)],{'type':'application/json'});const _0x97307e=document['createElement']('a');_0x97307e['href']=URL['createObjectURL'](_0x165d21);_0x97307e['download']='OwO-Simple-Browser-Settings-'+_0x8a2b9c+'.json';document['body']['appendChild'](_0x97307e);_0x97307e['click']();_0x97307e['remove']();setTimeout(()=>URL['revokeObjectURL'](_0x97307e['href']),0x3e8);ShowToast('已匯出設定');}async function ImportSettings(_0x4bd62a){let _0x5eddc9;try{_0x5eddc9=JSON['parse'](await _0x4bd62a['text']());}catch{ShowToast('匯入失敗：檔案不是有效的\x20JSON');return;}if(!_0x5eddc9||_0x5eddc9['App']!=='OwOb'||typeof _0x5eddc9['Data']!=='object'||_0x5eddc9['Data']===null){ShowToast('匯入失敗：不是\x20OwO\x20Simple\x20Browser\x20設定檔');return;}const _0xe85438=_0x5eddc9['Data'];ExportStringKeys['forEach'](_0x527b7e=>{if(typeof _0xe85438[_0x527b7e]==='string'){localStorage['setItem'](Config['StorageKeys'][_0x527b7e],_0xe85438[_0x527b7e]);}});if(typeof _0xe85438['ProxyBase']==='string'&&!NormalizeProxyBase(_0xe85438['ProxyBase'])){localStorage['removeItem'](Config['StorageKeys']['ProxyBase']);}ExportFlagKeys['forEach'](_0x1b00f4=>{if(typeof _0xe85438[_0x1b00f4]==='boolean')SetFlag(_0x1b00f4,_0xe85438[_0x1b00f4]);});if(Array['isArray'](_0xe85438['Bookmarks'])){SaveBookmarks(_0xe85438['Bookmarks']['filter'](_0x1b0a61=>_0x1b0a61&&typeof _0x1b0a61['Url']==='string'&&IsWebUrl(_0x1b0a61['Url']))['map'](_0x34b602=>({'Id':typeof _0x34b602['Id']==='string'?_0x34b602['Id']:CreateId(),'Url':_0x34b602['Url'],'Title':typeof _0x34b602['Title']==='string'?_0x34b602['Title']:'','Time':Number(_0x34b602['Time'])||Date['now']()})));}if(Array['isArray'](_0xe85438['Shortcuts'])){SaveShortcuts(_0xe85438['Shortcuts']['filter'](_0x5af1f1=>_0x5af1f1&&typeof _0x5af1f1['Url']==='string'&&(IsWebUrl(_0x5af1f1['Url'])||IsInternalUrl(_0x5af1f1['Url'])))['map'](_0x58e702=>{const _0x1140f2={'Name':typeof _0x58e702['Name']==='string'?_0x58e702['Name']:_0x58e702['Url'],'Url':_0x58e702['Url']};if(typeof _0x58e702['Icon']==='string'&&/^fa-[\w\s-]+$/['test'](_0x58e702['Icon']))_0x1140f2['Icon']=_0x58e702['Icon'];return _0x1140f2;}));}ApplyTheme(localStorage['getItem'](Config['StorageKeys']['Theme'])||'light');ShowToast('已匯入設定');const _0x234096=GetActiveTab();if(_0x234096&&IsInternalUrl(GetTabUrl(_0x234096))){RenderInternalPage(_0x234096,GetTabUrl(_0x234096));}RefreshToolbar();}function OpenCloaked(){const _0x4e11bb=window['open']('about:blank','_blank');if(!_0x4e11bb){ShowToast('彈出視窗被封鎖，請允許後再試');return;}_0x4e11bb['document']['title']='新分頁';_0x4e11bb['document']['body']['style']['margin']='0';const _0x74bf88=_0x4e11bb['document']['createElement']('iframe');_0x74bf88['src']=location['href'];_0x74bf88['style']['cssText']='border:none;width:100vw;height:100vh;display:block';_0x4e11bb['document']['body']['appendChild'](_0x74bf88);}function HandleShortcut({Key:_0x11b654,Ctrl:_0x4ea762,Alt:_0x4c207a,Shift:_0x3cd15e}){if(_0x4ea762&&!_0x4c207a){switch(_0x11b654){case'k':{const _0x225c6f=GetActiveTab()?.['ViewEl']['querySelector']('.StartSearch\x20input');(_0x225c6f||Dom['AddressInput'])['focus']();return!![];}case'l':Dom['AddressInput']['focus']();return!![];case'f':OpenFindBar();return!![];case'd':ToggleBookmark();return!![];case'=':case'+':return ChangeZoom(0x1);case'-':return ChangeZoom(-0x1);case'0':return ChangeZoom(0x0);}}if(_0x4c207a&&!_0x4ea762){switch(_0x11b654){case't':if(_0x3cd15e)ReopenClosedTab();else CreateTab();return!![];case'w':if(State['ActiveId'])CloseTab(State['ActiveId']);return!![];case'arrowleft':GoBack();return!![];case'arrowright':GoForward();return!![];}}if(_0x11b654==='f5'&&!_0x4ea762){Reload();return!![];}return![];}function BindEvents(){Dom['AddTabButton']['addEventListener']('click',()=>CreateTab());Dom['BackButton']['addEventListener']('click',GoBack);Dom['ForwardButton']['addEventListener']('click',GoForward);Dom['ReloadButton']['addEventListener']('click',Reload);Dom['ProxyModeButton']['addEventListener']('click',ToggleCurrentTabLoadMode);Dom['ThemeButton']['addEventListener']('click',ToggleTheme);Dom['BookmarkButton']['addEventListener']('click',()=>ToggleBookmark());Dom['ZoomButton']['addEventListener']('click',()=>ChangeZoom(0x0));Dom['HomeButton']['addEventListener']('click',()=>{const _0x4ecbd0=GetActiveTab();if(_0x4ecbd0)Navigate(_0x4ecbd0,Config['HomeUrl']);});Dom['SettingsButton']['addEventListener']('click',()=>{const _0x3749cc=GetActiveTab();if(_0x3749cc)Navigate(_0x3749cc,'owob://settings');});Dom['AddressForm']['addEventListener']('submit',_0x25567b=>{_0x25567b['preventDefault']();if(State['Suggest']['Index']>=0x0){OpenSuggestion(State['Suggest']['Index']);return;}HideSuggestions();NavigateFromInput(Dom['AddressInput']['value']);Dom['AddressInput']['blur']();});Dom['AddressInput']['addEventListener']('focus',()=>Dom['AddressInput']['select']());Dom['AddressInput']['addEventListener']('input',UpdateSuggestions);Dom['AddressInput']['addEventListener']('blur',()=>{HideSuggestions();RefreshToolbar();});Dom['AddressInput']['addEventListener']('keydown',_0xa743ca=>{if(_0xa743ca['key']==='ArrowDown'){_0xa743ca['preventDefault']();MoveSuggestion(0x1);}else if(_0xa743ca['key']==='ArrowUp'){_0xa743ca['preventDefault']();MoveSuggestion(-0x1);}else if(_0xa743ca['key']==='Escape'){if(!Dom['SuggestList']['hidden']){HideSuggestions();}else{Dom['AddressInput']['blur']();}}});Dom['SuggestList']['addEventListener']('mousedown',_0x247e12=>{const _0x174175=_0x247e12['target']['closest']('[data-index]');if(!_0x174175)return;_0x247e12['preventDefault']();OpenSuggestion(Number(_0x174175['dataset']['index']));});Dom['FindInput']['addEventListener']('input',()=>SendFind({'Restart':!![]}));Dom['FindInput']['addEventListener']('keydown',_0x4c2efa=>{if(_0x4c2efa['key']==='Enter'){_0x4c2efa['preventDefault']();SendFind({'Backwards':_0x4c2efa['shiftKey']});}else if(_0x4c2efa['key']==='Escape'){_0x4c2efa['preventDefault']();CloseFindBar();}});Dom['FindPrevButton']['addEventListener']('click',()=>SendFind({'Backwards':!![]}));Dom['FindNextButton']['addEventListener']('click',()=>SendFind());Dom['FindCloseButton']['addEventListener']('click',CloseFindBar);Dom['ImportInput']['addEventListener']('change',()=>{const _0x59089d=Dom['ImportInput']['files']&&Dom['ImportInput']['files'][0x0];if(_0x59089d)ImportSettings(_0x59089d);});document['addEventListener']('mousedown',_0x481022=>{if(ActiveContextMenu&&!ActiveContextMenu['contains'](_0x481022['target']))HideContextMenu();});window['addEventListener']('blur',HideContextMenu);window['addEventListener']('resize',HideContextMenu);document['addEventListener']('keydown',_0x3c03de=>{if(document['querySelector']('.DialogOverlay'))return;if(_0x3c03de['key']==='Escape'){if(ActiveContextMenu){HideContextMenu();return;}if(State['Find']['Open']){CloseFindBar();return;}}const _0xcabb39=String(_0x3c03de['key']||'')['toLowerCase']();if(!_0xcabb39)return;const _0xce0cdf=HandleShortcut({'Key':_0xcabb39,'Ctrl':Boolean(_0x3c03de['ctrlKey']||_0x3c03de['metaKey']),'Alt':Boolean(_0x3c03de['altKey']),'Shift':Boolean(_0x3c03de['shiftKey'])});if(_0xce0cdf)_0x3c03de['preventDefault']();});}document['addEventListener']('DOMContentLoaded',()=>{localStorage['removeItem']('OwOb.SearchEngine');ApplyTheme(localStorage['getItem'](Config['StorageKeys']['Theme'])||'light');BindEvents();RestoreTabs();});
+/* ============================================================
+ *  OwO Simple Browser - 主程式 v34
+ *
+ *  架構：
+ *     1. 設定與狀態
+ *     2. 工具函式（儲存、提示、網址處理）
+ *     3. 偏好設定存取（代理、金鑰、逾時、載入選項）
+ *     4. 代理網址工具（主頁面與 iframe 共用的純函式）
+ *     5. Cookie 罐
+ *     6. 瀏覽紀錄 / 書籤 / 首頁捷徑
+ *     7. 共用介面元件（對話框、右鍵選單）
+ *     8. 分頁管理（建立 / 切換 / 關閉 / 拖曳排序 / 複製 / 重新開啟）
+ *     9. 導覽與工具列
+ *    10. 網址列自動完成
+ *    11. 內部頁面（start / settings / history / bookmarks / cookies）
+ *    12. 外部頁面（經代理載入、CSS 內嵌、資源網址改寫）
+ *    13. iframe 代理程式（連結 / 表單 / 資源 / 請求 / 頁內搜尋 / 快捷鍵）
+ *    14. iframe 訊息接收
+ *    15. 頁內搜尋 / 縮放
+ *    16. 主題 / 備份 / 隱藏分頁
+ *    17. 快捷鍵、事件綁定與初始化
+ * ============================================================ */
+
+"use strict";
+
+/* ============================================================
+ *  1. 設定與狀態
+ * ============================================================ */
+
+const Config = {
+    // 預設代理（自架 Cloudflare Worker）；介面上不顯示，使用者可於設定頁自填覆蓋
+    DefaultProxyBase: "https://owob-proxy.kkwan812.workers.dev/?url=",
+
+    // 內建搜尋引擎（固定使用 Bing）
+    SearchUrl: "https://www.bing.com/search?q=",
+
+    // 首頁網址
+    HomeUrl: "owob://start",
+
+    // 代理請求逾時（秒）：預設值與可設定範圍
+    DefaultTimeoutSec: 15,
+    MinTimeoutSec:     5,
+    MaxTimeoutSec:     120,
+
+    // 各類清單上限
+    MaxHistory:     500,
+    MaxClosedTabs:  10,
+    MaxSuggestions: 8,
+
+    // 縮放級距
+    ZoomLevels: [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2],
+
+    // 外部樣式表內嵌：單頁上限、單一樣式表逾時（毫秒）
+    MaxInlineStylesheets: 20,
+    StylesheetTimeoutMs:  8000,
+
+    // localStorage 鍵名
+    StorageKeys: {
+        Theme:          "OwOb.Theme",
+        ProxyBase:      "OwOb.ProxyBase",
+        ProxyKey:       "OwOb.ProxyKey",
+        TimeoutSec:     "OwOb.TimeoutSec",
+        ProxyResources: "OwOb.ProxyResources",
+        ProxyScripts:   "OwOb.ProxyScripts",
+        ProxyRequests:  "OwOb.ProxyRequests",
+        History:        "OwOb.History",
+        Bookmarks:      "OwOb.Bookmarks",
+        Shortcuts:      "OwOb.Shortcuts",
+        OpenTabs:       "OwOb.OpenTabs",
+        ActiveTab:      "OwOb.ActiveTab",
+        Cookies:        "OwOb.Cookies"
+    },
+
+    // 載入選項（開關）預設值
+    DefaultFlags: {
+        ProxyResources: true,    // 圖片、影音、字型經代理載入
+        ProxyScripts:   true,    // 外部與模組腳本經代理載入，避免用戶端網路攔截
+        ProxyRequests:  true     // 網頁內 fetch / XHR 經代理送出
+    },
+
+    // 預設首頁捷徑（使用者可新增、編輯、刪除、拖曳排序）
+    DefaultShortcuts: [
+        { Name: "Wikipedia",   Icon: "fa-brands fa-wikipedia-w", Url: "https://zh.wikipedia.org/" },
+        { Name: "GitHub",      Icon: "fa-brands fa-github",      Url: "https://github.com/" },
+        { Name: "Hacker News", Icon: "fa-brands fa-hacker-news", Url: "https://news.ycombinator.com/" },
+        { Name: "Example",     Icon: "fa-solid fa-globe",        Url: "https://example.com/" },
+        { Name: "書籤",         Icon: "fa-solid fa-star",         Url: "owob://bookmarks" },
+        { Name: "設定",         Icon: "fa-solid fa-gear",         Url: "owob://settings" }
+    ]
+};
+
+const State = {
+    Tabs:       [],      // { Id, History, Index, Title, Loading, Zoom, HasAgent, TabEl, ViewEl, Abort }
+    ActiveId:   null,
+    NextId:     1,
+    ClosedTabs: [],      // 最近關閉的分頁 { History, Index, Zoom }
+    DragTabId:  null,    // 拖曳中的分頁
+    Suggest:    { Items: [], Index: -1 },
+    Find:       { Open: false }
+};
+
+// DOM 參照
+const Dom = {
+    TabList:         document.getElementById("TabList"),
+    ViewArea:        document.getElementById("ViewArea"),
+    AddTabButton:    document.getElementById("AddTabButton"),
+    BackButton:      document.getElementById("BackButton"),
+    ForwardButton:   document.getElementById("ForwardButton"),
+    ReloadButton:    document.getElementById("ReloadButton"),
+    HomeButton:      document.getElementById("HomeButton"),
+    ProxyModeButton: document.getElementById("ProxyModeButton"),
+    ThemeButton:     document.getElementById("ThemeButton"),
+    SettingsButton:  document.getElementById("SettingsButton"),
+    AddressForm:     document.getElementById("AddressForm"),
+    AddressInput:    document.getElementById("AddressInput"),
+    AddressIcon:     document.getElementById("AddressIcon"),
+    ZoomButton:      document.getElementById("ZoomButton"),
+    BookmarkButton:  document.getElementById("BookmarkButton"),
+    SuggestList:     document.getElementById("SuggestList"),
+    LoadingBar:      document.getElementById("LoadingBar"),
+    FindBar:         document.getElementById("FindBar"),
+    FindInput:       document.getElementById("FindInput"),
+    FindStatus:      document.getElementById("FindStatus"),
+    FindPrevButton:  document.getElementById("FindPrevButton"),
+    FindNextButton:  document.getElementById("FindNextButton"),
+    FindCloseButton: document.getElementById("FindCloseButton"),
+    ImportInput:     document.getElementById("ImportInput"),
+    Toast:           document.getElementById("Toast")
+};
+
+/* ============================================================
+ *  2. 工具函式
+ * ============================================================ */
+
+/** HTML 跳脫，避免插入頁面時被解析成標籤 */
+function EscapeHtml(text) {
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+/** 解碼 HTML 實體（如 &amp;）；不含「&」時直接回傳以節省效能 */
+function DecodeEntities(text) {
+    const value = String(text);
+    if (!value.includes("&")) return value;
+    const textarea = document.createElement("textarea");
+    textarea.innerHTML = value;
+    return textarea.value;
+}
+
+/** 顯示短暫提示 */
+let ToastTimer = null;
+function ShowToast(message) {
+    Dom.Toast.textContent = message;
+    Dom.Toast.classList.add("Show");
+    clearTimeout(ToastTimer);
+    ToastTimer = setTimeout(() => Dom.Toast.classList.remove("Show"), 2600);
+}
+
+/** 讀寫 localStorage（JSON） */
+function LoadJson(key, fallback) {
+    try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+    } catch {
+        return fallback;
+    }
+}
+
+function SaveJson(key, value) {
+    try {
+        localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+        /* 儲存空間滿或被停用時忽略 */
+    }
+}
+
+/** 產生短識別碼 */
+function CreateId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+/** 數值限制在範圍內 */
+function Clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+}
+
+/** 取得目前分頁 */
+function GetActiveTab() {
+    return State.Tabs.find(tab => tab.Id === State.ActiveId) || null;
+}
+
+/** 依 Id 取得分頁 */
+function GetTabById(id) {
+    return State.Tabs.find(tab => tab.Id === id) || null;
+}
+
+/** 取得分頁目前網址 */
+function GetTabUrl(tab) {
+    return tab.History[tab.Index] || Config.HomeUrl;
+}
+
+/** 將內部實際網址轉為提供給使用者閱讀的網址 */
+function GetDisplayUrl(url) {
+    const value = String(url);
+    const match = value.match(/^owob:\/\/([^/?#]+)/i);
+    if (!match) return value;
+
+    const pageNames = {
+        start:     "Start",
+        settings:  "Settings",
+        history:   "History",
+        bookmarks: "Bookmarks",
+        cookies:   "Cookies"
+    };
+    const page = pageNames[match[1].toLowerCase()] || match[1];
+    return `Browser://${page}`;
+}
+
+/** 將使用者輸入的 Browser:// 內部網址轉回實際路由 */
+function NormalizeInternalInput(input) {
+    const value = String(input).trim();
+    const match = value.match(/^browser:\/\/([^/?#]+)/i);
+    return match ? `owob://${match[1].toLowerCase()}` : value;
+}
+
+/** 是否為內部網址 */
+function IsInternalUrl(url) {
+    return String(url).toLowerCase().startsWith("owob://");
+}
+
+/** 是否為 http / https 網址 */
+function IsWebUrl(url) {
+    return /^https?:\/\//i.test(String(url));
+}
+
+/** 取得網址主機名稱；失敗回傳空字串 */
+function GetHostname(url) {
+    try {
+        return new URL(url).hostname;
+    } catch {
+        return "";
+    }
+}
+
+/** 日期時間格式化 */
+function FormatDateTime(time) {
+    return new Date(time).toLocaleString("zh-TW", { hour12: false });
+}
+
+/** Base64 / Base64URL 解碼為 UTF-8 字串；失敗回傳空字串 */
+function DecodeBase64Url(text) {
+    try {
+        let base64 = String(text).replace(/-/g, "+").replace(/_/g, "/");
+        while (base64.length % 4) base64 += "=";
+        const binary = atob(base64);
+        const bytes  = Uint8Array.from(binary, char => char.charCodeAt(0));
+        return new TextDecoder().decode(bytes);
+    } catch {
+        return "";
+    }
+}
+
+/**
+ * 解除搜尋引擎的點擊追蹤轉址，直接取得真正的目的網址
+ * 這些追蹤頁多半用 JavaScript（location.replace）跳轉，
+ * 在沙箱 iframe 內會繞過代理直接連線，被目的網站拒絕嵌入而顯示破圖。
+ *
+ *   Bing       https://www.bing.com/ck/a?...&u=a1<Base64URL>
+ *   DuckDuckGo https://duckduckgo.com/l/?uddg=<編碼網址>
+ *   Google     https://www.google.com/url?q=<編碼網址>
+ *   Yahoo      https://r.search.yahoo.com/.../RU=<編碼網址>/RK=...
+ *
+ * 無法解析時回傳原網址
+ */
+function UnwrapRedirectUrl(url) {
+    let parsed;
+    try {
+        parsed = new URL(url);
+    } catch {
+        return url;
+    }
+
+    const host = parsed.hostname.toLowerCase();
+    const path = parsed.pathname;
+    let target = "";
+
+    if (/(^|\.)bing\.com$/.test(host) && path.startsWith("/ck/a")) {
+        const value = parsed.searchParams.get("u") || "";
+        target = value.startsWith("a1") ? DecodeBase64Url(value.slice(2)) : value;
+    } else if (/(^|\.)duckduckgo\.com$/.test(host) && path.startsWith("/l/")) {
+        target = parsed.searchParams.get("uddg") || "";
+    } else if (/(^|\.)google\.[a-z.]+$/.test(host) && path === "/url") {
+        target = parsed.searchParams.get("q") || parsed.searchParams.get("url") || "";
+    } else if (/(^|\.)search\.yahoo\.com$/.test(host)) {
+        const match = path.match(/\/RU=([^/]+)\//);
+        if (match) {
+            try {
+                target = decodeURIComponent(match[1]);
+            } catch {
+                target = "";
+            }
+        }
+    }
+
+    return IsWebUrl(target) ? target : url;
+}
+
+/** 移除 Reddit JavaScript Challenge 的一次性參數。 */
+function NormalizeRedditChallengeUrl(value) {
+    try {
+        const target = new URL(value);
+        const host = target.hostname.toLowerCase();
+        if (host === "reddit.com" || host.endsWith(".reddit.com")) {
+            ["solution", "js_challenge", "jsc_token", "jsc_orig_r"].forEach(name => target.searchParams.delete(name));
+        }
+        return target.href;
+    } catch {
+        return value;
+    }
+}
+
+/** 由 PTT over18 網址或本文遞迴取出最終看板路徑，避免 /ask/over18 巢狀。 */
+function GetCanonicalPttReturnPath(value, fallbackPageUrl = "") {
+    const candidates = [String(value || ""), String(fallbackPageUrl || "")];
+
+    for (const candidate of candidates) {
+        let current = candidate;
+        for (let depth = 0; depth < 10; depth++) {
+            if (!current || current === "srcdoc" || current === "about:srcdoc" || current.startsWith("about:")) break;
+            try {
+                const parsed = new URL(current, "https://www.ptt.cc/");
+                if (parsed.hostname.toLowerCase() !== "www.ptt.cc") break;
+                if (parsed.pathname !== "/ask/over18") {
+                    if (parsed.pathname.startsWith("/")) return parsed.pathname + parsed.search;
+                    break;
+                }
+                const nested = String(parsed.searchParams.get("from") || "").trim();
+                if (!nested || nested === current) break;
+                current = nested;
+            } catch {
+                if (current.startsWith("/") && !current.startsWith("/ask/over18")) return current;
+                break;
+            }
+        }
+    }
+    return "/";
+}
+
+/** 判斷 OwO Cookie 罐是否已有 PTT 年齡確認 Cookie。 */
+function HasPttOver18Cookie() {
+    const jar = LoadCookieJar();
+    return Object.entries(jar).some(([domain, cookies]) =>
+        (domain === "ptt.cc" || domain.endsWith(".ptt.cc")) &&
+        cookies && cookies.over18 && String(cookies.over18.Value) === "1"
+    );
+}
+
+/** 修正 PTT 年齡確認網址，永遠只保留一層 canonical from。 */
+function NormalizePttOver18Url(value, pageUrl) {
+    try {
+        const current = new URL(pageUrl, "https://www.ptt.cc/");
+        const target = new URL(value, current);
+        if (target.hostname.toLowerCase() !== "www.ptt.cc" || target.pathname !== "/ask/over18") {
+            return target.href;
+        }
+        const returnPath = GetCanonicalPttReturnPath(target.searchParams.get("from"), current.href);
+        target.search = "";
+        target.searchParams.set("from", returnPath);
+        return target.href;
+    } catch {
+        return value;
+    }
+}
+
+/** 修正 PTT 年齡確認 POST 本文，保留 yes 並將 from 去巢狀化。 */
+function NormalizePttOver18PostBody(url, body, pageUrl) {
+    try {
+        const target = new URL(url, pageUrl);
+        if (target.hostname.toLowerCase() !== "www.ptt.cc" || target.pathname !== "/ask/over18") return body;
+        const params = new URLSearchParams(body);
+        const returnPath = GetCanonicalPttReturnPath(params.get("from"), target.href || pageUrl);
+        params.set("from", returnPath);
+        return params.toString();
+    } catch {
+        return body;
+    }
+}
+
+/**
+ * 將使用者輸入轉為可導覽的網址
+ *   owob://xxx         → 內部頁面
+ *   含協定的網址         → 原樣
+ *   像網域的字串         → 補上 https://
+ *   其他                → 使用 Bing 搜尋
+ */
+function ResolveInput(input) {
+    const text = NormalizeInternalInput(input);
+
+    if (!text) {
+        return Config.HomeUrl;
+    }
+    if (IsInternalUrl(text)) {
+        return text.toLowerCase();
+    }
+    if (IsWebUrl(text)) {
+        return text;
+    }
+
+    const looksLikeDomain = /^[\w-]+(\.[\w-]+)+(:\d+)?(\/.*)?$/.test(text) && !/\s/.test(text);
+    if (looksLikeDomain) {
+        return "https://" + text;
+    }
+
+    return Config.SearchUrl + encodeURIComponent(text);
+}
+
+/** 將使用者輸入的捷徑 / 書籤網址整理為可用網址；格式錯誤回傳 null */
+function NormalizeUserUrl(input) {
+    const text = String(input || "").trim();
+    if (!text) return null;
+    if (IsInternalUrl(text)) return text.toLowerCase();
+
+    const candidate = IsWebUrl(text) ? text : "https://" + text;
+    try {
+        return new URL(candidate).toString();
+    } catch {
+        return null;
+    }
+}
+
+/* ============================================================
+ *  3. 偏好設定存取
+ * ============================================================ */
+
+/** 是否使用自訂代理 */
+function IsCustomProxy() {
+    return Boolean(localStorage.getItem(Config.StorageKeys.ProxyBase));
+}
+
+/** 取得目前使用的代理前綴（自訂優先，否則使用預設） */
+function GetProxyBase() {
+    return localStorage.getItem(Config.StorageKeys.ProxyBase) || Config.DefaultProxyBase;
+}
+
+/** 取得代理存取金鑰（未設定為空字串） */
+function GetProxyKey() {
+    return localStorage.getItem(Config.StorageKeys.ProxyKey) || "";
+}
+
+/** 取得代理逾時秒數 */
+function GetTimeoutSec() {
+    const value = Number(localStorage.getItem(Config.StorageKeys.TimeoutSec));
+    return Number.isFinite(value) && value > 0
+        ? Clamp(Math.round(value), Config.MinTimeoutSec, Config.MaxTimeoutSec)
+        : Config.DefaultTimeoutSec;
+}
+
+/** 取得代理逾時毫秒數 */
+function GetTimeoutMs() {
+    return GetTimeoutSec() * 1000;
+}
+
+/** 讀取開關設定（名稱對應 Config.DefaultFlags） */
+function GetFlag(name) {
+    const raw = localStorage.getItem(Config.StorageKeys[name]);
+    if (raw === "1") return true;
+    if (raw === "0") return false;
+    return Boolean(Config.DefaultFlags[name]);
+}
+
+/** 寫入開關設定 */
+function SetFlag(name, value) {
+    localStorage.setItem(Config.StorageKeys[name], value ? "1" : "0");
+}
+
+/**
+ * 整理使用者輸入的代理網址
+ *   https://xxx.workers.dev/?url=   → 原樣
+ *   https://xxx.workers.dev         → 自動補成 https://xxx.workers.dev/?url=
+ *   https://xxx/api?x=1             → 補成 https://xxx/api?x=1&url=
+ * @returns {string|null} 格式錯誤時回傳 null
+ */
+function NormalizeProxyBase(input) {
+    const text = String(input || "").trim();
+    if (!text) return null;
+
+    let parsed;
+    try {
+        parsed = new URL(text);
+    } catch {
+        return null;
+    }
+
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        return null;
+    }
+    if (text.endsWith("=")) {
+        return text;
+    }
+    if (!parsed.search) {
+        return text.replace(/\/+$/, "") + "/?url=";
+    }
+    return text + "&url=";
+}
+
+/* ============================================================
+ *  4. 代理網址工具
+ *     RewriteSrcset 與 MakeProxyUrl 為「純函式」（不引用外部變數），
+ *     除了主頁面使用外，也會以原始碼形式注入 iframe 內共用。
+ * ============================================================ */
+
+/**
+ * 改寫 srcset 內每個網址（保留 1x / 2x / 300w 等描述）
+ * 依 HTML 規格逐字解析，可正確處理網址內含逗號的情況（例如 w_100,h_100）
+ */
+function RewriteSrcset(value, mapper) {
+    var text   = String(value);
+    var output = [];
+    var index  = 0;
+
+    while (index < text.length) {
+        // 略過前置空白與逗號
+        while (index < text.length && /[\s,]/.test(text.charAt(index))) index++;
+        if (index >= text.length) break;
+
+        // 讀取網址（到空白為止）
+        var end = index;
+        while (end < text.length && !/\s/.test(text.charAt(end))) end++;
+
+        var url        = text.slice(index, end);
+        var descriptor = "";
+
+        if (/,$/.test(url)) {
+            // 網址後緊接逗號：沒有描述
+            url   = url.replace(/,+$/, "");
+            index = end;
+        } else {
+            // 讀取描述（到逗號為止）
+            var next = end;
+            while (next < text.length && text.charAt(next) !== ",") next++;
+            descriptor = text.slice(end, next).trim();
+            index      = next + 1;
+        }
+
+        output.push(mapper(url) + (descriptor ? " " + descriptor : ""));
+    }
+
+    return output.join(", ");
+}
+
+/** 組合代理網址（有金鑰時以 key 參數附上，讓 <img> 等無法帶標頭的請求也能通過驗證） */
+function MakeProxyUrl(base, key, url) {
+    return base + encodeURIComponent(url) + (key ? "&key=" + encodeURIComponent(key) : "");
+}
+
+/** 組合目前設定下的代理網址 */
+function BuildProxyUrl(url) {
+    return MakeProxyUrl(GetProxyBase(), GetProxyKey(), url);
+}
+
+/** 組合同源反向代理路徑。需要搭配 v21 worker.js 部署。 */
+function BuildSameOriginProxyUrl(url) {
+    const target = new URL(url);
+    const proxy = new URL(GetProxyBase());
+    const protocolName = target.protocol.replace(":", "");
+    proxy.pathname = `/__owo_proxy__/${protocolName}/${target.host}${target.pathname}`;
+    proxy.search = target.search;
+    if (GetProxyKey()) proxy.searchParams.set("_owo_key", GetProxyKey());
+    proxy.hash = target.hash;
+    return proxy.toString();
+}
+
+function ToggleCurrentTabLoadMode() {
+    const tab = GetActiveTab();
+    if (!tab || IsInternalUrl(GetTabUrl(tab))) {
+        ShowToast("內部頁面不使用代理載入模式");
+        return;
+    }
+    tab.LoadMode = tab.LoadMode === "same-origin" ? "standard" : "same-origin";
+    RefreshToolbar();
+    ShowToast(tab.LoadMode === "same-origin" ? "已切換：同源反向代理模式" : "已切換：標準代理模式");
+    Navigate(tab, GetTabUrl(tab), false);
+}
+
+/** 取得代理伺服器來源（協定 + 主機） */
+function GetProxyOrigin() {
+    try {
+        return new URL(GetProxyBase()).origin;
+    } catch {
+        return "";
+    }
+}
+
+/** 絕對網址是否需要經代理（http / https，且不是代理本身） */
+function ShouldProxyUrl(absoluteUrl) {
+    if (!IsWebUrl(absoluteUrl)) return false;
+    const proxyOrigin = GetProxyOrigin();
+    return !proxyOrigin || !absoluteUrl.startsWith(proxyOrigin + "/");
+}
+
+/** 將初始 HTML 內 data: JavaScript 模組的 import/export 改為代理網址。 */
+function RewriteDataJavaScriptResource(value, baseUrl) {
+    const text  = String(value || "");
+    const match = text.match(/^data:(text|application)\/(?:javascript|ecmascript)([^,]*),(.*)$/is);
+    if (!match) return value;
+
+    const metadata = match[2] || "";
+    let source;
+    try {
+        if (/;base64/i.test(metadata)) {
+            const binary = atob(match[3] || "");
+            const bytes  = Uint8Array.from(binary, character => character.charCodeAt(0));
+            source = new TextDecoder().decode(bytes);
+        } else {
+            source = decodeURIComponent(match[3] || "");
+        }
+    } catch {
+        return value;
+    }
+
+    const rewritten = RewriteJavaScriptUrls(source, baseUrl);
+    return rewritten === source
+        ? value
+        : `data:${match[1]}/javascript;charset=utf-8,${encodeURIComponent(rewritten)}`;
+}
+
+/** 將頁面中的資源網址（可能為相對路徑）轉為代理網址；不需轉換時回傳原值 */
+function MapResourceUrl(value, baseUrl) {
+    const text = String(value).trim();
+    if (/^data:(?:text|application)\/(?:javascript|ecmascript)/i.test(text)) {
+        return RewriteDataJavaScriptResource(text, baseUrl);
+    }
+    if (!text || /^(data:|blob:|about:|javascript:|#)/i.test(text)) {
+        return value;
+    }
+
+    let absolute;
+    try {
+        absolute = new URL(text, baseUrl).toString();
+    } catch {
+        return value;
+    }
+
+    return ShouldProxyUrl(absolute) ? BuildProxyUrl(absolute) : value;
+}
+
+/** 產生可安全嵌入 <script> 的 JSON */
+function SafeJson(value) {
+    return JSON.stringify(value)
+        .replace(/</g, "\\u003c")
+        .replace(/\u2028/g, "\\u2028")
+        .replace(/\u2029/g, "\\u2029");
+}
+
+/* ============================================================
+ *  5. Cookie 罐
+ *     代理會移除 Set-Cookie，改以 X-Proxy-Set-Cookie 回傳。
+ *     這裡把 Cookie 存進 localStorage，下次請求同站時
+ *     以 X-Proxy-Cookie-Jar 送回代理，讓驗證 / 登入狀態可延續。
+ *
+ *     結構：{ "<網域>": { "<名稱>": { Value, Expires, HostOnly } } }
+ *     （簡化實作：不比對 Path，同網域 Cookie 一律送出）
+ * ============================================================ */
+
+/** 讀取 Cookie 罐，並順便清除已過期項目 */
+function LoadCookieJar() {
+    const jar = LoadJson(Config.StorageKeys.Cookies, {});
+    const now = Date.now();
+
+    Object.keys(jar).forEach(domain => {
+        Object.keys(jar[domain]).forEach(name => {
+            const expires = jar[domain][name].Expires;
+            if (expires !== null && expires <= now) {
+                delete jar[domain][name];
+            }
+        });
+        if (Object.keys(jar[domain]).length === 0) {
+            delete jar[domain];
+        }
+    });
+
+    return jar;
+}
+
+/**
+ * 解析一筆 Set-Cookie 並寫入 Cookie 罐
+ * @param {object} jar     Cookie 罐
+ * @param {string} host    設定此 Cookie 的主機
+ * @param {string} cookie  Set-Cookie 原始字串
+ */
+function ApplySetCookie(jar, host, cookie) {
+    const parts = String(cookie).split(";");
+    const pair  = parts.shift();
+    const index = pair.indexOf("=");
+    if (index <= 0) return;
+
+    const name  = pair.slice(0, index).trim();
+    const value = pair.slice(index + 1).trim();
+
+    let domain   = host.toLowerCase();
+    let hostOnly = true;
+    let expires  = null;      // null = 工作階段 Cookie
+    let rejected = false;
+
+    parts.forEach(part => {
+        const [rawKey, ...rest] = part.split("=");
+        const key = rawKey.trim().toLowerCase();
+        const val = rest.join("=").trim();
+
+        if (key === "domain" && val) {
+            const cleaned = val.replace(/^\./, "").toLowerCase();
+            // 只接受主機本身或其上層網域；不符合時整筆捨棄，避免跨站寫入
+            if (domain === cleaned || domain.endsWith("." + cleaned)) {
+                domain   = cleaned;
+                hostOnly = false;
+            } else {
+                rejected = true;
+            }
+        } else if (key === "max-age" && val) {
+            expires = Date.now() + Number(val) * 1000;
+        } else if (key === "expires" && val && expires === null) {
+            const time = Date.parse(val);
+            if (!Number.isNaN(time)) expires = time;
+        }
+    });
+
+    if (rejected) return;
+
+    jar[domain] = jar[domain] || {};
+    if (expires !== null && expires <= Date.now()) {
+        delete jar[domain][name];       // 目標網站要求刪除
+    } else {
+        jar[domain][name] = { Value: value, Expires: expires, HostOnly: hostOnly };
+    }
+}
+
+/** 儲存代理回傳的 Cookie（X-Proxy-Set-Cookie） */
+function StoreProxyCookies(headerValue) {
+    if (!headerValue) return;
+
+    let list;
+    try {
+        list = JSON.parse(decodeURIComponent(headerValue));
+    } catch {
+        return;
+    }
+    if (!Array.isArray(list)) return;
+
+    const jar = LoadCookieJar();
+    list.forEach(item => {
+        if (item && typeof item.Host === "string" && typeof item.Cookie === "string") {
+            ApplySetCookie(jar, item.Host, item.Cookie);
+        }
+    });
+    SaveJson(Config.StorageKeys.Cookies, jar);
+}
+
+/**
+ * 取得網站主網域（簡化版）
+ *   tw.search.yahoo.com → yahoo.com
+ *   www.ptt.cc          → ptt.cc
+ *   news.yahoo.com.tw   → yahoo.com.tw（第二層為 com / net / org 等的國碼網域）
+ */
+function GetSiteDomain(host) {
+    const labels = host.toLowerCase().split(".");
+    if (labels.length <= 2) {
+        return labels.join(".");
+    }
+
+    const secondLevel = labels[labels.length - 2];
+    const topLevel    = labels[labels.length - 1];
+    const isCcSecond  = topLevel.length === 2 && ["com", "net", "org", "edu", "gov", "co", "ac", "or", "ne", "idv"].includes(secondLevel);
+
+    return labels.slice(isCcSecond ? -3 : -2).join(".");
+}
+
+/**
+ * 取得同站 Cookie 罐（傳給代理）
+ * 轉址可能跨子網域（例如 tw.search.yahoo.com → guce.yahoo.com），
+ * 因此把同一主網域下的 Cookie 全部交給代理，由代理依每一跳的主機挑選
+ */
+function GetSiteCookieJar(url) {
+    let site;
+    try {
+        site = GetSiteDomain(new URL(url).hostname);
+    } catch {
+        return [];
+    }
+
+    const jar     = LoadCookieJar();
+    const entries = [];
+
+    Object.keys(jar).forEach(domain => {
+        if (domain !== site && !domain.endsWith("." + site)) return;
+        Object.entries(jar[domain]).forEach(([name, item]) => {
+            entries.push({ Domain: domain, Name: name, Value: item.Value, HostOnly: item.HostOnly });
+        });
+    });
+
+    return entries;
+}
+
+/** 計算目前 Cookie 總數 */
+function CountCookies() {
+    const jar = LoadCookieJar();
+    return Object.values(jar).reduce((sum, items) => sum + Object.keys(items).length, 0);
+}
+
+/** 刪除指定網域（或其中單一 Cookie） */
+function DeleteCookie(domain, name = null) {
+    const jar = LoadCookieJar();
+    if (!jar[domain]) return;
+
+    if (name === null) {
+        delete jar[domain];
+    } else {
+        delete jar[domain][name];
+        if (Object.keys(jar[domain]).length === 0) delete jar[domain];
+    }
+    SaveJson(Config.StorageKeys.Cookies, jar);
+}
+
+/* ============================================================
+ *  6. 瀏覽紀錄 / 書籤 / 首頁捷徑
+ * ============================================================ */
+
+/* ---------- 瀏覽紀錄 ----------
+ * 結構：[{ Id, Url, Title, Time }]（新到舊）
+ */
+
+/** 讀取瀏覽紀錄（舊版紀錄沒有 Id 時自動補上） */
+function LoadHistory() {
+    const records = LoadJson(Config.StorageKeys.History, []);
+    if (!Array.isArray(records)) return [];
+
+    let patched = false;
+    records.forEach(record => {
+        if (!record.Id) {
+            record.Id = CreateId();
+            patched   = true;
+        }
+    });
+    if (patched) SaveJson(Config.StorageKeys.History, records);
+
+    return records;
+}
+
+/** 新增瀏覽紀錄；與最新一筆相同時不重複新增（重新整理 / 上下頁） */
+function AddHistoryRecord(url) {
+    const records = LoadHistory();
+    if (records[0] && records[0].Url === url) {
+        records[0].Time = Date.now();
+    } else {
+        records.unshift({ Id: CreateId(), Url: url, Title: "", Time: Date.now() });
+    }
+    SaveJson(Config.StorageKeys.History, records.slice(0, Config.MaxHistory));
+}
+
+/** 轉址後把最新一筆紀錄的網址改為最終網址 */
+function ReplaceHistoryUrl(oldUrl, newUrl) {
+    const records = LoadHistory();
+    const record  = records.find(item => item.Url === oldUrl);
+    if (!record) return;
+
+    record.Url = newUrl;
+    // 轉址後若與下一筆相同，合併為一筆
+    const index = records.indexOf(record);
+    if (records[index + 1] && records[index + 1].Url === newUrl) {
+        records.splice(index + 1, 1);
+    }
+    SaveJson(Config.StorageKeys.History, records);
+}
+
+/** 載入完成後補上標題 */
+function UpdateHistoryTitle(url, title) {
+    const records = LoadHistory();
+    const record  = records.find(item => item.Url === url);
+    if (record && title && record.Title !== title) {
+        record.Title = title;
+        SaveJson(Config.StorageKeys.History, records);
+    }
+}
+
+/** 刪除單筆瀏覽紀錄 */
+function DeleteHistoryRecord(id) {
+    SaveJson(Config.StorageKeys.History, LoadHistory().filter(item => item.Id !== id));
+}
+
+/* ---------- 書籤 ----------
+ * 結構：[{ Id, Url, Title, Time }]（新到舊）
+ */
+
+function LoadBookmarks() {
+    const list = LoadJson(Config.StorageKeys.Bookmarks, []);
+    return Array.isArray(list) ? list : [];
+}
+
+function SaveBookmarks(list) {
+    SaveJson(Config.StorageKeys.Bookmarks, list);
+}
+
+function FindBookmark(url) {
+    return LoadBookmarks().find(item => item.Url === url) || null;
+}
+
+/** 切換目前分頁的書籤狀態 */
+function ToggleBookmark(tab = GetActiveTab()) {
+    if (!tab) return;
+    const url = GetTabUrl(tab);
+
+    if (IsInternalUrl(url)) {
+        ShowToast("內部頁面無法加入書籤");
+        return;
+    }
+
+    const list   = LoadBookmarks();
+    const exists = list.findIndex(item => item.Url === url);
+
+    if (exists !== -1) {
+        list.splice(exists, 1);
+        ShowToast("已移除書籤");
+    } else {
+        list.unshift({ Id: CreateId(), Url: url, Title: tab.Title || GetHostname(url), Time: Date.now() });
+        ShowToast("已加入書籤");
+    }
+
+    SaveBookmarks(list);
+    RefreshToolbar();
+}
+
+/** 刪除書籤 */
+function DeleteBookmark(id) {
+    SaveBookmarks(LoadBookmarks().filter(item => item.Id !== id));
+    RefreshToolbar();
+}
+
+/* ---------- 首頁捷徑 ----------
+ * 結構：[{ Name, Url, Icon? }]
+ */
+
+function LoadShortcuts() {
+    const list = LoadJson(Config.StorageKeys.Shortcuts, null);
+    return Array.isArray(list) ? list : Config.DefaultShortcuts.map(item => ({ ...item }));
+}
+
+function SaveShortcuts(list) {
+    SaveJson(Config.StorageKeys.Shortcuts, list);
+}
+
+/** 以對話框新增或編輯捷徑；index 為 -1 時表示新增 */
+async function EditShortcut(index = -1, preset = null) {
+    const list    = LoadShortcuts();
+    const current = index >= 0 ? list[index] : (preset || { Name: "", Url: "" });
+
+    const values = await ShowDialog({
+        Title:       index >= 0 ? "編輯捷徑" : "新增捷徑",
+        ConfirmText: "儲存",
+        Fields: [
+            { Name: "Name", Label: "名稱", Value: current.Name, Placeholder: "例如：維基百科" },
+            { Name: "Url",  Label: "網址", Value: current.Url,  Placeholder: "https://example.com/" }
+        ]
+    });
+    if (!values) return false;
+
+    const url  = NormalizeUserUrl(values.Url);
+    const name = values.Name.trim() || (url ? GetHostname(url) : "");
+
+    if (!url) {
+        ShowToast("網址格式錯誤");
+        return false;
+    }
+
+    const item = { Name: name || url, Url: url };
+    // 網址沒變時保留原本的圖示
+    if (index >= 0 && current.Icon && current.Url === url) {
+        item.Icon = current.Icon;
+    }
+
+    if (index >= 0) {
+        list[index] = item;
+    } else {
+        list.push(item);
+    }
+
+    SaveShortcuts(list);
+    ShowToast(index >= 0 ? "已更新捷徑" : "已新增捷徑");
+    return true;
+}
+
+/** 刪除捷徑 */
+function DeleteShortcut(index) {
+    const list = LoadShortcuts();
+    list.splice(index, 1);
+    SaveShortcuts(list);
+    ShowToast("已刪除捷徑");
+}
+
+/** 移動捷徑位置 */
+function MoveShortcut(from, to) {
+    const list = LoadShortcuts();
+    if (from === to || !list[from]) return;
+
+    const [item] = list.splice(from, 1);
+    list.splice(Clamp(to, 0, list.length), 0, item);
+    SaveShortcuts(list);
+}
+
+/* ============================================================
+ *  7. 共用介面元件
+ * ============================================================ */
+
+/* ---------- 對話框 ---------- */
+
+/**
+ * 顯示輸入對話框
+ * @param {{ Title: string, Fields: Array<{Name, Label, Value, Placeholder, Type}>, ConfirmText?: string }} options
+ * @returns {Promise<object|null>} 確定時回傳 { 欄位名稱: 值 }，取消回傳 null
+ */
+function ShowDialog({ Title, Fields, ConfirmText = "確定" }) {
+    return new Promise(resolve => {
+        const overlay = document.createElement("div");
+        overlay.className = "DialogOverlay";
+
+        const fieldsHtml = Fields.map(field => `
+            <label class="DialogField">
+                <span>${EscapeHtml(field.Label)}</span>
+                <input class="SettingInput" name="${EscapeHtml(field.Name)}"
+                       type="${EscapeHtml(field.Type || "text")}" spellcheck="false"
+                       placeholder="${EscapeHtml(field.Placeholder || "")}"
+                       value="${EscapeHtml(field.Value || "")}">
+            </label>`).join("");
+
+        overlay.innerHTML = `
+            <form class="Dialog" autocomplete="off">
+                <h3>${EscapeHtml(Title)}</h3>
+                ${fieldsHtml}
+                <div class="ButtonRow DialogButtons">
+                    <button type="button" class="ActionButton Secondary" data-role="cancel">取消</button>
+                    <button type="submit" class="ActionButton">${EscapeHtml(ConfirmText)}</button>
+                </div>
+            </form>
+        `;
+
+        const form = overlay.querySelector("form");
+
+        const close = result => {
+            overlay.remove();
+            document.removeEventListener("keydown", onKey, true);
+            resolve(result);
+        };
+
+        const onKey = event => {
+            if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                close(null);
+            }
+        };
+
+        form.addEventListener("submit", event => {
+            event.preventDefault();
+            const result = {};
+            Fields.forEach(field => {
+                result[field.Name] = form.elements[field.Name].value;
+            });
+            close(result);
+        });
+
+        overlay.querySelector('[data-role="cancel"]').addEventListener("click", () => close(null));
+        overlay.addEventListener("mousedown", event => {
+            if (event.target === overlay) close(null);
+        });
+        document.addEventListener("keydown", onKey, true);
+
+        document.body.appendChild(overlay);
+        const firstInput = form.querySelector("input");
+        if (firstInput) {
+            firstInput.focus();
+            firstInput.select();
+        }
+    });
+}
+
+/* ---------- 右鍵選單 ---------- */
+
+let ActiveContextMenu = null;
+
+/**
+ * 顯示右鍵選單
+ * @param {number} x
+ * @param {number} y
+ * @param {Array<"-"|{Label, Icon, Hint, Disabled, Action}>} items  "-" 代表分隔線
+ */
+function ShowContextMenu(x, y, items) {
+    HideContextMenu();
+
+    const menu = document.createElement("div");
+    menu.className = "ContextMenu";
+
+    items.forEach(item => {
+        if (item === "-") {
+            const separator = document.createElement("div");
+            separator.className = "MenuSeparator";
+            menu.appendChild(separator);
+            return;
+        }
+
+        const button = document.createElement("button");
+        button.type      = "button";
+        button.className = "MenuItem";
+        button.disabled  = Boolean(item.Disabled);
+        button.innerHTML = `
+            <i class="${EscapeHtml(item.Icon || "fa-solid fa-circle-dot")}"></i>
+            <span class="MenuLabel">${EscapeHtml(item.Label)}</span>
+            ${item.Hint ? `<span class="MenuHint">${EscapeHtml(item.Hint)}</span>` : ""}
+        `;
+        button.addEventListener("click", () => {
+            HideContextMenu();
+            item.Action();
+        });
+        menu.appendChild(button);
+    });
+
+    document.body.appendChild(menu);
+
+    // 避免超出視窗
+    const rect = menu.getBoundingClientRect();
+    menu.style.left = Clamp(x, 4, window.innerWidth  - rect.width  - 4) + "px";
+    menu.style.top  = Clamp(y, 4, window.innerHeight - rect.height - 4) + "px";
+
+    ActiveContextMenu = menu;
+}
+
+function HideContextMenu() {
+    if (ActiveContextMenu) {
+        ActiveContextMenu.remove();
+        ActiveContextMenu = null;
+    }
+}
+
+/* ============================================================
+ *  8. 分頁管理
+ * ============================================================ */
+
+/**
+ * 建立新分頁
+ * @param {string|null} url       要開啟的網址（options.History 存在時忽略）
+ * @param {boolean}     activate  是否切換到此分頁
+ * @param {{ History?: string[], Index?: number, Zoom?: number, AfterId?: number }} options
+ *        History / Index：還原完整上下頁紀錄（複製分頁、重新開啟已關閉分頁）
+ *        AfterId        ：插入在指定分頁右側
+ */
+function CreateTab(url = Config.HomeUrl, activate = true, options = {}) {
+    const id = State.NextId++;
+
+    // 分頁按鈕
+    const tabEl = document.createElement("div");
+    tabEl.className  = "Tab";
+    tabEl.dataset.id = id;
+    tabEl.draggable  = true;
+    tabEl.innerHTML  = `
+        <span class="TabTitle">新分頁</span>
+        <button class="TabClose" title="關閉分頁 (Alt+W)"><i class="fa-solid fa-xmark"></i></button>
+    `;
+
+    // 內容容器
+    const viewEl = document.createElement("section");
+    viewEl.className = "TabView";
+
+    const tab = {
+        Id:       id,
+        History:  [],
+        Index:    -1,
+        Title:    "新分頁",
+        Loading:  false,
+        Zoom:     options.Zoom || 1,
+        HasAgent: false,
+        LoadMode: options.LoadMode === "same-origin" ? "same-origin" : "standard",
+        TabEl:    tabEl,
+        ViewEl:   viewEl,
+        Abort:    null
+    };
+
+    BindTabEvents(tab);
+
+    // 插入位置
+    const afterTab = options.AfterId ? GetTabById(options.AfterId) : null;
+    if (afterTab) {
+        afterTab.TabEl.after(tabEl);
+        State.Tabs.splice(State.Tabs.indexOf(afterTab) + 1, 0, tab);
+    } else {
+        Dom.TabList.appendChild(tabEl);
+        State.Tabs.push(tab);
+    }
+    Dom.ViewArea.appendChild(viewEl);
+
+    if (activate) {
+        ActivateTab(id);
+    }
+
+    if (Array.isArray(options.History) && options.History.length > 0) {
+        tab.History = [...options.History];
+        tab.Index   = Clamp(options.Index ?? tab.History.length - 1, 0, tab.History.length - 1);
+        Navigate(tab, GetTabUrl(tab), false);
+    } else {
+        Navigate(tab, url || Config.HomeUrl);
+    }
+
+    tabEl.scrollIntoView({ inline: "nearest" });
+    return tab;
+}
+
+/** 綁定分頁按鈕事件（切換、關閉、右鍵選單、拖曳排序） */
+function BindTabEvents(tab) {
+    const tabEl = tab.TabEl;
+
+    tabEl.addEventListener("click", () => ActivateTab(tab.Id));
+    tabEl.addEventListener("auxclick", event => {
+        if (event.button === 1) CloseTab(tab.Id);   // 滑鼠中鍵關閉
+    });
+    tabEl.querySelector(".TabClose").addEventListener("click", event => {
+        event.stopPropagation();
+        CloseTab(tab.Id);
+    });
+    tabEl.addEventListener("contextmenu", event => {
+        event.preventDefault();
+        ShowTabMenu(tab, event.clientX, event.clientY);
+    });
+
+    /* ---------- 拖曳排序 ---------- */
+    tabEl.addEventListener("dragstart", event => {
+        State.DragTabId = tab.Id;
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", GetTabUrl(tab));
+        tabEl.classList.add("Dragging");
+    });
+
+    tabEl.addEventListener("dragend", () => {
+        State.DragTabId = null;
+        document.querySelectorAll(".Tab").forEach(el => el.classList.remove("Dragging", "DropBefore", "DropAfter"));
+    });
+
+    tabEl.addEventListener("dragover", event => {
+        if (!State.DragTabId || State.DragTabId === tab.Id) return;
+        event.preventDefault();
+        const rect  = tabEl.getBoundingClientRect();
+        const after = event.clientX > rect.left + rect.width / 2;
+        tabEl.classList.toggle("DropAfter",  after);
+        tabEl.classList.toggle("DropBefore", !after);
+    });
+
+    tabEl.addEventListener("dragleave", () => {
+        tabEl.classList.remove("DropBefore", "DropAfter");
+    });
+
+    tabEl.addEventListener("drop", event => {
+        if (!State.DragTabId || State.DragTabId === tab.Id) return;
+        event.preventDefault();
+        const after = tabEl.classList.contains("DropAfter");
+        tabEl.classList.remove("DropBefore", "DropAfter");
+        MoveTab(State.DragTabId, tab.Id, after);
+    });
+}
+
+/** 分頁右鍵選單 */
+function ShowTabMenu(tab, x, y) {
+    const index = State.Tabs.indexOf(tab);
+
+    ShowContextMenu(x, y, [
+        { Label: "新增分頁",           Icon: "fa-solid fa-plus",              Hint: "Alt+T",       Action: () => CreateTab() },
+        { Label: "重新整理",           Icon: "fa-solid fa-rotate-right",      Hint: "F5",          Action: () => Navigate(tab, GetTabUrl(tab), false) },
+        { Label: "複製分頁",           Icon: "fa-regular fa-clone",                                 Action: () => DuplicateTab(tab) },
+        "-",
+        { Label: "關閉分頁",           Icon: "fa-solid fa-xmark",             Hint: "Alt+W",       Action: () => CloseTab(tab.Id) },
+        { Label: "關閉其他分頁",       Icon: "fa-solid fa-square-xmark",      Disabled: State.Tabs.length <= 1,
+          Action: () => State.Tabs.filter(item => item !== tab).forEach(item => CloseTab(item.Id)) },
+        { Label: "關閉右側分頁",       Icon: "fa-solid fa-angles-right",      Disabled: index >= State.Tabs.length - 1,
+          Action: () => State.Tabs.slice(index + 1).forEach(item => CloseTab(item.Id)) },
+        "-",
+        { Label: "重新開啟已關閉的分頁", Icon: "fa-solid fa-clock-rotate-left", Hint: "Alt+Shift+T", Disabled: State.ClosedTabs.length === 0,
+          Action: ReopenClosedTab }
+    ]);
+}
+
+/** 移動分頁位置 */
+function MoveTab(dragId, targetId, after) {
+    const dragTab   = GetTabById(dragId);
+    const targetTab = GetTabById(targetId);
+    if (!dragTab || !targetTab) return;
+
+    State.Tabs.splice(State.Tabs.indexOf(dragTab), 1);
+    const targetIndex = State.Tabs.indexOf(targetTab);
+    State.Tabs.splice(targetIndex + (after ? 1 : 0), 0, dragTab);
+
+    // 依新順序重新排列 DOM（appendChild 會移動既有節點）
+    State.Tabs.forEach(item => Dom.TabList.appendChild(item.TabEl));
+    SaveOpenTabs();
+}
+
+/** 複製分頁（含上下頁紀錄與縮放） */
+function DuplicateTab(tab) {
+    CreateTab(null, true, {
+        History: tab.History,
+        Index:   tab.Index,
+        Zoom:    tab.Zoom,
+        AfterId: tab.Id
+    });
+}
+
+/** 切換分頁 */
+function ActivateTab(id) {
+    State.ActiveId = id;
+
+    State.Tabs.forEach(tab => {
+        const isActive = tab.Id === id;
+        tab.TabEl.classList.toggle("Active", isActive);
+        tab.ViewEl.classList.toggle("Active", isActive);
+    });
+
+    HideSuggestions();
+    ResetFindStatus();
+    RefreshToolbar();
+    SaveOpenTabs();
+}
+
+/** 關閉分頁（記錄到「最近關閉」以便重新開啟） */
+function CloseTab(id) {
+    const index = State.Tabs.findIndex(tab => tab.Id === id);
+    if (index === -1) return;
+
+    const tab = State.Tabs[index];
+    if (tab.Abort) tab.Abort.abort();
+
+    if (tab.History.length > 0) {
+        State.ClosedTabs.push({ History: [...tab.History], Index: tab.Index, Zoom: tab.Zoom });
+        State.ClosedTabs = State.ClosedTabs.slice(-Config.MaxClosedTabs);
+    }
+
+    tab.TabEl.remove();
+    tab.ViewEl.remove();
+    State.Tabs.splice(index, 1);
+
+    // 最後一個分頁被關閉時，自動開一個新分頁
+    if (State.Tabs.length === 0) {
+        CreateTab();
+        return;
+    }
+
+    if (State.ActiveId === id) {
+        const next = State.Tabs[index] || State.Tabs[index - 1];
+        ActivateTab(next.Id);
+    }
+
+    SaveOpenTabs();
+}
+
+/** 重新開啟最近關閉的分頁 */
+function ReopenClosedTab() {
+    const item = State.ClosedTabs.pop();
+    if (!item) {
+        ShowToast("沒有最近關閉的分頁");
+        return;
+    }
+    CreateTab(null, true, item);
+}
+
+/** 更新分頁標題與載入狀態 */
+function UpdateTabHeader(tab) {
+    const titleEl = tab.TabEl.querySelector(".TabTitle");
+    titleEl.textContent = tab.Title || "未命名";
+    tab.TabEl.title = tab.Title;
+
+    const existingSpinner = tab.TabEl.querySelector(".TabSpinner");
+    if (tab.Loading && !existingSpinner) {
+        const spinner = document.createElement("span");
+        spinner.className = "TabSpinner";
+        tab.TabEl.insertBefore(spinner, titleEl);
+    } else if (!tab.Loading && existingSpinner) {
+        existingSpinner.remove();
+    }
+}
+
+/** 儲存開啟中的分頁，下次開啟時還原 */
+function SaveOpenTabs() {
+    SaveJson(Config.StorageKeys.OpenTabs, State.Tabs.map(GetTabUrl));
+    const activeIndex = State.Tabs.findIndex(tab => tab.Id === State.ActiveId);
+    localStorage.setItem(Config.StorageKeys.ActiveTab, String(Math.max(activeIndex, 0)));
+}
+
+/** 還原上次的分頁 */
+function RestoreTabs() {
+    const urls = LoadJson(Config.StorageKeys.OpenTabs, []);
+
+    if (!Array.isArray(urls) || urls.length === 0) {
+        CreateTab();
+        return;
+    }
+
+    urls.forEach(url => CreateTab(url, false));
+
+    const activeIndex = Number(localStorage.getItem(Config.StorageKeys.ActiveTab)) || 0;
+    const target = State.Tabs[activeIndex] || State.Tabs[0];
+    ActivateTab(target.Id);
+}
+
+/** 設定分頁內容；hasFrame 為 true 時內容區不捲動（交由 iframe 自行捲動） */
+function SetTabContent(tab, content, hasFrame = false) {
+    tab.ViewEl.innerHTML = "";
+    if (typeof content === "string") {
+        tab.ViewEl.innerHTML = content;
+    } else {
+        tab.ViewEl.appendChild(content);
+    }
+    tab.ViewEl.classList.toggle("HasFrame", hasFrame);
+    if (!hasFrame) tab.HasAgent = false;
+}
+
+/* ============================================================
+ *  9. 導覽與工具列
+ * ============================================================ */
+
+/**
+ * 導覽至指定網址
+ * @param {object}       tab       目標分頁
+ * @param {string}       url       已解析的網址
+ * @param {boolean}      pushState 是否寫入分頁歷史（上下頁時為 false）
+ * @param {object|null}  postData  POST 表單資料 { Body, Referer }；GET 時為 null
+ */
+function Navigate(tab, url, pushState = true, postData = null) {
+    // 搜尋追蹤與 Reddit Challenge 暫時參數，在寫入歷史前先正規化。
+    if (!postData && !IsInternalUrl(url)) {
+        url = NormalizeRedditChallengeUrl(UnwrapRedirectUrl(url));
+    }
+
+    if (pushState) {
+        tab.History = tab.History.slice(0, tab.Index + 1);
+        tab.History.push(url);
+        tab.Index = tab.History.length - 1;
+    }
+
+    if (tab.Abort) {
+        tab.Abort.abort();
+        tab.Abort = null;
+    }
+
+    if (tab.Id === State.ActiveId) {
+        ResetFindStatus();
+    }
+
+    if (IsInternalUrl(url)) {
+        RenderInternalPage(tab, url);
+    } else {
+        AddHistoryRecord(url);
+        LoadExternalPage(tab, url, postData);
+    }
+
+    RefreshToolbar();
+    SaveOpenTabs();
+}
+
+/** 從網址列或首頁搜尋框導覽 */
+function NavigateFromInput(input) {
+    const tab = GetActiveTab();
+    if (!tab) return;
+    Navigate(tab, ResolveInput(input));
+}
+
+function GoBack() {
+    const tab = GetActiveTab();
+    if (!tab || tab.Index <= 0) return;
+    tab.Index--;
+    Navigate(tab, GetTabUrl(tab), false);
+}
+
+function GoForward() {
+    const tab = GetActiveTab();
+    if (!tab || tab.Index >= tab.History.length - 1) return;
+    tab.Index++;
+    Navigate(tab, GetTabUrl(tab), false);
+}
+
+function Reload() {
+    const tab = GetActiveTab();
+    if (!tab) return;
+    // 重新整理一律以 GET 重新載入（不重送 POST 表單）
+    Navigate(tab, GetTabUrl(tab), false);
+}
+
+/** 依目前分頁狀態更新工具列 */
+function RefreshToolbar() {
+    const tab = GetActiveTab();
+    if (!tab) return;
+
+    const url        = GetTabUrl(tab);
+    const isInternal = IsInternalUrl(url);
+
+    if (Dom.ProxyModeButton) {
+        const sameOrigin = !isInternal && tab.LoadMode === "same-origin";
+        Dom.ProxyModeButton.disabled = isInternal;
+        Dom.ProxyModeButton.classList.toggle("Active", sameOrigin);
+        Dom.ProxyModeButton.title = isInternal
+            ? "內部頁面不使用代理載入模式"
+            : sameOrigin
+                ? "目前：同源反向代理模式。按一下切回標準模式"
+                : "目前：標準代理模式。按一下切換同源反向代理模式";
+        const badge = Dom.ProxyModeButton.querySelector(".ProxyModeBadge");
+        if (badge) badge.textContent = sameOrigin ? "同源" : "標準";
+    }
+
+    // 使用者正在輸入時不覆蓋網址列
+    if (document.activeElement !== Dom.AddressInput) {
+        Dom.AddressInput.value = url === Config.HomeUrl ? "" : GetDisplayUrl(url);
+    }
+
+    Dom.BackButton.disabled    = tab.Index <= 0;
+    Dom.ForwardButton.disabled = tab.Index >= tab.History.length - 1;
+
+    // 網址列圖示
+    Dom.AddressIcon.className = "AddressIcon fa-solid " + (
+        isInternal               ? "fa-house"           :
+        url.startsWith("https:") ? "fa-lock Secure"     :
+        url.startsWith("http:")  ? "fa-lock-open"       :
+                                   "fa-magnifying-glass"
+    );
+
+    // 書籤星號
+    const bookmarked = !isInternal && Boolean(FindBookmark(url));
+    Dom.BookmarkButton.hidden    = isInternal;
+    Dom.BookmarkButton.innerHTML = `<i class="${bookmarked ? "fa-solid" : "fa-regular"} fa-star"></i>`;
+    Dom.BookmarkButton.classList.toggle("Marked", bookmarked);
+    Dom.BookmarkButton.title     = bookmarked ? "移除書籤 (Ctrl+D)" : "加入書籤 (Ctrl+D)";
+
+    // 縮放指示（100% 時隱藏）
+    const zoomPercent = Math.round(tab.Zoom * 100);
+    Dom.ZoomButton.hidden      = isInternal || zoomPercent === 100;
+    Dom.ZoomButton.textContent = zoomPercent + "%";
+
+    // 載入進度條
+    Dom.LoadingBar.className = "LoadingBar" + (tab.Loading ? " Running" : "");
+}
+
+/** 設定分頁載入狀態 */
+function SetLoading(tab, loading) {
+    tab.Loading = loading;
+    UpdateTabHeader(tab);
+
+    if (tab.Id === State.ActiveId) {
+        if (loading) {
+            Dom.LoadingBar.className = "LoadingBar";
+            void Dom.LoadingBar.offsetWidth;          // 強制重排，重新觸發動畫
+            Dom.LoadingBar.className = "LoadingBar Running";
+        } else {
+            Dom.LoadingBar.className = "LoadingBar Done";
+        }
+    }
+}
+
+/* ============================================================
+ * 10. 網址列自動完成
+ *     來源：書籤 + 瀏覽紀錄；依「書籤優先 → 網址開頭符合 → 造訪次數 → 最近時間」排序
+ * ============================================================ */
+
+/** 去除協定與 www.，方便比對開頭 */
+function StripUrlPrefix(url) {
+    return String(url).replace(/^https?:\/\//i, "").replace(/^www\./i, "").toLowerCase();
+}
+
+/** 依輸入內容取得建議清單 */
+function GetSuggestions(query) {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return [];
+
+    const map = new Map();   // Url → { Url, Title, Bookmark, Count, Time }
+
+    const add = (url, title, time, isBookmark) => {
+        const item = map.get(url) || { Url: url, Title: "", Bookmark: false, Count: 0, Time: 0 };
+        item.Title    = item.Title || title || "";
+        item.Bookmark = item.Bookmark || isBookmark;
+        item.Count   += isBookmark ? 0 : 1;
+        item.Time     = Math.max(item.Time, time || 0);
+        map.set(url, item);
+    };
+
+    LoadBookmarks().forEach(item => add(item.Url, item.Title, item.Time, true));
+    LoadHistory().forEach(item => add(item.Url, item.Title, item.Time, false));
+
+    return [...map.values()]
+        .filter(item =>
+            // 不建議 Bing 搜尋結果頁，避免清單被搜尋紀錄塞滿
+            !item.Url.startsWith(Config.SearchUrl) &&
+            (item.Url.toLowerCase().includes(needle) || item.Title.toLowerCase().includes(needle))
+        )
+        .map(item => ({
+            ...item,
+            Score: (item.Bookmark ? 1000 : 0) +
+                   (StripUrlPrefix(item.Url).startsWith(needle) ? 500 : 0) +
+                   Math.min(item.Count, 50) * 5
+        }))
+        .sort((a, b) => b.Score - a.Score || b.Time - a.Time)
+        .slice(0, Config.MaxSuggestions);
+}
+
+/** 依輸入更新建議清單 */
+function UpdateSuggestions() {
+    State.Suggest.Items = GetSuggestions(Dom.AddressInput.value);
+    State.Suggest.Index = -1;
+    RenderSuggestions();
+}
+
+function RenderSuggestions() {
+    const items = State.Suggest.Items;
+
+    if (items.length === 0) {
+        HideSuggestions();
+        return;
+    }
+
+    Dom.SuggestList.innerHTML = items.map((item, index) => `
+        <li class="SuggestItem${index === State.Suggest.Index ? " Selected" : ""}" data-index="${index}">
+            <i class="${item.Bookmark ? "fa-solid fa-star" : "fa-solid fa-clock-rotate-left"}"></i>
+            <span class="SuggestTitle">${EscapeHtml(item.Title || item.Url)}</span>
+            <span class="SuggestUrl">${EscapeHtml(item.Url)}</span>
+        </li>`).join("");
+
+    Dom.SuggestList.hidden = false;
+}
+
+function HideSuggestions() {
+    Dom.SuggestList.hidden = true;
+    State.Suggest.Items = [];
+    State.Suggest.Index = -1;
+}
+
+/** 以方向鍵移動選取 */
+function MoveSuggestion(step) {
+    const count = State.Suggest.Items.length;
+    if (count === 0) return;
+
+    // 索引範圍 -1（未選取）~ count-1，循環移動
+    State.Suggest.Index = ((State.Suggest.Index + 1 + step + count + 1) % (count + 1)) - 1;
+    RenderSuggestions();
+}
+
+/** 前往建議項目 */
+function OpenSuggestion(index) {
+    const item = State.Suggest.Items[index];
+    if (!item) return;
+
+    HideSuggestions();
+    Dom.AddressInput.blur();
+    const tab = GetActiveTab();
+    if (tab) Navigate(tab, item.Url);
+}
+
+/* ============================================================
+ * 11. 內部頁面
+ * ============================================================ */
+
+function RenderInternalPage(tab, url) {
+    SetLoading(tab, false);
+
+    switch (url) {
+        case "owob://start":
+            RenderStartPage(tab);
+            break;
+        case "owob://settings":
+            RenderSettingsPage(tab);
+            break;
+        case "owob://history":
+            RenderHistoryPage(tab);
+            break;
+        case "owob://bookmarks":
+            RenderBookmarksPage(tab);
+            break;
+        case "owob://cookies":
+            RenderCookiesPage(tab);
+            break;
+        default:
+            RenderErrorPage(tab, "找不到內部頁面", `未知的內部網址：${url}`, url);
+    }
+}
+
+/** 是否仍停留在指定內部頁面（避免非同步操作後重繪到別的頁面） */
+function IsOnPage(tab, url) {
+    return GetTabUrl(tab) === url && State.Tabs.includes(tab);
+}
+
+/* ---------- 首頁 ---------- */
+
+function RenderStartPage(tab) {
+    tab.Title = "新分頁";
+    UpdateTabHeader(tab);
+
+    const shortcuts = LoadShortcuts()
+        .map((item, index) => {
+            const icon = item.Icon
+                ? `<i class="${EscapeHtml(item.Icon)}"></i>`
+                : `<span class="ShortcutLetter">${EscapeHtml((item.Name || "?").trim().charAt(0).toUpperCase())}</span>`;
+
+            return `
+                <div class="Shortcut" draggable="true" data-index="${index}" title="${EscapeHtml(item.Url)}">
+                    ${icon}
+                    <span class="ShortcutName">${EscapeHtml(item.Name)}</span>
+                    <div class="ShortcutTools">
+                        <button class="MiniButton" data-tool="edit"   title="編輯"><i class="fa-solid fa-pen"></i></button>
+                        <button class="MiniButton" data-tool="delete" title="刪除"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </div>`;
+        })
+        .join("");
+
+    SetTabContent(tab, `
+        <div class="StartPage">
+            <h1 class="StartLogo">
+                <span class="StartLogoMain">OwO</span>
+                <span class="StartLogoSub">Simple Browser</span>
+            </h1>
+            <form class="StartSearch" autocomplete="off">
+                <i class="fa-brands fa-microsoft"></i>
+                <input type="text" placeholder="使用 Bing 搜尋或輸入網址（Ctrl+K）" spellcheck="false">
+            </form>
+            <div class="Shortcuts">
+                ${shortcuts}
+                <button class="Shortcut AddShortcut" data-role="add" title="新增捷徑">
+                    <i class="fa-solid fa-plus"></i>
+                    <span class="ShortcutName">新增捷徑</span>
+                </button>
+            </div>
+        </div>
+    `);
+
+    const form  = tab.ViewEl.querySelector(".StartSearch");
+    const input = form.querySelector("input");
+
+    form.addEventListener("submit", event => {
+        event.preventDefault();
+        if (input.value.trim()) Navigate(tab, ResolveInput(input.value));
+    });
+
+    const rerender = () => {
+        if (IsOnPage(tab, "owob://start")) RenderStartPage(tab);
+    };
+
+    // 新增捷徑
+    tab.ViewEl.querySelector('[data-role="add"]').addEventListener("click", async () => {
+        if (await EditShortcut(-1)) rerender();
+    });
+
+    // 各捷徑：開啟 / 編輯 / 刪除 / 拖曳排序
+    let dragIndex = null;
+
+    tab.ViewEl.querySelectorAll(".Shortcut[data-index]").forEach(tile => {
+        const index = Number(tile.dataset.index);
+
+        tile.addEventListener("click", async event => {
+            const tool = event.target.closest("[data-tool]");
+            if (tool) {
+                event.stopPropagation();
+                if (tool.dataset.tool === "edit") {
+                    if (await EditShortcut(index)) rerender();
+                } else if (confirm(`確定刪除捷徑「${LoadShortcuts()[index]?.Name || ""}」？`)) {
+                    DeleteShortcut(index);
+                    rerender();
+                }
+                return;
+            }
+            Navigate(tab, LoadShortcuts()[index].Url);
+        });
+
+        tile.addEventListener("dragstart", event => {
+            dragIndex = index;
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("text/plain", String(index));
+            tile.classList.add("Dragging");
+        });
+        tile.addEventListener("dragend", () => {
+            dragIndex = null;
+            tab.ViewEl.querySelectorAll(".Shortcut").forEach(el => el.classList.remove("Dragging", "DropTarget"));
+        });
+        tile.addEventListener("dragover", event => {
+            if (dragIndex === null || dragIndex === index) return;
+            event.preventDefault();
+            tile.classList.add("DropTarget");
+        });
+        tile.addEventListener("dragleave", () => tile.classList.remove("DropTarget"));
+        tile.addEventListener("drop", event => {
+            if (dragIndex === null || dragIndex === index) return;
+            event.preventDefault();
+            MoveShortcut(dragIndex, index);
+            rerender();
+        });
+    });
+
+    if (tab.Id === State.ActiveId) {
+        setTimeout(() => input.focus(), 0);
+    }
+}
+
+/* ---------- 設定頁 ---------- */
+
+function RenderSettingsPage(tab) {
+    tab.Title = "設定";
+    UpdateTabHeader(tab);
+
+    const isDark   = document.body.classList.contains("theme-dark");
+    const proxyKey = GetProxyKey();
+
+    const checkbox = (name, label, hint) => `
+        <label class="ToggleRow">
+            <input type="checkbox" data-flag="${name}" ${GetFlag(name) ? "checked" : ""}>
+            <span>
+                <strong>${label}</strong>
+                <small>${hint}</small>
+            </span>
+        </label>`;
+
+    SetTabContent(tab, `
+        <form id="ProxySettingForm" autocomplete="off" hidden></form>
+        <div class="InternalPage">
+            <header class="SettingsHeader">
+                <div class="SettingsHeaderIcon"><i class="fa-solid fa-gear"></i></div>
+                <div>
+                    <h1>設定</h1>
+                    <p>OwO Simple Browser</p>
+                </div>
+            </header>
+
+            <div class="Card">
+                <h2>外觀</h2>
+                <p class="CardIntro">選擇瀏覽器的顯示主題。</p>
+                <div class="ButtonRow">
+                    <button class="ActionButton${isDark ? " Secondary" : ""}" data-action="light">亮色</button>
+                    <button class="ActionButton${isDark ? "" : " Secondary"}" data-action="dark">深色</button>
+                </div>
+            </div>
+
+            <div class="Card">
+                <h2>代理伺服器</h2>
+                <p class="CardIntro">設定載入外部網頁時使用的代理伺服器。</p>
+
+                <div class="SettingStatus">
+                    <span class="SettingStatusLabel">使用狀態</span>
+                    <strong>${IsCustomProxy() ? "自訂代理伺服器" : "預設代理伺服器"}</strong>
+                    ${proxyKey ? '<span class="StatusBadge">已設定金鑰</span>' : ""}
+                </div>
+
+                <label class="FieldLabel" for="ProxyInput">代理網址</label>
+                <input id="ProxyInput" class="SettingInput" type="text" spellcheck="false"
+                       placeholder="留空時，將使用預設代理伺服器。"
+                       value="${IsCustomProxy() ? EscapeHtml(GetProxyBase()) : ""}">
+                <p class="FieldHint">留空時，將使用預設代理伺服器。</p>
+
+                <label class="FieldLabel" for="ProxyKeyInput">存取金鑰</label>
+                <div class="InputRow">
+                    <input id="ProxyKeyInput" class="SettingInput" type="password" name="proxy-key"
+                           form="ProxySettingForm" spellcheck="false" autocomplete="new-password"
+                           placeholder="未設定" value="${EscapeHtml(proxyKey)}">
+                    <button class="ToolButton" data-action="toggle-key" title="顯示或隱藏存取金鑰。">
+                        <i class="fa-solid fa-eye"></i>
+                    </button>
+                </div>
+                <p class="FieldHint">若代理伺服器已啟用存取驗證，請輸入相同的金鑰。</p>
+
+                <div class="ButtonRow">
+                    <button class="ActionButton" data-action="save-proxy">儲存設定</button>
+                    <button class="ActionButton Secondary" data-action="reset-proxy">還原預設</button>
+                    <button class="ActionButton Secondary" data-action="test-proxy">測試連線</button>
+                </div>
+            </div>
+
+            <div class="Card">
+                <h2>網頁載入</h2>
+                <p class="CardIntro">調整網頁載入方式與連線等待時間。</p>
+
+                <div class="TimeoutSetting">
+                    <label class="TimeoutLabel" for="TimeoutInput">連線逾時</label>
+                    <div class="TimeoutValueArea">
+                        <div class="TimeoutControl">
+                            <button class="TimeoutStep" type="button" data-timeout-step="-1" aria-label="減少一秒">−</button>
+                            <input id="TimeoutInput" class="SettingInput ShortInput" type="number"
+                                   min="${Config.MinTimeoutSec}" max="${Config.MaxTimeoutSec}" step="1"
+                                   value="${GetTimeoutSec()}">
+                            <button class="TimeoutStep" type="button" data-timeout-step="1" aria-label="增加一秒">＋</button>
+                            <span class="TimeoutUnit">秒</span>
+                        </div>
+                        <p class="FieldHint">可設定 ${Config.MinTimeoutSec} 至 ${Config.MaxTimeoutSec} 秒。</p>
+                    </div>
+                </div>
+
+                ${checkbox("ProxyResources", "圖片與影音使用代理", "可改善圖片或影音無法載入的情況，但會增加代理請求數量。")}
+                ${checkbox("ProxyRequests",  "動態內容使用代理",   "可改善部分網頁的動態內容無法載入的情況。")}
+                ${checkbox("ProxyScripts",   "網頁腳本使用代理",   "此功能仍在測試中，啟用後可能造成部分網站無法正常運作。")}
+                <p class="CardNote">變更將於重新整理網頁後生效。</p>
+            </div>
+
+            <div class="Card">
+                <h2>書籤與首頁捷徑</h2>
+                <p class="CardIntro">管理已儲存的書籤與首頁捷徑。</p>
+                <p class="CardSummary">目前有 ${LoadBookmarks().length} 個書籤，以及 ${LoadShortcuts().length} 個首頁捷徑。</p>
+                <div class="ButtonRow">
+                    <button class="ActionButton" data-action="bookmarks">管理書籤</button>
+                    <button class="ActionButton Secondary" data-action="reset-shortcuts">還原預設捷徑</button>
+                </div>
+            </div>
+
+            <div class="Card">
+                <h2>網站資料</h2>
+                <p class="CardIntro">管理網站儲存在瀏覽器中的 Cookie。</p>
+                <p class="CardSummary">目前已儲存 ${CountCookies()} 筆 Cookie。</p>
+                <div class="ButtonRow">
+                    <button class="ActionButton" data-action="cookies">管理 Cookie</button>
+                    <button class="ActionButton Danger" data-action="clear-cookies">清除全部 Cookie</button>
+                </div>
+            </div>
+
+            <div class="Card">
+                <h2>瀏覽紀錄</h2>
+                <p class="CardIntro">查看或清除瀏覽紀錄。</p>
+                <p class="CardSummary">目前共有 ${LoadHistory().length} 筆瀏覽紀錄。</p>
+                <div class="ButtonRow">
+                    <button class="ActionButton" data-action="history">查看瀏覽紀錄</button>
+                    <button class="ActionButton Danger" data-action="clear">清除瀏覽資料</button>
+                </div>
+                <p class="CardNote">清除後，瀏覽紀錄、已開啟的分頁與 Cookie 將被移除；瀏覽器設定、書籤與首頁捷徑將會保留。</p>
+            </div>
+
+            <div class="Card">
+                <h2>備份與還原</h2>
+                <p class="CardIntro">匯出或匯入瀏覽器設定、書籤與首頁捷徑。</p>
+                <div class="ButtonRow">
+                    <button class="ActionButton" data-action="export">匯出設定</button>
+                    <button class="ActionButton Secondary" data-action="import">匯入設定</button>
+                </div>
+                <p class="CardNote">匯出的設定檔可能包含代理伺服器的存取金鑰，請妥善保管。</p>
+            </div>
+
+            <div class="Card">
+                <h2>隱藏視窗</h2>
+                <p class="CardIntro">在空白瀏覽器標籤中開啟 OwO Simple Browser。</p>
+                <div class="ButtonRow">
+                    <button class="ActionButton" data-action="cloak">開啟隱藏視窗</button>
+                </div>
+                <p class="CardNote">開啟後，外層瀏覽器的標籤名稱將顯示為「新分頁」。</p>
+            </div>
+
+            <div class="Card">
+                <h2>鍵盤快捷鍵</h2>
+                <p class="CardIntro">使用鍵盤快速執行常用操作。</p>
+                <div class="ShortcutGrid">
+                    <div class="ShortcutColumn">
+                        <div class="ShortcutRow"><kbd>Ctrl + K</kbd><span>聚焦首頁搜尋框。</span></div>
+                        <div class="ShortcutRow"><kbd>Ctrl + L</kbd><span>聚焦網址列。</span></div>
+                        <div class="ShortcutRow"><kbd>Ctrl + F</kbd><span>在頁面中尋找文字。</span></div>
+                        <div class="ShortcutRow"><kbd>Ctrl + D</kbd><span>加入或移除書籤。</span></div>
+                        <div class="ShortcutRow"><kbd>Alt + T</kbd><span>新增分頁。</span></div>
+                        <div class="ShortcutRow"><kbd>Alt + W</kbd><span>關閉目前分頁。</span></div>
+                        <div class="ShortcutRow"><kbd>Alt + Shift + T</kbd><span>重新開啟最近關閉的分頁。</span></div>
+                    </div>
+                    <div class="ShortcutColumn">
+                        <div class="ShortcutRow"><kbd>Alt + ←</kbd><span>返回上一頁。</span></div>
+                        <div class="ShortcutRow"><kbd>Alt + →</kbd><span>前往下一頁。</span></div>
+                        <div class="ShortcutRow"><kbd>Ctrl + +</kbd><span>放大頁面。</span></div>
+                        <div class="ShortcutRow"><kbd>Ctrl + -</kbd><span>縮小頁面。</span></div>
+                        <div class="ShortcutRow"><kbd>Ctrl + 0</kbd><span>重設頁面縮放。</span></div>
+                        <div class="ShortcutRow"><kbd>F5</kbd><span>重新整理目前頁面。</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `);
+
+    const rerender = () => {
+        if (IsOnPage(tab, "owob://settings")) RenderSettingsPage(tab);
+    };
+
+    const proxySettingForm = tab.ViewEl.querySelector("#ProxySettingForm");
+    if (proxySettingForm) {
+        proxySettingForm.addEventListener("submit", event => event.preventDefault());
+    }
+
+    const actions = {
+        "light":           () => { ApplyTheme("light"); rerender(); },
+        "dark":            () => { ApplyTheme("dark");  rerender(); },
+        "toggle-key":      () => {
+            const input = tab.ViewEl.querySelector("#ProxyKeyInput");
+            input.type = input.type === "password" ? "text" : "password";
+        },
+        "save-proxy":      () => { if (SaveProxySetting(tab)) rerender(); },
+        "reset-proxy":     () => { ResetProxySetting(); rerender(); },
+        "test-proxy":      () => TestProxy(),
+        "bookmarks":       () => Navigate(tab, "owob://bookmarks"),
+        "reset-shortcuts": () => {
+            if (!confirm("確定將首頁捷徑還原為預設？")) return;
+            localStorage.removeItem(Config.StorageKeys.Shortcuts);
+            ShowToast("已還原預設捷徑");
+            rerender();
+        },
+        "cookies":         () => Navigate(tab, "owob://cookies"),
+        "clear-cookies":   () => {
+            localStorage.removeItem(Config.StorageKeys.Cookies);
+            ShowToast("已清除 Cookie");
+            rerender();
+        },
+        "history":         () => Navigate(tab, "owob://history"),
+        "clear":           () => {
+            if (!confirm("確定清除瀏覽紀錄、已開啟分頁與 Cookie？")) return;
+            ClearBrowsingData();
+            requestAnimationFrame(() => {
+                if (IsOnPage(tab, "owob://settings")) RenderSettingsPage(tab);
+            });
+        },
+        "export":          () => ExportSettings(),
+        "import":          () => {
+            Dom.ImportInput.value = "";
+            Dom.ImportInput.click();
+        },
+        "cloak":           () => OpenCloaked()
+    };
+
+    tab.ViewEl.querySelectorAll("[data-action]").forEach(button => {
+        button.addEventListener("click", () => actions[button.dataset.action]());
+    });
+
+    // 在代理網址 / 金鑰輸入框按 Enter 直接儲存
+    ["#ProxyInput", "#ProxyKeyInput"].forEach(selector => {
+        tab.ViewEl.querySelector(selector).addEventListener("keydown", event => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                if (SaveProxySetting(tab)) rerender();
+            }
+        });
+    });
+
+    // 逾時：加減按鈕調整後立即觸發既有儲存流程
+    const timeoutInput = tab.ViewEl.querySelector("#TimeoutInput");
+    tab.ViewEl.querySelectorAll("[data-timeout-step]").forEach(button => {
+        button.addEventListener("click", () => {
+            const current = Number(timeoutInput.value) || GetTimeoutSec();
+            const step = Number(button.dataset.timeoutStep);
+            timeoutInput.value = Clamp(current + step, Config.MinTimeoutSec, Config.MaxTimeoutSec);
+            timeoutInput.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+    });
+
+    // 逾時：變更即儲存
+    timeoutInput.addEventListener("change", event => {
+        const value = Number(event.target.value);
+        if (!Number.isFinite(value) || value <= 0) {
+            event.target.value = GetTimeoutSec();
+            ShowToast("請輸入有效秒數");
+            return;
+        }
+        const seconds = Clamp(Math.round(value), Config.MinTimeoutSec, Config.MaxTimeoutSec);
+        localStorage.setItem(Config.StorageKeys.TimeoutSec, String(seconds));
+        event.target.value = seconds;
+        ShowToast(`連線逾時已設為 ${seconds} 秒`);
+    });
+
+    // 載入選項：變更即儲存
+    tab.ViewEl.querySelectorAll("[data-flag]").forEach(input => {
+        input.addEventListener("change", () => {
+            SetFlag(input.dataset.flag, input.checked);
+            ShowToast("已儲存，重新整理網頁後生效");
+        });
+    });
+}
+
+/**
+ * 儲存代理網址與金鑰（網址留空 = 使用預設）
+ * @returns {boolean} 是否儲存成功
+ */
+function SaveProxySetting(tab) {
+    const rawUrl = tab.ViewEl.querySelector("#ProxyInput").value.trim();
+    const rawKey = tab.ViewEl.querySelector("#ProxyKeyInput").value.trim();
+
+    if (rawUrl) {
+        const normalized = NormalizeProxyBase(rawUrl);
+        if (!normalized) {
+            ShowToast("代理網址格式錯誤，需為 http:// 或 https:// 開頭");
+            return false;
+        }
+        localStorage.setItem(Config.StorageKeys.ProxyBase, normalized);
+    } else {
+        localStorage.removeItem(Config.StorageKeys.ProxyBase);
+    }
+
+    if (rawKey) {
+        localStorage.setItem(Config.StorageKeys.ProxyKey, rawKey);
+    } else {
+        localStorage.removeItem(Config.StorageKeys.ProxyKey);
+    }
+
+    ShowToast(rawUrl ? "已改用自訂代理伺服器" : "已儲存（使用預設代理伺服器）");
+    return true;
+}
+
+/** 還原預設代理（同時清除金鑰） */
+function ResetProxySetting() {
+    localStorage.removeItem(Config.StorageKeys.ProxyBase);
+    localStorage.removeItem(Config.StorageKeys.ProxyKey);
+    ShowToast("已還原為預設代理伺服器");
+}
+
+/** 測試代理連線 */
+async function TestProxy() {
+    ShowToast("測試中…");
+    const start = performance.now();
+
+    try {
+        const response = await fetch(BuildProxyUrl("https://example.com/"));
+        const ms = Math.round(performance.now() - start);
+
+        if (response.ok) {
+            ShowToast(`代理正常（${ms} ms）`);
+        } else if (response.status === 401) {
+            ShowToast("代理需要金鑰，或金鑰錯誤（HTTP 401）");
+        } else if (response.status === 403) {
+            ShowToast("代理拒絕此來源（HTTP 403），請檢查 ALLOWED_ORIGINS");
+        } else {
+            ShowToast(`代理回應 HTTP ${response.status}`);
+        }
+    } catch (error) {
+        ShowToast(`代理無法連線：${error.message}`);
+    }
+}
+
+/* ---------- 瀏覽紀錄頁 ---------- */
+
+function RenderHistoryPage(tab) {
+    tab.Title = "瀏覽紀錄";
+    UpdateTabHeader(tab);
+
+    SetTabContent(tab, `
+        <div class="InternalPage">
+            <h1><i class="fa-solid fa-clock-rotate-left"></i> 瀏覽紀錄</h1>
+            <div class="PageTools">
+                <input class="SettingInput" data-role="filter" type="search" placeholder="搜尋紀錄（標題或網址）" spellcheck="false">
+                <button class="ActionButton Danger" data-role="clear">清除全部紀錄</button>
+            </div>
+            <div data-role="list"></div>
+        </div>
+    `);
+
+    const filterInput = tab.ViewEl.querySelector('[data-role="filter"]');
+    const listEl      = tab.ViewEl.querySelector('[data-role="list"]');
+
+    const renderList = () => {
+        const needle  = filterInput.value.trim().toLowerCase();
+        const records = LoadHistory().filter(record =>
+            !needle ||
+            record.Url.toLowerCase().includes(needle) ||
+            (record.Title || "").toLowerCase().includes(needle)
+        );
+
+        if (records.length === 0) {
+            listEl.innerHTML = `<div class="Card"><p class="Empty">${needle ? "找不到符合的紀錄" : "尚無紀錄"}</p></div>`;
+            return;
+        }
+
+        // 依日期分組
+        const groups = new Map();
+        records.forEach(record => {
+            const day = new Date(record.Time).toLocaleDateString("zh-TW", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
+            if (!groups.has(day)) groups.set(day, []);
+            groups.get(day).push(record);
+        });
+
+        listEl.innerHTML = [...groups.entries()].map(([day, items]) => `
+            <div class="Card">
+                <h2 class="GroupTitle">${EscapeHtml(day)}</h2>
+                <ul class="ItemList">
+                    ${items.map(record => `
+                        <li>
+                            <time>${new Date(record.Time).toLocaleTimeString("zh-TW", { hour12: false, hour: "2-digit", minute: "2-digit" })}</time>
+                            <a href="#" data-url="${EscapeHtml(record.Url)}" title="${EscapeHtml(record.Url)}">
+                                <span class="ItemTitle">${EscapeHtml(record.Title || record.Url)}</span>
+                                <span class="ItemUrl">${EscapeHtml(GetHostname(record.Url))}</span>
+                            </a>
+                            <button class="MiniButton" data-delete="${EscapeHtml(record.Id)}" title="刪除此筆">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </li>`).join("")}
+                </ul>
+            </div>`).join("");
+    };
+
+    listEl.addEventListener("click", event => {
+        const deleteButton = event.target.closest("[data-delete]");
+        if (deleteButton) {
+            DeleteHistoryRecord(deleteButton.dataset.delete);
+            renderList();
+            return;
+        }
+        const link = event.target.closest("[data-url]");
+        if (link) {
+            event.preventDefault();
+            Navigate(tab, link.dataset.url);
+        }
+    });
+
+    filterInput.addEventListener("input", renderList);
+
+    tab.ViewEl.querySelector('[data-role="clear"]').addEventListener("click", () => {
+        if (!confirm("確定清除全部瀏覽紀錄？")) return;
+        localStorage.removeItem(Config.StorageKeys.History);
+        ShowToast("已清除瀏覽紀錄");
+        renderList();
+    });
+
+    renderList();
+}
+
+/* ---------- 書籤頁 ---------- */
+
+function RenderBookmarksPage(tab) {
+    tab.Title = "書籤";
+    UpdateTabHeader(tab);
+
+    SetTabContent(tab, `
+        <div class="InternalPage">
+            <h1><i class="fa-solid fa-star"></i> 書籤</h1>
+            <div class="PageTools">
+                <input class="SettingInput" data-role="filter" type="search" placeholder="搜尋書籤（標題或網址）" spellcheck="false">
+                <button class="ActionButton" data-role="add">新增書籤</button>
+            </div>
+            <div class="Card"><ul class="ItemList" data-role="list"></ul></div>
+        </div>
+    `);
+
+    const filterInput = tab.ViewEl.querySelector('[data-role="filter"]');
+    const listEl      = tab.ViewEl.querySelector('[data-role="list"]');
+
+    const renderList = () => {
+        const needle = filterInput.value.trim().toLowerCase();
+        const items  = LoadBookmarks().filter(item =>
+            !needle ||
+            item.Url.toLowerCase().includes(needle) ||
+            (item.Title || "").toLowerCase().includes(needle)
+        );
+
+        listEl.innerHTML = items.length
+            ? items.map(item => `
+                <li>
+                    <i class="fa-solid fa-star ItemIcon"></i>
+                    <a href="#" data-url="${EscapeHtml(item.Url)}" title="${EscapeHtml(item.Url)}">
+                        <span class="ItemTitle">${EscapeHtml(item.Title || item.Url)}</span>
+                        <span class="ItemUrl">${EscapeHtml(item.Url)}</span>
+                    </a>
+                    <button class="MiniButton" data-op="edit"     data-id="${EscapeHtml(item.Id)}" title="編輯"><i class="fa-solid fa-pen"></i></button>
+                    <button class="MiniButton" data-op="shortcut" data-id="${EscapeHtml(item.Id)}" title="加到首頁捷徑"><i class="fa-solid fa-thumbtack"></i></button>
+                    <button class="MiniButton" data-op="delete"   data-id="${EscapeHtml(item.Id)}" title="刪除"><i class="fa-solid fa-xmark"></i></button>
+                </li>`).join("")
+            : `<li class="Empty">${needle ? "找不到符合的書籤" : "尚無書籤，瀏覽網頁時按網址列的星號或 Ctrl+D 即可加入。"}</li>`;
+    };
+
+    /** 新增或編輯書籤 */
+    const editBookmark = async (id = null) => {
+        const list    = LoadBookmarks();
+        const current = id ? list.find(item => item.Id === id) : { Title: "", Url: "" };
+        if (!current) return;
+
+        const values = await ShowDialog({
+            Title:       id ? "編輯書籤" : "新增書籤",
+            ConfirmText: "儲存",
+            Fields: [
+                { Name: "Title", Label: "名稱", Value: current.Title },
+                { Name: "Url",   Label: "網址", Value: current.Url, Placeholder: "https://example.com/" }
+            ]
+        });
+        if (!values) return;
+
+        const url = NormalizeUserUrl(values.Url);
+        if (!url || IsInternalUrl(url)) {
+            ShowToast("網址格式錯誤");
+            return;
+        }
+
+        const title = values.Title.trim() || GetHostname(url);
+        if (id) {
+            Object.assign(current, { Title: title, Url: url });
+        } else {
+            list.unshift({ Id: CreateId(), Url: url, Title: title, Time: Date.now() });
+        }
+        SaveBookmarks(list);
+        ShowToast(id ? "已更新書籤" : "已新增書籤");
+        renderList();
+    };
+
+    listEl.addEventListener("click", async event => {
+        const button = event.target.closest("[data-op]");
+        if (button) {
+            const id   = button.dataset.id;
+            const item = LoadBookmarks().find(entry => entry.Id === id);
+            if (!item) return;
+
+            if (button.dataset.op === "edit") {
+                await editBookmark(id);
+            } else if (button.dataset.op === "shortcut") {
+                await EditShortcut(-1, { Name: item.Title, Url: item.Url });
+            } else if (button.dataset.op === "delete") {
+                DeleteBookmark(id);
+                ShowToast("已刪除書籤");
+                renderList();
+            }
+            return;
+        }
+
+        const link = event.target.closest("[data-url]");
+        if (link) {
+            event.preventDefault();
+            Navigate(tab, link.dataset.url);
+        }
+    });
+
+    filterInput.addEventListener("input", renderList);
+    tab.ViewEl.querySelector('[data-role="add"]').addEventListener("click", () => editBookmark());
+
+    renderList();
+}
+
+/* ---------- Cookie 管理頁 ---------- */
+
+function RenderCookiesPage(tab) {
+    tab.Title = "Cookie 管理";
+    UpdateTabHeader(tab);
+
+    SetTabContent(tab, `
+        <div class="InternalPage">
+            <h1><i class="fa-solid fa-cookie-bite"></i> Cookie 管理</h1>
+            <div class="PageTools">
+                <input class="SettingInput" data-role="filter" type="search" placeholder="搜尋網域" spellcheck="false">
+                <button class="ActionButton Danger" data-role="clear">清除全部 Cookie</button>
+            </div>
+            <div data-role="list"></div>
+        </div>
+    `);
+
+    const filterInput = tab.ViewEl.querySelector('[data-role="filter"]');
+    const listEl      = tab.ViewEl.querySelector('[data-role="list"]');
+    const openDomains = new Set();   // 重繪時保留展開狀態
+
+    const renderList = () => {
+        const needle  = filterInput.value.trim().toLowerCase();
+        const jar     = LoadCookieJar();
+        const domains = Object.keys(jar)
+            .filter(domain => !needle || domain.includes(needle))
+            .sort();
+
+        if (domains.length === 0) {
+            listEl.innerHTML = `<div class="Card"><p class="Empty">${needle ? "找不到符合的網域" : "目前沒有保存任何 Cookie"}</p></div>`;
+            return;
+        }
+
+        listEl.innerHTML = domains.map(domain => {
+            const cookies = Object.entries(jar[domain]);
+            const rows = cookies.map(([name, item]) => {
+                const value = item.Value.length > 48 ? item.Value.slice(0, 48) + "…" : item.Value;
+                return `
+                    <li>
+                        <span class="CookieName">${EscapeHtml(name)}</span>
+                        <code class="CookieValue" title="${EscapeHtml(item.Value)}">${EscapeHtml(value)}</code>
+                        <span class="CookieExpire">${item.Expires === null ? "工作階段" : FormatDateTime(item.Expires)}</span>
+                        <button class="MiniButton" data-domain="${EscapeHtml(domain)}" data-name="${EscapeHtml(name)}" title="刪除此 Cookie">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </li>`;
+            }).join("");
+
+            return `
+                <details class="Card CookieDomain" data-domain-card="${EscapeHtml(domain)}" ${openDomains.has(domain) ? "open" : ""}>
+                    <summary>
+                        <span class="CookieDomainName">${EscapeHtml(domain)}</span>
+                        <span class="Badge">${cookies.length}</span>
+                        <button class="ActionButton Danger Small" data-domain="${EscapeHtml(domain)}">刪除此網域</button>
+                    </summary>
+                    <ul class="CookieList">${rows}</ul>
+                </details>`;
+        }).join("");
+
+        listEl.querySelectorAll("details").forEach(details => {
+            details.addEventListener("toggle", () => {
+                const domain = details.dataset.domainCard;
+                if (details.open) openDomains.add(domain);
+                else openDomains.delete(domain);
+            });
+        });
+    };
+
+    listEl.addEventListener("click", event => {
+        const button = event.target.closest("[data-domain]");
+        if (!button) return;
+        event.preventDefault();   // 避免點擊 summary 內按鈕時切換展開狀態
+
+        const domain = button.dataset.domain;
+        const name   = button.dataset.name;
+        DeleteCookie(domain, name === undefined ? null : name);
+        ShowToast(name === undefined ? `已刪除 ${domain} 的 Cookie` : `已刪除 Cookie：${name}`);
+        renderList();
+    });
+
+    filterInput.addEventListener("input", renderList);
+
+    tab.ViewEl.querySelector('[data-role="clear"]').addEventListener("click", () => {
+        if (!confirm("確定清除全部 Cookie？")) return;
+        localStorage.removeItem(Config.StorageKeys.Cookies);
+        ShowToast("已清除 Cookie");
+        renderList();
+    });
+
+    renderList();
+}
+
+/* ---------- 錯誤頁 ---------- */
+
+function RenderErrorPage(tab, title, detail, retryUrl) {
+    tab.Title = "載入失敗";
+    UpdateTabHeader(tab);
+
+    SetTabContent(tab, `
+        <div class="ErrorPage">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <h2>${EscapeHtml(title)}</h2>
+            <pre>${EscapeHtml(detail)}</pre>
+            <div class="ButtonRow">
+                <button class="ActionButton" data-action="retry">重試</button>
+                <button class="ActionButton Secondary" data-action="direct">直接開啟原網址</button>
+            </div>
+        </div>
+    `);
+
+    tab.ViewEl.querySelector('[data-action="retry"]')
+        .addEventListener("click", () => Navigate(tab, retryUrl, false));
+    tab.ViewEl.querySelector('[data-action="direct"]')
+        .addEventListener("click", () => window.open(retryUrl, "_blank", "noopener"));
+}
+
+/* ============================================================
+ * 12. 外部頁面（經由代理載入）
+ * ============================================================ */
+
+/**
+ * 經由代理載入外部頁面
+ * @param {object}      tab       目標分頁
+ * @param {string}      url       目標網址
+ * @param {object|null} postData  POST 資料 { Body, Referer }；null 表示 GET
+ */
+async function LoadExternalPage(tab, url, postData = null) {
+    const timeoutMs  = GetTimeoutMs();
+    const controller = new AbortController();
+    const timer      = setTimeout(() => controller.abort("timeout"), timeoutMs);
+
+    tab.Abort = controller;
+    tab.Title = "載入中…";
+    SetLoading(tab, true);
+
+    if (!postData && tab.LoadMode === "same-origin") {
+        try {
+            const frame = CreateFrame(tab, true);
+            frame.src = BuildSameOriginProxyUrl(url);
+            frame.addEventListener("load", () => {
+                if (tab.Abort === controller) tab.Abort = null;
+                clearTimeout(timer);
+                SetLoading(tab, false);
+                tab.Title = GetHostname(url) || "同源代理頁面";
+                UpdateTabHeader(tab);
+                RefreshToolbar();
+            }, { once: true });
+            SetTabContent(tab, frame, true);
+            tab.HasAgent = false;
+            return;
+        } catch (error) {
+            clearTimeout(timer);
+            if (tab.Abort === controller) tab.Abort = null;
+            SetLoading(tab, false);
+            RenderErrorPage(tab, "同源反向代理模式無法啟動", `${url}\n\n${error.message}\n\n請確認已部署 v21 worker.js，或切回標準模式。`, url);
+            return;
+        }
+    }
+
+    try {
+        /* ---------- 組合代理請求 ---------- */
+        const headers = {};
+        const siteJar = GetSiteCookieJar(url);
+        if (siteJar.length > 0) {
+            headers["X-Proxy-Cookie-Jar"] = encodeURIComponent(JSON.stringify(siteJar));
+        }
+
+        const requestOptions = {
+            method: "GET",
+            headers,
+            signal: controller.signal
+        };
+
+        if (postData) {
+            requestOptions.method   = "POST";
+            requestOptions.body     = postData.Body;
+            headers["Content-Type"] = "application/x-www-form-urlencoded";
+            if (postData.Referer && IsWebUrl(postData.Referer)) {
+                headers["X-Proxy-Referer"] = postData.Referer;
+            }
+        }
+
+        const response = await fetch(BuildProxyUrl(url), requestOptions);
+        const contentType = response.headers.get("Content-Type") || "";
+        const reportedFinalUrl = NormalizeRedditChallengeUrl(
+            response.headers.get("X-Final-URL") || url
+        );
+
+        // 先保存目標網站設定的 Cookie（驗證頁的通過紀錄就在這裡）
+        StoreProxyCookies(response.headers.get("X-Proxy-Set-Cookie"));
+
+        let finalUrl = NormalizePttOver18Url(reportedFinalUrl, url);
+        const isPttOver18Post = Boolean(postData) && /https:\/\/www\.ptt\.cc\/ask\/over18/i.test(url);
+        if (isPttOver18Post && HasPttOver18Cookie()) {
+            const postParams = new URLSearchParams(postData.Body || "");
+            const returnPath = GetCanonicalPttReturnPath(postParams.get("from"), url);
+            finalUrl = new URL(returnPath, "https://www.ptt.cc").href;
+        }
+
+        // 代理回傳的錯誤（JSON 格式）
+        if (!response.ok && contentType.includes("application/json")) {
+            const data = await response.json().catch(() => ({}));
+            const error = new Error(`代理錯誤 ${response.status}：${data.message || response.statusText}`);
+            error.Status = response.status;
+            throw error;
+        }
+
+        // 已被切到其他網址，捨棄結果
+        if (GetTabUrl(tab) !== url) return;
+
+        // 轉址後更新分頁網址與瀏覽紀錄（不新增上下頁紀錄）
+        if (finalUrl !== url) {
+            tab.History[tab.Index] = finalUrl;
+            ReplaceHistoryUrl(url, finalUrl);
+        }
+
+        if (contentType.includes("text/html") || contentType.includes("application/xhtml")) {
+            const rawHtml = await response.text();
+            const isSearchPage = IsSearchResultPage(finalUrl);
+            const preparedHtml = SimplifySearchResultHtml(rawHtml, finalUrl);
+
+            // 搜尋結果頁直接使用已取得的 HTML，避免逐份等待代理 CSS 逾時。
+            // 一般網站仍沿用外部 CSS 代理抓取與內嵌流程。
+            const preparedForFrame = isSearchPage
+                ? preparedHtml
+                : await InlineStylesheets(preparedHtml, finalUrl, controller.signal);
+
+            // 處理期間使用者已切換頁面則捨棄
+            if (GetTabUrl(tab) !== finalUrl && GetTabUrl(tab) !== url) return;
+
+            // 圖片、影音、字型（及選用的腳本）改經代理
+            const html = RewriteHtmlResources(preparedForFrame, finalUrl);
+            RenderHtmlInFrame(tab, html, finalUrl);
+        } else {
+            // 圖片、PDF、純文字等非 HTML 內容：直接以代理網址顯示
+            RenderRawInFrame(tab, finalUrl);
+        }
+
+        UpdateHistoryTitle(finalUrl, tab.Title);
+
+        if (!response.ok) {
+            ShowToast(`網站回應 HTTP ${response.status}`);
+        }
+    } catch (error) {
+        if (controller.signal.aborted && controller.signal.reason !== "timeout") {
+            return;   // 使用者主動切換頁面，不顯示錯誤
+        }
+
+        // 依錯誤類型顯示對應說明：
+        //   逾時           → 連線逾時
+        //   代理回傳 401    → 金鑰問題
+        //   代理回傳其他錯誤 → 直接顯示代理訊息（代理本身可連線，不是 CORS 問題）
+        //   其他（TypeError: Failed to fetch）→ 代理無法連線或 CORS 被擋
+        let detail;
+        if (controller.signal.reason === "timeout") {
+            detail = `連線逾時（超過 ${timeoutMs / 1000} 秒）。\n\n可至設定頁調整「代理逾時」。`;
+        } else if (error.Status === 401) {
+            detail = `${error.message}\n\n代理伺服器要求存取金鑰，請至設定頁填入正確的「代理金鑰」。`;
+        } else if (String(error.message).startsWith("代理錯誤")) {
+            detail = `${error.message}\n\n可改用「直接開啟原網址」，或至設定頁更換代理伺服器。`;
+        } else {
+            detail = `${error.message}\n\n可能原因：\n• 代理的 ALLOWED_ORIGINS 未包含目前網站來源（${location.origin}）\n• 代理尚未更新為最新版本\n• 網路連線異常`;
+        }
+
+        RenderErrorPage(tab, "無法載入此網頁", `${url}\n\n${detail}`, url);
+    } finally {
+        clearTimeout(timer);
+        if (tab.Abort === controller) tab.Abort = null;
+        SetLoading(tab, false);
+        if (tab.Id === State.ActiveId) RefreshToolbar();
+        SaveOpenTabs();
+    }
+}
+
+function IsSearchResultPage(url) {
+    try {
+        const u=new URL(url),h=u.hostname.toLowerCase(),p=u.pathname.toLowerCase();
+        return ((h==="bing.com"||h.endsWith(".bing.com"))&&p==="/search")||((h==="google.com"||h.endsWith(".google.com")||/^www\.google\.[a-z.]+$/.test(h))&&p==="/search")||((h==="duckduckgo.com"||h.endsWith(".duckduckgo.com"))&&(p==="/"||p.includes("html")))||((h==="search.yahoo.com"||h.endsWith(".search.yahoo.com"))&&p.includes("search"));
+    } catch { return false; }
+}
+function SimplifySearchResultHtml(html,url) {
+    if(!IsSearchResultPage(url))return String(html);
+    return String(html).replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,"").replace(/<script\b[^>]*\/?>/gi,"").replace(/<link\b[^>]*\brel\s*=\s*["']?(?:preload|prefetch|modulepreload|dns-prefetch|preconnect)["']?[^>]*>/gi,"").replace(/<iframe\b[^>]*(?:ad|analytics|telemetry|tracking)[^>]*>[\s\S]*?<\/iframe\s*>/gi,"");
+}
+
+/* ---------- 外部樣式表內嵌 ----------
+ * 沙箱 iframe 直接向原網站要 CSS 時，常被以下機制擋下而變成無樣式頁面：
+ *   - 防盜連（檢查 Referer，而 iframe 設定了 no-referrer）
+ *   - Cross-Origin-Resource-Policy（iframe 來源為 null）
+ * 因此先經代理抓回 CSS，把其中 url() / @import 轉成絕對網址後，
+ * 以 <style> 內嵌到 HTML，抓取失敗則保留原本的 <link>。
+ */
+
+/** 取得 HTML 標籤屬性值 */
+function GetTagAttribute(tag, name) {
+    const match = tag.match(new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i"));
+    return match ? DecodeEntities(match[1] ?? match[2] ?? match[3] ?? "") : null;
+}
+
+/** 將 CSS 內的相對網址轉為絕對網址 */
+function AbsolutizeCss(css, cssUrl) {
+    const resolve = value => {
+        const text = value.trim();
+        if (!text || /^(data:|#|about:|blob:)/i.test(text)) return text;
+        try {
+            return new URL(text, cssUrl).toString();
+        } catch {
+            return text;
+        }
+    };
+
+    return css
+        // url(...)、url("...")、url('...')
+        .replace(/url\(\s*(["']?)([^"')]*)\1\s*\)/gi, (match, quote, value) => `url("${resolve(value)}")`)
+        // @import "..." / @import '...'
+        .replace(/@import\s+(["'])([^"']+)\1/gi, (match, quote, value) => `@import "${resolve(value)}"`);
+}
+
+/** 將 CSS 內 url() 指向的圖片、字型改經代理（@import 不處理，避免其內相對路徑失效） */
+function ProxyCssUrls(css, baseUrl) {
+    return css.replace(/url\(\s*(["']?)([^"')]*)\1\s*\)/gi, (match, quote, value) => {
+        const mapped = MapResourceUrl(value, baseUrl);
+        return mapped === value ? match : `url("${mapped}")`;
+    });
+}
+
+/** 經代理抓取單一樣式表；失敗回傳 null */
+async function FetchStylesheet(cssUrl, pageUrl, pageSignal) {
+    const controller  = new AbortController();
+    const timer       = setTimeout(() => controller.abort(), Config.StylesheetTimeoutMs);
+    const onPageAbort = () => controller.abort();
+    pageSignal.addEventListener("abort", onPageAbort);
+
+    try {
+        const response = await fetch(BuildProxyUrl(cssUrl), {
+            headers: { "X-Proxy-Referer": pageUrl },
+            signal:  controller.signal
+        });
+        if (!response.ok) return null;
+
+        const type = response.headers.get("Content-Type") || "";
+        if (type && !/css|text\/plain|octet-stream/i.test(type)) return null;
+
+        return AbsolutizeCss(await response.text(), cssUrl);
+    } catch {
+        return null;
+    } finally {
+        clearTimeout(timer);
+        pageSignal.removeEventListener("abort", onPageAbort);
+    }
+}
+
+/** 將 HTML 內的 <link rel="stylesheet"> 換成內嵌 <style> */
+async function InlineStylesheets(html, pageUrl, pageSignal) {
+    const linkTags = (html.match(/<link\b[^>]*>/gi) || [])
+        .filter(tag => /(^|\s)stylesheet(\s|$)/i.test(GetTagAttribute(tag, "rel") || ""))
+        .slice(0, Config.MaxInlineStylesheets);
+
+    if (linkTags.length === 0) return html;
+
+    const results = await Promise.all(linkTags.map(async tag => {
+        const href = GetTagAttribute(tag, "href");
+        if (!href) return null;
+
+        let cssUrl;
+        try {
+            cssUrl = new URL(href, pageUrl).toString();   // 支援 //images.ptt.cc/... 這類寫法
+        } catch {
+            return null;
+        }
+        if (!IsWebUrl(cssUrl)) return null;
+
+        const css = await FetchStylesheet(cssUrl, pageUrl, pageSignal);
+        if (css === null) return null;
+
+        const media     = GetTagAttribute(tag, "media");
+        const mediaAttr = media ? ` media="${EscapeHtml(media)}"` : "";
+        // 避免 CSS 內容提前結束 <style> 標籤
+        const safeCss   = css.replace(/<\/style/gi, "<\\/style");
+
+        return `<style data-owob-href="${EscapeHtml(cssUrl)}"${mediaAttr}>\n${safeCss}\n</style>`;
+    }));
+
+    let output = html;
+    linkTags.forEach((tag, index) => {
+        if (results[index]) {
+            output = output.replace(tag, () => results[index]);
+        }
+    });
+    return output;
+}
+
+/* ---------- 資源網址改寫 ----------
+ * 在 HTML 交給 iframe 前，先把資源網址改成代理網址。
+ * 必須在字串階段處理：瀏覽器的預先載入掃描器會在任何腳本執行前就開始抓圖片。
+ * 動態加入的資源則由 iframe 內的代理程式（第 13 節）處理。
+ */
+
+/** 改寫單一標籤內的 src / srcset / poster / data-src / data-srcset */
+function RewriteTagAttributes(tagText, baseUrl) {
+    return tagText.replace(
+        /(\s(data-srcset|data-src|srcset|src|poster)\s*=\s*)(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi,
+        (match, prefix, name, doubleQuoted, singleQuoted, bare) => {
+            const raw    = DecodeEntities(doubleQuoted ?? singleQuoted ?? bare ?? "");
+            const mapper = value => MapResourceUrl(value, baseUrl);
+            const next   = /srcset$/i.test(name) ? RewriteSrcset(raw, mapper) : mapper(raw);
+            return next === raw ? match : `${prefix}"${EscapeHtml(next)}"`;
+        }
+    );
+}
+
+/**
+ * 改寫 HTML 中的資源網址
+ *   - <img> <source> <video> <audio> <track> <embed> <input>：依「圖片、影音、字型經代理」設定
+ *   - <style> 區塊內的 url()：同上
+ *   - <script src>：依「外部腳本經代理」設定（type="module" 一律不改，避免相對 import 失效）
+ *   - 註解、<textarea>、<noscript> 內容與內嵌腳本內容不改，避免破壞字串
+ */
+/** 將 JavaScript 中可安全辨識的模組與資源字面值改經代理。 */
+function RewriteJavaScriptUrls(code, baseUrl) {
+    const map = value => MapResourceUrl(value, baseUrl);
+    let output = String(code);
+
+    // 僅處理語法位置明確的 import/export，支援單引號、雙引號及無插值反引號。
+    // 不再全域替換所有 http 字串，避免破壞壓縮腳本中的字串邊界。
+    output = output.replace(
+        /(\b(?:import\s*\(\s*|import\s+|(?:import|export)\b[^;]*?\bfrom\s*))(["'`])([^"'`$]+)\2/g,
+        (match, prefix, quote, value) => {
+            const next = map(value);
+            return next === value ? match : `${prefix}${quote}${next}${quote}`;
+        }
+    );
+
+    // 常見動態載入器會以字面值設定 script.src，例如 e(`https://...`)。
+    output = output.replace(
+        /(\b(?:src\s*=|setAttribute\(\s*["']src["']\s*,)\s*)(["'`])([^"'`$]+)\2/g,
+        (match, prefix, quote, value) => {
+            const next = map(value);
+            return next === value ? match : `${prefix}${quote}${next}${quote}`;
+        }
+    );
+
+    return output;
+}
+
+function RewriteHtmlResources(html, baseUrl) {
+    // Reddit 右側欄 Partial 預載在 srcdoc 中不會直接使用，只會產生警告與重複請求。
+    if (/^(?:https?:\/\/)?(?:www\.)?reddit\.com\//i.test(baseUrl)) {
+        html = String(html).replace(
+            /<link\b[^>]*\brel\s*=\s*["']?preload["']?[^>]*\bhref\s*=\s*["'][^"']*\/svc\/shreddit\/pdp-right-rail\/[^"']*["'][^>]*>/gi,
+            ""
+        );
+    }
+    const proxyMedia   = GetFlag("ProxyResources");
+    const proxyScripts = GetFlag("ProxyScripts");
+    if (!proxyMedia && !proxyScripts) return html;
+
+    const pattern = /<!--[\s\S]*?-->|<(textarea|noscript)\b[\s\S]*?<\/\1\s*>|<style\b([^>]*)>([\s\S]*?)<\/style\s*>|<script\b([^>]*)>([\s\S]*?)<\/script\s*>|<(?:img|source|video|audio|track|embed|input)\b[^>]*>/gi;
+
+    return html.replace(pattern, (match, rawTag, styleAttrs, styleBody, scriptAttrs, scriptBody) => {
+        // <style>：改寫 url()
+        if (styleBody !== undefined) {
+            return proxyMedia ? `<style${styleAttrs}>${ProxyCssUrls(styleBody, baseUrl)}</style>` : match;
+        }
+
+        // <script>：只改開始標籤的 src
+        if (scriptAttrs !== undefined) {
+            if (!proxyScripts) return match;
+            const nextAttrs = RewriteTagAttributes(scriptAttrs, baseUrl);
+            const nextBody  = RewriteJavaScriptUrls(scriptBody, baseUrl);
+            return `<script${nextAttrs}>${nextBody}</script>`;
+        }
+
+        // 註解、<textarea>、<noscript>：原樣保留
+        if (rawTag !== undefined || match.startsWith("<!--")) {
+            return match;
+        }
+
+        // 圖片 / 影音標籤
+        return proxyMedia ? RewriteTagAttributes(match, baseUrl) : match;
+    });
+}
+
+/**
+ * 偵測並移除 PTT 在標準 srcdoc 模式中直接執行的年齡確認跳轉。
+ * PTT 原始腳本使用 location.pathname；在 srcdoc 中會得到 "srcdoc"，
+ * 且 location 導覽會繞過 OwO 代理，因此改由外層 Navigate() 接管。
+ */
+function ExtractPttOver18ScriptRedirect(html, baseUrl) {
+    let page;
+    try {
+        page = new URL(baseUrl);
+    } catch {
+        return null;
+    }
+
+    if (page.hostname.toLowerCase() !== "www.ptt.cc") return null;
+
+    let detected = false;
+    const cleanedHtml = String(html).replace(
+        /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi,
+        (whole, attributes, body) => {
+            const isOver18Redirect = /\/ask\/over18/i.test(body) &&
+                /(?:document\.)?(?:window\.)?location(?:\.pathname|\s*=|\.href|\.replace\s*\()/i.test(body);
+            if (!isOver18Redirect) return whole;
+            detected = true;
+            return "<!-- OwO: PTT over18 srcdoc redirect moved to outer proxy navigation -->";
+        }
+    );
+
+    if (!detected) return null;
+
+    // 已有 over18=1 時，PTT 原始腳本在 srcdoc 仍讀不到真實 Cookie；
+    // 此時只移除錯誤導向，直接保留看板內容。
+    if (HasPttOver18Cookie()) return { Html: cleanedHtml, Url: null };
+
+    const target = new URL("/ask/over18", page.origin);
+    target.searchParams.set("from", GetCanonicalPttReturnPath(page.href));
+    return { Html: cleanedHtml, Url: target.href };
+}
+
+/**
+ * 將抓回的 HTML 放進沙箱 iframe
+ *  - <base> 讓相對路徑的圖片、CSS 正確指向原網站
+ *  - 注入 iframe 代理程式（連結、表單、資源、請求、頁內搜尋、快捷鍵）
+ *  - sandbox 不含 allow-same-origin，網頁腳本無法存取 OwOb 本身
+ */
+function RenderHtmlInFrame(tab, html, baseUrl) {
+    // PTT 的 inline location 導向在 srcdoc 中會產生 from=srcdoc 並繞過代理。
+    const pttRedirect = ExtractPttOver18ScriptRedirect(html, baseUrl);
+    if (pttRedirect) html = pttRedirect.Html;
+
+    // <meta http-equiv="refresh"> 會讓 iframe 繞過代理直接跳轉，
+    // 因此從 HTML 移除，改由 OwOb 經代理導覽
+    const refresh = ExtractMetaRefresh(html, baseUrl);
+    if (refresh) {
+        html = html.replace(/<meta[^>]+http-equiv\s*=\s*["']?refresh["']?[^>]*>/gi, "");
+    }
+
+    const agentOptions = {
+        TabId:          tab.Id,
+        PageUrl:        baseUrl,
+        CookieJar:      GetSiteCookieJar(baseUrl),
+        ProxyBase:      GetProxyBase(),
+        ProxyKey:       GetProxyKey(),
+        ProxyResources: GetFlag("ProxyResources"),
+        ProxyScripts:   GetFlag("ProxyScripts"),
+        ProxyRequests:  GetFlag("ProxyRequests")
+    };
+
+    const injected = `
+<base href="${EscapeHtml(baseUrl)}">
+<script>
+${RewriteSrcset.toString()}
+${MakeProxyUrl.toString()}
+(${OwObFrameAgent.toString()})(${SafeJson(agentOptions)});
+<\/script>`;
+
+    // 插在 <head> 之後；沒有 <head> 時放最前面
+    const finalHtml = /<head[^>]*>/i.test(html)
+        ? html.replace(/<head[^>]*>/i, match => match + injected)
+        : injected + html;
+
+    // 取得標題
+    const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    tab.Title = titleMatch && titleMatch[1].trim()
+        ? DecodeEntities(titleMatch[1].trim())
+        : GetHostname(baseUrl);
+    UpdateTabHeader(tab);
+
+    const frame = CreateFrame(tab);
+    frame.srcdoc = finalHtml;
+    SetTabContent(tab, frame, true);
+    tab.HasAgent = true;
+
+    const outerRedirect = pttRedirect && pttRedirect.Url
+        ? { Url: pttRedirect.Url, DelayMs: 0 }
+        : (!pttRedirect ? refresh : null);
+
+    if (outerRedirect) {
+        const expectedUrl = GetTabUrl(tab);
+        setTimeout(() => {
+            // 期間使用者已切換頁面則不跳轉
+            if (GetTabUrl(tab) === expectedUrl) {
+                Navigate(tab, NormalizePttOver18Url(outerRedirect.Url, baseUrl));
+            }
+        }, outerRedirect.DelayMs);
+    }
+}
+
+/**
+ * 解析 <meta http-equiv="refresh" content="秒數; url=網址">
+ * @returns {{ Url: string, DelayMs: number } | null}
+ */
+function ExtractMetaRefresh(html, baseUrl) {
+    const tagMatch = html.match(/<meta[^>]+http-equiv\s*=\s*["']?refresh["']?[^>]*>/i);
+    if (!tagMatch) return null;
+
+    const contentMatch = tagMatch[0].match(/content\s*=\s*(["'])([\s\S]*?)\1/i);
+    if (!contentMatch) return null;
+
+    const content  = DecodeEntities(contentMatch[2]);
+    const urlMatch = content.match(/url\s*=\s*['"]?([^'"]+)['"]?/i);
+    if (!urlMatch) return null;
+
+    try {
+        const target = new URL(urlMatch[1].trim(), baseUrl).toString();
+        if (!IsWebUrl(target)) return null;
+        const seconds = parseFloat(content) || 0;
+        return { Url: target, DelayMs: Clamp(seconds, 0, 10) * 1000 };
+    } catch {
+        return null;
+    }
+}
+
+/** 非 HTML 內容直接顯示 */
+function RenderRawInFrame(tab, url) {
+    let name = url.split("/").pop() || url;
+    try {
+        name = decodeURIComponent(name);
+    } catch {
+        /* 保留原字串 */
+    }
+    tab.Title = name || GetHostname(url);
+    UpdateTabHeader(tab);
+
+    const frame = CreateFrame(tab);
+    frame.src = BuildProxyUrl(url);
+    SetTabContent(tab, frame, true);
+    tab.HasAgent = false;
+}
+
+/** 建立沙箱 iframe，並套用分頁縮放 */
+function CreateFrame(tab, sameOriginMode = false) {
+    const frame = document.createElement("iframe");
+    // 同源反向代理頁面需要正常 Cookie / Storage / frame 通訊；標準 srcdoc 模式維持原隔離。
+    frame.setAttribute(
+        "sandbox",
+        sameOriginMode
+            ? "allow-scripts allow-forms allow-modals allow-downloads allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+            : "allow-scripts allow-forms allow-modals allow-downloads"
+    );
+    frame.setAttribute("referrerpolicy", "no-referrer");
+    ApplyFrameZoom(frame, tab.Zoom);
+    return frame;
+}
+
+/* ============================================================
+ * 13. iframe 代理程式
+ *     此函式「不會」在主頁面執行，而是以原始碼形式注入每個外部頁面的
+ *     沙箱 iframe 內（見 RenderHtmlInFrame），因此：
+ *       - 不可引用外部變數，只能使用參數 Options 與同時注入的
+ *         RewriteSrcset / MakeProxyUrl
+ *       - 原始碼內不可出現結束 script 標籤的字串
+ *
+ *     功能：
+ *       1. 連結點擊、表單送出 → 交回 OwOb 經代理導覽
+ *       2. 動態加入 / 修改的圖片、影音（及選用的腳本）→ 改為代理網址
+ *       3. fetch / XMLHttpRequest → 經代理送出
+ *       4. 頁內搜尋（Ctrl+F）
+ *       5. 快捷鍵轉送（焦點在 iframe 內時，OwOb 快捷鍵仍可使用）
+ * ============================================================ */
+
+function OwObFrameAgent(Options) {
+    "use strict";
+
+    /* ---------- 0. 沙箱相容層 ---------- */
+
+    /** 建立符合 Storage 介面的記憶體儲存區。 */
+    function CreateMemoryStorage() {
+        var values = Object.create(null);
+        return {
+            get length() { return Object.keys(values).length; },
+            key: function (index) {
+                var keys = Object.keys(values);
+                return index >= 0 && index < keys.length ? keys[index] : null;
+            },
+            getItem: function (key) {
+                key = String(key);
+                return Object.prototype.hasOwnProperty.call(values, key) ? values[key] : null;
+            },
+            setItem: function (key, value) { values[String(key)] = String(value); },
+            removeItem: function (key) { delete values[String(key)]; },
+            clear: function () { values = Object.create(null); }
+        };
+    }
+
+    /**
+     * about:srcdoc 沒有 same-origin 權限時，原生 cookie / Storage getter 會丟出
+     * SecurityError。以頁面內記憶體實作提供相容介面，讓 CSRF、延遲載入與狀態機
+     * 可以繼續執行，同時不把外部頁面提升為 OwOb 主頁面的同源內容。
+     */
+    var OwObSessionStorage = CreateMemoryStorage();
+    var OwObLocalStorage   = CreateMemoryStorage();
+    var OwObCookies        = Object.create(null);
+    var OwObCookieJar      = Array.isArray(Options.CookieJar) ? Options.CookieJar.slice() : [];
+    OwObCookieJar.forEach(function (item) {
+        if (item && item.Name && item.Value != null) {
+            OwObCookies[String(item.Name)] = String(item.Value);
+        }
+    });
+
+    function InstallWindowValue(name, value) {
+        try {
+            Object.defineProperty(window, name, {
+                configurable: true,
+                enumerable:   true,
+                get: function () { return value; }
+            });
+        } catch (error) {
+            try { window[name] = value; } catch (ignored) { /* 保持沙箱隔離 */ }
+        }
+    }
+
+    InstallWindowValue("sessionStorage", OwObSessionStorage);
+    InstallWindowValue("localStorage", OwObLocalStorage);
+
+    try {
+        Object.defineProperty(document, "cookie", {
+            configurable: true,
+            enumerable:   true,
+            get: function () {
+                return Object.keys(OwObCookies).map(function (name) {
+                    return name + "=" + OwObCookies[name];
+                }).join("; ");
+            },
+            set: function (value) {
+                var pair = String(value || "").split(";", 1)[0];
+                var equal = pair.indexOf("=");
+                if (equal <= 0) return;
+                var name = pair.slice(0, equal).trim();
+                var data = pair.slice(equal + 1).trim();
+                if (name) {
+                    OwObCookies[name] = data;
+                    var host = "";
+                    try { host = new URL(Options.PageUrl).hostname; } catch (error) { host = ""; }
+                    var found = false;
+                    OwObCookieJar.forEach(function (item) {
+                        if (item && item.Name === name && item.Domain === host) {
+                            item.Value = data;
+                            found = true;
+                        }
+                    });
+                    if (!found && host) {
+                        OwObCookieJar.push({ Domain: host, Name: name, Value: data, HostOnly: true });
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        /* 個別引擎不允許覆寫時，後續請求仍由 OwOb Cookie 罐處理。 */
+    }
+
+    /** location.origin 在 srcdoc 為 "null"，替 URL(base) 補回實際頁面網址。 */
+    var NativeURL = window.URL;
+    if (typeof NativeURL === "function") {
+        function CompatibleURL(value, base) {
+            if (!(this instanceof CompatibleURL)) return NativeURL(value, base);
+            var actualBase = base;
+            if (actualBase == null || actualBase === "null" || actualBase === "about:srcdoc") {
+                actualBase = Options.PageUrl;
+            }
+            return new NativeURL(value, actualBase);
+        }
+        CompatibleURL.prototype = NativeURL.prototype;
+        Object.getOwnPropertyNames(NativeURL).forEach(function (name) {
+            if (name === "prototype" || name === "length" || name === "name") return;
+            try { Object.defineProperty(CompatibleURL, name, Object.getOwnPropertyDescriptor(NativeURL, name)); }
+            catch (error) { /* 忽略唯讀靜態欄位 */ }
+        });
+        try { window.URL = CompatibleURL; } catch (error) { /* 原生 URL 保持可用 */ }
+    }
+
+    /** 沙箱中讀取 navigator.serviceWorker 會直接丟出 SecurityError，提供無害相容物件。 */
+    var OwObServiceWorker = {
+        controller: null,
+        ready: Promise.resolve(null),
+        register: function () { return Promise.resolve(null); },
+        getRegistration: function () { return Promise.resolve(undefined); },
+        getRegistrations: function () { return Promise.resolve([]); },
+        addEventListener: function () {},
+        removeEventListener: function () {},
+        startMessages: function () {}
+    };
+    try {
+        Object.defineProperty(navigator, "serviceWorker", {
+            configurable: true,
+            enumerable:   true,
+            get: function () { return OwObServiceWorker; }
+        });
+    } catch (error) {
+        try {
+            Object.defineProperty(Object.getPrototypeOf(navigator), "serviceWorker", {
+                configurable: true,
+                get: function () { return OwObServiceWorker; }
+            });
+        } catch (ignored) { /* 保持其餘頁面功能 */ }
+    }
+
+    /** Performance.measure 在代理資源缺少跨來源 timing 欄位時改為無害降級。 */
+    if (window.performance && typeof window.performance.measure === "function") {
+        var NativePerformanceMeasure = window.performance.measure.bind(window.performance);
+        try {
+            var CompatiblePerformanceMeasure = function () {
+                try {
+                    return NativePerformanceMeasure.apply(null, arguments);
+                } catch (error) {
+                    if (error && (error.name === "InvalidAccessError" || error.name === "SyntaxError")) {
+                        return undefined;
+                    }
+                    throw error;
+                }
+            };
+            Object.defineProperty(window.performance, "measure", {
+                configurable: true,
+                writable:     true,
+                value:        CompatiblePerformanceMeasure
+            });
+        } catch (error) {
+            try { window.performance.measure = CompatiblePerformanceMeasure; }
+            catch (ignored) { /* 個別引擎保持原實作 */ }
+        }
+    }
+
+    /* ---------- 共用 ---------- */
+
+    var ProxyOrigin = "";
+    try {
+        ProxyOrigin = new URL(Options.ProxyBase).origin;
+    } catch (error) {
+        ProxyOrigin = "";
+    }
+
+    /** 傳訊息給 OwOb */
+    function Send(message) {
+        message.OwOb  = true;
+        message.TabId = Options.TabId;
+        parent.postMessage(message, "*");
+    }
+
+    /**
+     * data:text/javascript 模組會在建立後才執行，其中的 import() 不經 DOM src
+     * 攔截。解碼其本文後，將靜態與動態模組指定符改成代理網址，再重新編碼。
+     */
+    function RewriteDataJavaScriptUrl(url) {
+        var text = String(url == null ? "" : url);
+        var match = text.match(/^data:(text|application)\/(?:javascript|ecmascript)([^,]*),(.*)$/is);
+        if (!match) return url;
+
+        var metadata = match[2] || "";
+        var encoded  = match[3] || "";
+        var isBase64 = /;base64/i.test(metadata);
+        var source;
+
+        try {
+            source = isBase64 ? atob(encoded) : decodeURIComponent(encoded);
+        } catch (error) {
+            return url;
+        }
+
+        var rewritten = source.replace(
+            /(\b(?:import\s*\(\s*|import\s+|(?:import|export)\b[^;]*?\bfrom\s*))(["'`])([^"'`$]+)\2/g,
+            function (whole, prefix, quote, value) {
+                var absolute = ToAbsolute(value);
+                var next = absolute && ShouldProxy(absolute)
+                    ? MakeProxyUrl(Options.ProxyBase, Options.ProxyKey, absolute)
+                    : value;
+                return prefix + quote + next + quote;
+            }
+        );
+
+        if (rewritten === source) return url;
+        try {
+            return "data:" + match[1] + "/javascript;charset=utf-8," + encodeURIComponent(rewritten);
+        } catch (error) {
+            return url;
+        }
+    }
+
+    /** 轉為絕對網址；失敗回傳 null */
+    /**
+     * 清除 srcdoc 中 location.origin === "null" 所造成的路徑污染。
+     * 例如：
+     * - null/svc/shreddit/...                    -> /svc/shreddit/...
+     * - /r/community/null/svc/shreddit/...       -> /svc/shreddit/...
+     * - https://host/r/community/null/svc/...    -> https://host/svc/...
+     */
+    function CleanNullPathPollution(url) {
+        var value = String(url == null ? "" : url).trim();
+        if (!value) return value;
+
+        value = value.replace(/^null(?=\/)/i, "");
+
+        try {
+            var parsed = new NativeURL(value, Options.PageUrl);
+            var polluted = parsed.pathname.match(/\/null(\/(?:svc|api|graphql)(?:\/|$).*)/i);
+            if (polluted) {
+                parsed.pathname = polluted[1];
+                return parsed.href;
+            }
+        } catch (error) {
+            /* 相對網址交由下方字串清理。 */
+        }
+
+        return value
+            .replace(/^.*?\/null(?=\/(?:svc|api|graphql)(?:\/|\?|$))/i, "")
+            .replace(/\/null(?=\/(?:svc|api|graphql)(?:\/|\?|$))/i, "");
+    }
+
+    function ToAbsolute(url) {
+        try {
+            var cleaned = CleanNullPathPollution(url);
+            var pageUrl = new NativeURL(Options.PageUrl);
+
+            if (/^\/\//.test(cleaned)) {
+                return pageUrl.protocol + cleaned;
+            }
+
+            if (cleaned.charAt(0) === "/") {
+                return new NativeURL(cleaned, pageUrl.origin).href;
+            }
+
+            return new NativeURL(cleaned, document.baseURI || Options.PageUrl).href;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    /** 絕對網址是否需要經代理 */
+    function ShouldProxy(absolute) {
+        return Boolean(absolute) &&
+            /^https?:\/\//i.test(absolute) &&
+            (!ProxyOrigin || absolute.indexOf(ProxyOrigin + "/") !== 0);
+    }
+
+    /** 將網址轉為代理網址；不需轉換時回傳原值 */
+    /** 已包裝的代理網址也要修正其 url 參數，避免錯誤目標被 ShouldProxy 略過。 */
+    function RepairExistingProxyUrl(url) {
+        var text = String(url == null ? "" : url).trim();
+        if (!text || !ProxyOrigin || text.indexOf(ProxyOrigin + "/") !== 0) return text;
+
+        try {
+            var proxyUrl = new NativeURL(text);
+            var target = proxyUrl.searchParams.get("url");
+            if (!target) return text;
+
+            var correctedTarget = ToAbsolute(target);
+            if (correctedTarget && correctedTarget !== target) {
+                proxyUrl.searchParams.set("url", correctedTarget);
+                return proxyUrl.href;
+            }
+        } catch (error) {
+            /* 保留原代理網址。 */
+        }
+
+        return text;
+    }
+
+    function ToProxy(url) {
+        var text = String(url == null ? "" : url).trim();
+        if (/^data:(?:text|application)\/(?:javascript|ecmascript)/i.test(text)) {
+            return RewriteDataJavaScriptUrl(text);
+        }
+        if (!text || /^(data:|blob:|about:|javascript:|#)/i.test(text)) return url;
+
+        var repairedProxy = RepairExistingProxyUrl(text);
+        if (repairedProxy !== text || (ProxyOrigin && repairedProxy.indexOf(ProxyOrigin + "/") === 0)) {
+            return repairedProxy;
+        }
+
+        var absolute = ToAbsolute(text);
+        return ShouldProxy(absolute) ? MakeProxyUrl(Options.ProxyBase, Options.ProxyKey, absolute) : url;
+    }
+
+
+    /**
+     * Reddit faceplate-partial 會在 programmatic loading 時發出 faceplate-request。
+     * srcdoc 的原生 origin 為 "null"，部分元件會把 resource 組成 null/svc/...；
+     * 在捕捉階段先改回原網站的絕對網址，避免代理最終請求 /r/.../null/svc/...。
+     */
+    /**
+     * Reddit 社群動態載入的穩定相容層。
+     * about:srcdoc 會讓站內元件以 location.origin 組出 null/svc/...，而且部分版本
+     * 在事件處理器內已先建立錯誤 Request。此處直接接管 community-more-posts：
+     * 1. 阻止原本錯誤請求。
+     * 2. 以原始頁面 Origin 建立正確網址。
+     * 3. 沿用 OwO Fetch 代理與 Cookie 罐取得 Partial HTML。
+     * 4. 將回應內容替換到目前 faceplate-partial，讓下一個載入元件繼續運作。
+     */
+    var OwObPartialRequests = new WeakMap();
+
+    // CSS 先於 MutationObserver 隱藏暫時性錯誤介面，避免單一畫面閃爍。
+    var OwObPartialStyle = document.createElement("style");
+    OwObPartialStyle.id = "owob-partial-loading-style";
+    OwObPartialStyle.textContent =
+        'faceplate-partial[data-owob-partial-loading="true"] shreddit-feed-page-error,' +
+        'faceplate-partial[data-owob-partial-loading="true"] [data-testid*="error"],' +
+        'faceplate-partial[data-owob-partial-loading="true"] [class*="feed-page-error"],' +
+        'faceplate-partial[data-owob-partial-loading="true"] [class*="partial-error"]{display:none!important}' +
+        '.owob-partial-placeholder{min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#576273;font:500 14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}' +
+        '.owob-partial-spinner{width:42px;height:42px;border:4px solid #ffd8ca;border-top-color:#ff4500;border-radius:50%;animation:owob-partial-spin .8s linear infinite}' +
+        '.owob-partial-loading-text{letter-spacing:.02em}' +
+        '.owob-partial-final-error{color:#202832}' +
+        '.owob-partial-error-title{font-weight:600}' +
+        '.owob-partial-retry{padding:11px 22px;border:0;border-radius:999px;background:#111;color:#fff;font:700 14px/1 system-ui;cursor:pointer}' +
+        '@keyframes owob-partial-spin{to{transform:rotate(360deg)}}';
+    (document.head || document.documentElement).appendChild(OwObPartialStyle);
+
+    function ExecuteCommunityPartialRequest(event, element, detail, corrected) {
+        if (OwObPartialRequests.has(element)) return;
+
+        var requestInfo = detail.request || {};
+        var method = String(requestInfo.method || element.getAttribute("method") || "GET").toUpperCase();
+        var headers = new Headers(requestInfo.headers || {});
+        var maxAttempts = 3;
+        var retryDelays = [0, 450, 900];
+
+        function BuildRequestInit(attempt) {
+            var attemptHeaders = new Headers(headers);
+            attemptHeaders.set("X-Reddit-Retry", "attempt=" + attempt + ", max=" + (maxAttempts - 1));
+
+            var init = {
+                method: method,
+                headers: attemptHeaders,
+                credentials: "include",
+                cache: "no-store"
+            };
+
+            if (method !== "GET" && method !== "HEAD" && requestInfo.body != null) {
+                if (typeof requestInfo.body === "string" || requestInfo.body instanceof FormData ||
+                    requestInfo.body instanceof URLSearchParams || requestInfo.body instanceof Blob) {
+                    init.body = requestInfo.body;
+                } else {
+                    init.body = JSON.stringify(requestInfo.body);
+                    if (!attemptHeaders.has("Content-Type")) attemptHeaders.set("Content-Type", "application/json");
+                }
+            }
+
+            return init;
+        }
+
+        function IsTemporaryErrorHtml(html) {
+            var text = String(html || "");
+            return !text.trim() ||
+                /載入下一頁時發生錯誤|請再試一次|shreddit-feed-page-error|feed-page-error|partial-error/i.test(text);
+        }
+
+        function Delay(milliseconds) {
+            return new Promise(function (resolve) { setTimeout(resolve, milliseconds); });
+        }
+
+        function RequestAttempt(attempt) {
+            return Delay(retryDelays[attempt] || 0)
+                .then(function () {
+                    return window.fetch(corrected, BuildRequestInit(attempt));
+                })
+                .then(function (response) {
+                    return response.text().then(function (body) {
+                        if (!response.ok) {
+                            throw new Error("Partial request failed: " + response.status + " " + body.slice(0, 300));
+                        }
+
+                        if (IsTemporaryErrorHtml(body)) {
+                            throw new Error("Partial server returned a temporary error page.");
+                        }
+
+                        return body;
+                    });
+                })
+                .catch(function (error) {
+                    if (attempt + 1 < maxAttempts) {
+                        console.warn("[OwO Partial] 第 " + (attempt + 1) + " 次載入未完成，立即重試", error);
+                        return RequestAttempt(attempt + 1);
+                    }
+                    throw error;
+                });
+        }
+
+        /*
+         * Reddit 可能直接替換整個 faceplate-partial，因此只監看其子節點仍會閃出錯誤頁。
+         * v17 改用獨立 OwO 預留區：先隱藏原元件，再以預留區承接載入、成功內容及最終錯誤。
+         */
+        var placeholder = document.createElement("div");
+        placeholder.className = "owob-partial-placeholder";
+        placeholder.setAttribute("role", "status");
+        placeholder.setAttribute("aria-live", "polite");
+        placeholder.innerHTML =
+            '<div class="owob-partial-spinner" aria-hidden="true"></div>' +
+            '<div class="owob-partial-loading-text">正在載入更多內容…</div>';
+
+        element.setAttribute("data-owob-partial-loading", "true");
+        element.style.setProperty("display", "none", "important");
+        element.insertAdjacentElement("beforebegin", placeholder);
+
+        function RemoveRedditTemporaryErrorNodes() {
+            var parent = placeholder.parentElement;
+            if (!parent) return;
+
+            Array.prototype.slice.call(parent.children).forEach(function (child) {
+                if (child === placeholder || child === element) return;
+                var text = String(child.innerText || child.textContent || "");
+                var isError = /載入下一頁時發生錯誤|請再試一次/i.test(text) ||
+                    (child.matches && child.matches(
+                        'shreddit-feed-page-error, [data-testid*="error"], [class*="feed-page-error"], [class*="partial-error"]'
+                    ));
+                if (isError) child.remove();
+            });
+        }
+
+        var parentObserver = new MutationObserver(RemoveRedditTemporaryErrorNodes);
+        if (placeholder.parentElement) {
+            parentObserver.observe(placeholder.parentElement, {
+                childList: true,
+                subtree: false
+            });
+        }
+
+        RemoveRedditTemporaryErrorNodes();
+
+        var task = RequestAttempt(0)
+            .then(function (html) {
+                var range = document.createRange();
+                range.selectNode(placeholder);
+                var fragment = range.createContextualFragment(html);
+
+                if (!fragment || !fragment.childNodes.length) {
+                    throw new Error("Partial response did not contain replaceable HTML.");
+                }
+
+                parentObserver.disconnect();
+                placeholder.replaceWith(fragment);
+                if (element.isConnected) element.remove();
+            })
+            .catch(function (error) {
+                parentObserver.disconnect();
+                if (element.isConnected) element.remove();
+
+                placeholder.classList.add("owob-partial-final-error");
+                placeholder.removeAttribute("role");
+                placeholder.innerHTML =
+                    '<div class="owob-partial-error-title">載入下一頁時發生錯誤</div>' +
+                    '<button type="button" class="owob-partial-retry">重試</button>';
+
+                var retryButton = placeholder.querySelector(".owob-partial-retry");
+                retryButton.addEventListener("click", function () {
+                    placeholder.remove();
+                    location.reload();
+                }, { once: true });
+
+                console.error("[OwO Partial] 三次動態內容載入均失敗", error, corrected);
+            })
+            .finally(function () {
+                OwObPartialRequests.delete(element);
+            });
+
+        OwObPartialRequests.set(element, task);
+    }
+
+    document.addEventListener("faceplate-request", function (event) {
+        var detail = event && event.detail;
+        if (!detail || typeof detail.resource !== "string") return;
+
+        var corrected = ToAbsolute(detail.resource);
+        if (!corrected) return;
+        detail.resource = corrected;
+
+        var element = event.target;
+        var isCommunityMorePosts = /\/svc\/shreddit\/community-more-posts\//i.test(corrected);
+
+        if (isCommunityMorePosts && element && element.tagName === "FACEPLATE-PARTIAL") {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            ExecuteCommunityPartialRequest(event, element, detail, corrected);
+        }
+    }, true);
+
+
+    /**
+     * 在事件進入捕捉／冒泡流程前先修正 detail.resource。
+     * 這可涵蓋比 document 監聽器更早註冊的站內處理器，也避免監聽順序差異。
+     */
+    var NativeDispatchEvent = EventTarget.prototype.dispatchEvent;
+    EventTarget.prototype.dispatchEvent = function (event) {
+        try {
+            if (event && event.type === "faceplate-request" &&
+                event.detail && typeof event.detail.resource === "string") {
+                var correctedResource = ToAbsolute(event.detail.resource);
+                if (correctedResource) event.detail.resource = correctedResource;
+            }
+        } catch (error) {
+            /* 保持原事件派送。 */
+        }
+        return NativeDispatchEvent.call(this, event);
+    };
+
+    /* ---------- 1. 新視窗攔截 ---------- */
+
+    /**
+     * 攔截網頁腳本的 window.open()，避免跳到外層真實瀏覽器。
+     * 有有效網址時，一律交回 OwO Simple Browser 建立內部分頁。
+     * 回傳一個最小相容物件，避免網站因檢查回傳值而中斷後續流程。
+     */
+    window.open = function (url) {
+        var absolute = ToAbsolute(url);
+        if (absolute && /^https?:\/\//i.test(absolute)) {
+            Send({ Type: "OpenTab", Url: absolute });
+        }
+
+        return {
+            closed: false,
+            opener: window,
+            close: function () { this.closed = true; },
+            focus: function () {},
+            blur: function () {},
+            postMessage: function () {}
+        };
+    };
+
+    /* ---------- 1. 連結點擊 ---------- */
+
+    var OwObLastNavigation = { Url: "", Type: "", Time: 0 };
+
+    function SendNavigationOnce(type, url) {
+        var now = Date.now();
+        if (
+            OwObLastNavigation.Url === url &&
+            OwObLastNavigation.Type === type &&
+            now - OwObLastNavigation.Time < 700
+        ) {
+            return;
+        }
+        OwObLastNavigation.Url = url;
+        OwObLastNavigation.Type = type;
+        OwObLastNavigation.Time = now;
+        Send({ Type: type, Url: url });
+    }
+
+    document.addEventListener("click", function (event) {
+        var link = event.target && event.target.closest && event.target.closest("a[href]");
+        if (!link || event.defaultPrevented) return;
+
+        var href = link.getAttribute("href") || "";
+        if (href.charAt(0) === "#" || /^(javascript|mailto|tel|data|blob):/i.test(href)) return;
+
+        var absolute = ToAbsolute(link.getAttribute("href") || link.href);
+        if (!absolute || !/^https?:\/\//i.test(absolute)) return;
+        try {
+            var redditTarget = new URL(absolute);
+            if (redditTarget.hostname === "reddit.com" || redditTarget.hostname.endsWith(".reddit.com")) {
+                ["solution", "js_challenge", "jsc_token", "jsc_orig_r"].forEach(function (name) {
+                    redditTarget.searchParams.delete(name);
+                });
+                absolute = redditTarget.href;
+            }
+        } catch (ignored) { /* 保留原網址 */ }
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+
+        var newTab = link.target === "_blank" || event.ctrlKey || event.metaKey || event.button === 1;
+        SendNavigationOnce(newTab ? "OpenTab" : "Navigate", absolute);
+    }, true);
+
+    /* ---------- 1. 表單送出（GET / POST） ---------- */
+
+    document.addEventListener("submit", function (event) {
+        var form = event.target;
+        event.preventDefault();
+
+        // 收集表單資料（含被按下的 submit 按鈕名稱與值）
+        var submitter = event.submitter || null;
+        var data;
+        try {
+            data = new FormData(form, submitter);
+        } catch (error) {
+            data = new FormData(form);
+            if (submitter && submitter.name) data.append(submitter.name, submitter.value || "");
+        }
+
+        // 轉為 urlencoded；不支援檔案上傳
+        var params  = new URLSearchParams();
+        var hasFile = false;
+        data.forEach(function (value, key) {
+            if (typeof value === "string") {
+                params.append(key, value);
+            } else if (value && value.size > 0) {
+                hasFile = true;
+            }
+        });
+
+        if (hasFile) {
+            Send({ Type: "Toast", Message: "含檔案上傳的表單無法經由代理送出" });
+            return;
+        }
+
+        // srcdoc 的 location 是 about:srcdoc，因此以 <base> 網址為基準
+        var actionAttr = (submitter && submitter.getAttribute("formaction")) || form.getAttribute("action");
+        var action     = new URL(actionAttr || document.baseURI, document.baseURI);
+        var methodAttr = (submitter && submitter.getAttribute("formmethod")) || form.getAttribute("method") || "get";
+
+        if (methodAttr.toLowerCase() === "post") {
+            Send({ Type: "Post", Url: action.href, Body: params.toString() });
+        } else {
+            action.search = params.toString();
+            Send({ Type: "Navigate", Url: action.href });
+        }
+    }, true);
+
+    /* ---------- 2. 動態資源改寫 ---------- */
+
+    // 各標籤需要改寫的屬性
+    var ResourceRules = {
+        IMG:    ["src", "srcset"],
+        SOURCE: ["src", "srcset"],
+        VIDEO:  ["src", "poster"],
+        AUDIO:  ["src"],
+        TRACK:  ["src"],
+        EMBED:  ["src"],
+        INPUT:  ["src"],
+        SCRIPT: ["src"],
+        LINK:   ["href"]
+    };
+
+    var NativeSetAttribute = Element.prototype.setAttribute;
+
+    /** 此元素是否需要改寫 */
+    function IsRewritable(element) {
+        if (!element || !ResourceRules[element.tagName]) return false;
+        if (element.tagName === "SCRIPT") return Options.ProxyScripts;
+        if (element.tagName === "LINK") {
+            var rel = String(element.getAttribute("rel") || "").toLowerCase();
+            return Options.ProxyScripts && /(?:modulepreload|preload|prefetch)/.test(rel);
+        }
+        return Options.ProxyResources;
+    }
+
+    /** 依屬性類型改寫值 */
+    function MapAttribute(name, value) {
+        return /srcset$/i.test(name) ? RewriteSrcset(value, ToProxy) : ToProxy(value);
+    }
+
+    /** 檢查並改寫元素現有屬性 */
+    function FixElement(element) {
+        if (!IsRewritable(element)) return;
+        ResourceRules[element.tagName].forEach(function (name) {
+            var value = element.getAttribute(name);
+            if (!value) return;
+            var next = MapAttribute(name, value);
+            if (next !== value) NativeSetAttribute.call(element, name, next);
+        });
+    }
+
+    /** 檢查節點及其子孫 */
+    function FixTree(node) {
+        if (!node || node.nodeType !== 1) return;
+        FixElement(node);
+        if (node.querySelectorAll) {
+            var list = node.querySelectorAll("img,source,video,audio,track,embed,input,script");
+            for (var i = 0; i < list.length; i++) FixElement(list[i]);
+        }
+    }
+
+    /** 攔截屬性設定（例如 img.src = "..."） */
+    function HookProperty(Ctor, property) {
+        if (!Ctor || !Ctor.prototype) return;
+        var descriptor = Object.getOwnPropertyDescriptor(Ctor.prototype, property);
+        if (!descriptor || !descriptor.set || !descriptor.configurable) return;
+
+        Object.defineProperty(Ctor.prototype, property, {
+            configurable: true,
+            enumerable:   descriptor.enumerable,
+            get:          descriptor.get,
+            set: function (value) {
+                if (IsRewritable(this) && value != null) {
+                    value = MapAttribute(property, String(value));
+                }
+                descriptor.set.call(this, value);
+            }
+        });
+    }
+
+    if (Options.ProxyResources || Options.ProxyScripts) {
+        HookProperty(window.HTMLImageElement,  "src");
+        HookProperty(window.HTMLImageElement,  "srcset");
+        HookProperty(window.HTMLSourceElement, "src");
+        HookProperty(window.HTMLSourceElement, "srcset");
+        HookProperty(window.HTMLMediaElement,  "src");
+        HookProperty(window.HTMLVideoElement,  "poster");
+        HookProperty(window.HTMLTrackElement,  "src");
+        HookProperty(window.HTMLEmbedElement,  "src");
+        HookProperty(window.HTMLInputElement,  "src");
+        HookProperty(window.HTMLScriptElement, "src");
+        HookProperty(window.HTMLLinkElement,   "href");
+
+        // 攔截 setAttribute("src", ...)
+        Element.prototype.setAttribute = function (name, value) {
+            var lower = String(name).toLowerCase();
+            if (IsRewritable(this) && ResourceRules[this.tagName].indexOf(lower) !== -1 && value != null) {
+                value = MapAttribute(lower, String(value));
+            }
+            return NativeSetAttribute.call(this, name, value);
+        };
+
+        // 後備：監看新加入的節點與屬性變更（例如延遲載入把 data-src 搬到 src）
+        new MutationObserver(function (mutations) {
+            mutations.forEach(function (mutation) {
+                if (mutation.type === "attributes") {
+                    FixElement(mutation.target);
+                } else {
+                    for (var i = 0; i < mutation.addedNodes.length; i++) FixTree(mutation.addedNodes[i]);
+                }
+            });
+        }).observe(document.documentElement, {
+            childList:       true,
+            subtree:         true,
+            attributes:      true,
+            attributeFilter: ["src", "srcset", "poster", "href", "rel"]
+        });
+    }
+
+    /* ---------- 3. fetch / XMLHttpRequest 經代理 ---------- */
+
+    if (Options.ProxyRequests) {
+        var NativeFetch = window.fetch;
+        var OwObPendingGetRequests = new Map();
+        var OwObRecentGetRequests = new Map();
+        var OwObRequestCooldownMs = 850;
+
+        /** 不影響頁面主要內容的遙測、廣告與錯誤回報請求，可直接降噪。 */
+        function IsNonEssentialBackgroundRequest(url) {
+            var absolute = ToAbsolute(url) || String(url || "");
+            return /(?:\/svc\/shreddit\/(?:events|client-errors)|error-tracking\.|w3-reporting\.|pi\.[^/]+\/v4\/p|google-analytics\.|googletagmanager\.|doubleclick\.|\/pagead\/|\/collect(?:\?|$))/i.test(absolute);
+        }
+
+        /** 產生不含資料的成功回應，避免網站因遙測失敗反覆重送。 */
+        function CreateQuietResponse() {
+            return Promise.resolve(new Response("", {
+                status: 204,
+                statusText: "No Content",
+                headers: { "X-OwOb-Suppressed": "1" }
+            }));
+        }
+
+        function GetRequestMethod(input, init) {
+            return String(
+                init && init.method ||
+                input instanceof Request && input.method ||
+                "GET"
+            ).toUpperCase();
+        }
+
+        if (typeof NativeFetch === "function") {
+            window.fetch = function (input, init) {
+                try {
+                    var originalUrl = typeof input === "string" || input instanceof URL
+                        ? String(input)
+                        : input && typeof input.url === "string" ? input.url : "";
+                    var requestMethod = GetRequestMethod(input, init);
+
+                    if (IsNonEssentialBackgroundRequest(originalUrl)) {
+                        return CreateQuietResponse();
+                    }
+
+                    var absoluteOriginal = ToAbsolute(originalUrl) || originalUrl;
+                    var dedupeKey = requestMethod === "GET" ? absoluteOriginal : "";
+                    var now = Date.now();
+                    var recentAt = dedupeKey ? Number(OwObRecentGetRequests.get(dedupeKey) || 0) : 0;
+
+                    if (dedupeKey && OwObPendingGetRequests.has(dedupeKey)) {
+                        return OwObPendingGetRequests.get(dedupeKey).then(function (response) {
+                            return response.clone();
+                        });
+                    }
+
+                    if (dedupeKey && recentAt && now - recentAt < OwObRequestCooldownMs) {
+                        return new Promise(function (resolve) {
+                            setTimeout(function () {
+                                resolve(window.fetch(input, init));
+                            }, OwObRequestCooldownMs - (now - recentAt));
+                        });
+                    }
+
+                    var proxiedUrl = ToProxy(originalUrl);
+                    var nextInit = Object.assign({}, init || {});
+                    var sourceHeaders = new Headers(
+                        nextInit.headers || (input instanceof Request ? input.headers : undefined)
+                    );
+                    var forwarded = {};
+                    sourceHeaders.forEach(function (value, name) {
+                        var lower = name.toLowerCase();
+                        if (!["host", "cookie", "origin", "referer", "content-length"].includes(lower) &&
+                            !lower.startsWith("sec-") && !lower.startsWith("proxy-")) {
+                            forwarded[name] = value;
+                        }
+                    });
+                    if (Object.keys(forwarded).length > 0) {
+                        sourceHeaders.set("X-Proxy-Headers", encodeURIComponent(JSON.stringify(forwarded)));
+                    }
+                    sourceHeaders.set("X-Proxy-Referer", Options.PageUrl);
+                    if (OwObCookieJar.length > 0) {
+                        sourceHeaders.set("X-Proxy-Cookie-Jar", encodeURIComponent(JSON.stringify(OwObCookieJar)));
+                    }
+                    nextInit.headers = sourceHeaders;
+
+                    if (input instanceof Request) {
+                        input = new Request(proxiedUrl, input);
+                    } else {
+                        input = proxiedUrl;
+                    }
+                    var fetchTask = NativeFetch.call(this, input, nextInit).then(function (response) {
+                        var setCookies = response.headers.get("X-Proxy-Set-Cookie");
+                        if (setCookies) Send({ Type: "Cookies", Value: setCookies });
+                        return response;
+                    });
+
+                    if (dedupeKey) {
+                        OwObPendingGetRequests.set(dedupeKey, fetchTask);
+                        fetchTask.finally(function () {
+                            OwObPendingGetRequests.delete(dedupeKey);
+                            OwObRecentGetRequests.set(dedupeKey, Date.now());
+                            setTimeout(function () {
+                                OwObRecentGetRequests.delete(dedupeKey);
+                            }, OwObRequestCooldownMs * 2);
+                        });
+                    }
+
+                    return fetchTask;
+                } catch (error) {
+                    return NativeFetch.call(this, input, init);
+                }
+            };
+        }
+
+        if (navigator && typeof navigator.sendBeacon === "function") {
+            var NativeSendBeacon = navigator.sendBeacon.bind(navigator);
+            try {
+                navigator.sendBeacon = function (url, data) {
+                    return NativeSendBeacon(ToProxy(String(url)), data);
+                };
+            } catch (error) { /* 唯讀實作維持原樣 */ }
+        }
+
+        var NativeOpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function (method, url) {
+            var args = Array.prototype.slice.call(arguments);
+            try {
+                args[1] = ToProxy(String(url));
+            } catch (error) {
+                /* 改寫失敗時以原網址送出 */
+            }
+            return NativeOpen.apply(this, args);
+        };
+    }
+
+    /* ---------- 4. 頁內搜尋 ---------- */
+
+    var FindText  = "";
+    var FindIndex = 0;
+
+    /** 計算符合數量（不分大小寫） */
+    function CountMatches(text) {
+        var body   = String((document.body && document.body.innerText) || "").toLowerCase();
+        var needle = text.toLowerCase();
+        if (!needle) return 0;
+
+        var count = 0;
+        var index = body.indexOf(needle);
+        while (index !== -1) {
+            count++;
+            index = body.indexOf(needle, index + needle.length);
+        }
+        return count;
+    }
+
+    function ClearSelection() {
+        var selection = window.getSelection && window.getSelection();
+        if (selection) selection.removeAllRanges();
+    }
+
+    function HandleFind(command) {
+        var text = String(command.Text || "");
+
+        if (!text) {
+            FindText  = "";
+            FindIndex = 0;
+            ClearSelection();
+            Send({ Type: "FindResult", Count: 0, Index: 0, Empty: true });
+            return;
+        }
+
+        var count = CountMatches(text);
+        var found = false;
+
+        if (typeof window.find === "function") {
+            if (command.Restart || text !== FindText) {
+                // 新關鍵字：從頁首開始
+                FindText = text;
+                ClearSelection();
+                found     = window.find(text, false, false, true, false, false, false);
+                FindIndex = found ? 1 : 0;
+            } else {
+                found = window.find(text, false, Boolean(command.Backwards), true, false, false, false);
+                if (found && count > 0) {
+                    FindIndex = command.Backwards
+                        ? (FindIndex <= 1 ? count : FindIndex - 1)
+                        : (FindIndex >= count ? 1 : FindIndex + 1);
+                }
+            }
+        }
+
+        Send({ Type: "FindResult", Count: count, Index: found ? Math.min(FindIndex, count) : 0 });
+    }
+
+    window.addEventListener("message", function (event) {
+        if (event.source !== parent) return;
+        var data = event.data;
+        if (!data || data.OwObCommand !== true) return;
+
+        if (data.Type === "Find") {
+            HandleFind(data);
+        } else if (data.Type === "ClearFind") {
+            FindText  = "";
+            FindIndex = 0;
+            ClearSelection();
+        } else if (data.Type === "HumanVerificationReload") {
+            Send({ Type: "Navigate", Url: Options.PageUrl });
+        }
+    });
+
+    /* ---------- 5. 快捷鍵轉送 ---------- */
+
+    document.addEventListener("keydown", function (event) {
+        var key  = String(event.key || "").toLowerCase();
+        var ctrl = event.ctrlKey || event.metaKey;
+        var alt  = event.altKey;
+
+        var isShortcut =
+            (ctrl && !alt && ["f", "k", "l", "d", "=", "+", "-", "0"].indexOf(key) !== -1) ||
+            (alt && !ctrl && ["t", "w", "arrowleft", "arrowright"].indexOf(key) !== -1) ||
+            (key === "f5" && !ctrl);
+
+        if (!isShortcut) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        Send({ Type: "Key", Key: key, Ctrl: ctrl, Alt: alt, Shift: event.shiftKey });
+    }, true);
+}
+
+function ShouldIgnoreRepeatedNavigation(tab, type, url) {
+    const now = Date.now();
+    if (
+        tab.LastFrameNavigationUrl === url &&
+        tab.LastFrameNavigationType === type &&
+        now - Number(tab.LastFrameNavigationTime || 0) < 700
+    ) {
+        return true;
+    }
+    tab.LastFrameNavigationUrl = url;
+    tab.LastFrameNavigationType = type;
+    tab.LastFrameNavigationTime = now;
+    return false;
+}
+
+/* ============================================================
+ * 14. iframe 訊息接收
+ * ============================================================ */
+
+window.addEventListener("message", event => {
+    const data=event.data;if(!data)return;
+    if (data.OwObSameOrigin === true) {
+        const t = State.Tabs.find(item => item.ViewEl.querySelector("iframe")?.contentWindow === event.source);
+        if (!t) return;
+        const pageUrl = GetTabUrl(t);
+        if (data.Type === "State") {
+            t.Title = String(data.Title || GetHostname(pageUrl) || "頁面");
+            UpdateTabHeader(t);
+            SetLoading(t, false);
+            if (t.Id === State.ActiveId) RefreshToolbar();
+            return;
+        }
+        if (data.Type === "Navigate" && IsWebUrl(data.Url)) {
+            const targetUrl = NormalizePttOver18Url(UnwrapRedirectUrl(data.Url), pageUrl);
+            if (!ShouldIgnoreRepeatedNavigation(t, "Navigate", targetUrl)) Navigate(t, targetUrl);
+            return;
+        }
+        if (data.Type === "OpenTab" && IsWebUrl(data.Url)) {
+            const targetUrl = NormalizePttOver18Url(UnwrapRedirectUrl(data.Url), pageUrl);
+            if (!ShouldIgnoreRepeatedNavigation(t, "OpenTab", targetUrl)) {
+                CreateTab(targetUrl, true, { AfterId: t.Id, LoadMode: t.LoadMode });
+            }
+            return;
+        }
+        if (data.Type === "Post" && IsWebUrl(data.Url) && typeof data.Body === "string") {
+            const postUrl = NormalizePttOver18Url(data.Url, pageUrl);
+            Navigate(t, postUrl, true, {
+                Body: NormalizePttOver18PostBody(postUrl, data.Body, pageUrl),
+                Referer: pageUrl
+            });
+            return;
+        }
+    }
+    if(data.OwOb!==true)return;
+    const tab = GetTabById(data.TabId);
+    if (!tab) return;
+
+    // 確認訊息確實來自該分頁的 iframe
+    const frame = tab.ViewEl.querySelector("iframe");
+    if (!frame || event.source !== frame.contentWindow) return;
+
+    switch (data.Type) {
+        case "Navigate":
+            if (IsWebUrl(data.Url)) {
+                const targetUrl = NormalizePttOver18Url(data.Url, GetTabUrl(tab));
+                if (!ShouldIgnoreRepeatedNavigation(tab, "Navigate", targetUrl)) {
+                    Navigate(tab, targetUrl);
+                }
+            }
+            break;
+
+        case "OpenTab":
+            if (IsWebUrl(data.Url)) {
+                const targetUrl = NormalizePttOver18Url(data.Url, GetTabUrl(tab));
+                if (!ShouldIgnoreRepeatedNavigation(tab, "OpenTab", targetUrl)) {
+                    CreateTab(targetUrl, true, {
+                        AfterId: tab.Id,
+                        LoadMode: tab.LoadMode
+                    });
+                }
+            }
+            break;
+
+        case "Post":
+            if (IsWebUrl(data.Url) && typeof data.Body === "string") {
+                const pageUrl = GetTabUrl(tab);
+                const postUrl = NormalizePttOver18Url(data.Url, pageUrl);
+                Navigate(tab, postUrl, true, {
+                    Body: NormalizePttOver18PostBody(postUrl, data.Body, pageUrl),
+                    Referer: pageUrl
+                });
+            }
+            break;
+
+        case "Cookies":
+            if (typeof data.Value === "string") StoreProxyCookies(data.Value);
+            break;
+
+        case "Toast":
+            if (typeof data.Message === "string") ShowToast(data.Message);
+            break;
+
+        case "Key":
+            if (tab.Id === State.ActiveId) {
+                HandleShortcut({
+                    Key:   String(data.Key || ""),
+                    Ctrl:  Boolean(data.Ctrl),
+                    Alt:   Boolean(data.Alt),
+                    Shift: Boolean(data.Shift)
+                });
+            }
+            break;
+
+        case "FindResult":
+            if (tab.Id === State.ActiveId) {
+                UpdateFindStatus(Number(data.Count) || 0, Number(data.Index) || 0, Boolean(data.Empty));
+            }
+            break;
+    }
+});
+
+/* ============================================================
+ * 15. 頁內搜尋 / 縮放
+ * ============================================================ */
+
+/* ---------- 頁內搜尋 ---------- */
+
+/** 開啟搜尋列 */
+function OpenFindBar() {
+    const tab = GetActiveTab();
+    if (!tab) return;
+
+    if (!tab.HasAgent) {
+        ShowToast(IsInternalUrl(GetTabUrl(tab)) ? "內部頁面不支援頁內搜尋" : "此頁面類型不支援頁內搜尋");
+        return;
+    }
+
+    State.Find.Open    = true;
+    Dom.FindBar.hidden = false;
+    Dom.FindInput.focus();
+    Dom.FindInput.select();
+
+    if (Dom.FindInput.value) SendFind({ Restart: true });
+}
+
+/** 關閉搜尋列並清除選取 */
+function CloseFindBar() {
+    if (!State.Find.Open) return;
+
+    State.Find.Open    = false;
+    Dom.FindBar.hidden = true;
+    PostToFrame(GetActiveTab(), { Type: "ClearFind" });
+}
+
+/** 傳送指令給分頁的 iframe 代理程式 */
+function PostToFrame(tab, message) {
+    if (!tab || !tab.HasAgent) return false;
+    const frame = tab.ViewEl.querySelector("iframe");
+    if (!frame || !frame.contentWindow) return false;
+
+    frame.contentWindow.postMessage({ OwObCommand: true, ...message }, "*");
+    return true;
+}
+
+/** 送出搜尋 */
+function SendFind({ Backwards = false, Restart = false } = {}) {
+    const sent = PostToFrame(GetActiveTab(), {
+        Type:      "Find",
+        Text:      Dom.FindInput.value,
+        Backwards,
+        Restart
+    });
+    if (!sent) UpdateFindStatus(0, 0, !Dom.FindInput.value);
+}
+
+/** 更新搜尋結果顯示 */
+function UpdateFindStatus(count, index, empty = false) {
+    if (empty) {
+        Dom.FindStatus.textContent = "";
+        Dom.FindBar.classList.remove("NoMatch");
+        return;
+    }
+    Dom.FindStatus.textContent = count > 0 ? `${index}/${count}` : "無符合";
+    Dom.FindBar.classList.toggle("NoMatch", count === 0);
+}
+
+/** 切換分頁或導覽時重設搜尋狀態 */
+function ResetFindStatus() {
+    if (!Dom.FindStatus) return;
+    UpdateFindStatus(0, 0, true);
+    if (State.Find.Open) {
+        CloseFindBar();
+    }
+}
+
+/* ---------- 縮放 ----------
+ * 沙箱 iframe 無法從外部調整內容縮放，因此以 CSS transform 縮放整個 iframe：
+ * 寬高設為 (100 / 倍率)%，再 scale(倍率)，視覺上剛好填滿內容區。
+ */
+
+function ApplyFrameZoom(frame, zoom) {
+    if (!frame) return;
+
+    if (zoom === 1) {
+        frame.style.width     = "";
+        frame.style.height    = "";
+        frame.style.transform = "";
+        return;
+    }
+
+    frame.style.width           = `${100 / zoom}%`;
+    frame.style.height          = `${100 / zoom}%`;
+    frame.style.transform       = `scale(${zoom})`;
+    frame.style.transformOrigin = "0 0";
+}
+
+/**
+ * 調整目前分頁縮放
+ * @param {number} step  +1 放大、-1 縮小、0 重設
+ * @returns {boolean} 是否有處理（內部頁面不處理，交由瀏覽器）
+ */
+function ChangeZoom(step) {
+    const tab = GetActiveTab();
+    if (!tab || IsInternalUrl(GetTabUrl(tab))) return false;
+
+    const levels = Config.ZoomLevels;
+    if (step === 0) {
+        tab.Zoom = 1;
+    } else {
+        // 找出目前最接近的級距再移動
+        let index = levels.findIndex(level => level >= tab.Zoom - 0.001);
+        if (index === -1) index = levels.length - 1;
+        tab.Zoom = levels[Clamp(index + step, 0, levels.length - 1)];
+    }
+
+    ApplyFrameZoom(tab.ViewEl.querySelector("iframe"), tab.Zoom);
+    RefreshToolbar();
+    ShowToast(`縮放 ${Math.round(tab.Zoom * 100)}%`);
+    return true;
+}
+
+/* ============================================================
+ * 16. 主題 / 備份 / 隱藏分頁
+ * ============================================================ */
+
+/** 套用主題（預設亮色） */
+function ApplyTheme(theme) {
+    const isDark = theme === "dark";
+    document.body.classList.toggle("theme-dark",  isDark);
+    document.body.classList.toggle("theme-light", !isDark);
+
+    Dom.ThemeButton.innerHTML = isDark
+        ? '<i class="fa-solid fa-sun"></i>'
+        : '<i class="fa-solid fa-moon"></i>';
+    Dom.ThemeButton.title = isDark ? "切換為亮色" : "切換為深色";
+
+    localStorage.setItem(Config.StorageKeys.Theme, isDark ? "dark" : "light");
+}
+
+function ToggleTheme() {
+    ApplyTheme(document.body.classList.contains("theme-dark") ? "light" : "dark");
+}
+
+/** 清除瀏覽資料（紀錄、已開啟分頁、Cookie）；保留設定、書籤與捷徑 */
+function ClearBrowsingData() {
+    [
+        Config.StorageKeys.History,
+        Config.StorageKeys.OpenTabs,
+        Config.StorageKeys.ActiveTab,
+        Config.StorageKeys.Cookies
+    ].forEach(key => localStorage.removeItem(key));
+
+    sessionStorage.clear();
+    State.ClosedTabs = [];
+    ShowToast("已清除瀏覽紀錄、分頁與 Cookie");
+}
+
+/* ---------- 匯出 / 匯入設定 ---------- */
+
+// 可匯出的字串設定
+const ExportStringKeys = ["Theme", "ProxyBase", "ProxyKey", "TimeoutSec"];
+// 可匯出的開關設定
+const ExportFlagKeys   = Object.keys(Config.DefaultFlags);
+
+/** 匯出設定為 JSON 檔 */
+function ExportSettings() {
+    const data = {};
+
+    ExportStringKeys.forEach(name => {
+        const value = localStorage.getItem(Config.StorageKeys[name]);
+        if (value !== null) data[name] = value;
+    });
+    ExportFlagKeys.forEach(name => {
+        data[name] = GetFlag(name);
+    });
+    data.Bookmarks = LoadBookmarks();
+    data.Shortcuts = LoadShortcuts();
+
+    const payload = {
+        App:        "OwOb",              // 格式識別碼維持不變，與舊版匯出檔相容
+        Version:    1,
+        ExportedAt: new Date().toISOString(),
+        Data:       data
+    };
+
+    const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const blob  = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const link  = document.createElement("a");
+    link.href     = URL.createObjectURL(blob);
+    link.download = `OwO-Simple-Browser-Settings-${stamp}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+
+    ShowToast("已匯出設定");
+}
+
+/** 由檔案匯入設定 */
+async function ImportSettings(file) {
+    let payload;
+    try {
+        payload = JSON.parse(await file.text());
+    } catch {
+        ShowToast("匯入失敗：檔案不是有效的 JSON");
+        return;
+    }
+
+    if (!payload || payload.App !== "OwOb" || typeof payload.Data !== "object" || payload.Data === null) {
+        ShowToast("匯入失敗：不是 OwO Simple Browser 設定檔");
+        return;
+    }
+
+    const data = payload.Data;
+
+    ExportStringKeys.forEach(name => {
+        if (typeof data[name] === "string") {
+            localStorage.setItem(Config.StorageKeys[name], data[name]);
+        }
+    });
+
+    // 代理網址需通過格式檢查
+    if (typeof data.ProxyBase === "string" && !NormalizeProxyBase(data.ProxyBase)) {
+        localStorage.removeItem(Config.StorageKeys.ProxyBase);
+    }
+
+    ExportFlagKeys.forEach(name => {
+        if (typeof data[name] === "boolean") SetFlag(name, data[name]);
+    });
+
+    if (Array.isArray(data.Bookmarks)) {
+        SaveBookmarks(data.Bookmarks
+            .filter(item => item && typeof item.Url === "string" && IsWebUrl(item.Url))
+            .map(item => ({
+                Id:    typeof item.Id === "string" ? item.Id : CreateId(),
+                Url:   item.Url,
+                Title: typeof item.Title === "string" ? item.Title : "",
+                Time:  Number(item.Time) || Date.now()
+            })));
+    }
+
+    if (Array.isArray(data.Shortcuts)) {
+        SaveShortcuts(data.Shortcuts
+            .filter(item => item && typeof item.Url === "string" && (IsWebUrl(item.Url) || IsInternalUrl(item.Url)))
+            .map(item => {
+                const entry = { Name: typeof item.Name === "string" ? item.Name : item.Url, Url: item.Url };
+                if (typeof item.Icon === "string" && /^fa-[\w\s-]+$/.test(item.Icon)) entry.Icon = item.Icon;
+                return entry;
+            }));
+    }
+
+    ApplyTheme(localStorage.getItem(Config.StorageKeys.Theme) || "light");
+    ShowToast("已匯入設定");
+
+    // 重新整理目前的內部頁面以反映新設定
+    const tab = GetActiveTab();
+    if (tab && IsInternalUrl(GetTabUrl(tab))) {
+        RenderInternalPage(tab, GetTabUrl(tab));
+    }
+    RefreshToolbar();
+}
+
+/** 在 about:blank 視窗中開啟 OwO Simple Browser */
+function OpenCloaked() {
+    const win = window.open("about:blank", "_blank");
+    if (!win) {
+        ShowToast("彈出視窗被封鎖，請允許後再試");
+        return;
+    }
+
+    win.document.title = "新分頁";
+    win.document.body.style.margin = "0";
+
+    const frame = win.document.createElement("iframe");
+    frame.src = location.href;
+    frame.style.cssText = "border:none;width:100vw;height:100vh;display:block";
+    win.document.body.appendChild(frame);
+}
+
+/* ============================================================
+ * 17. 快捷鍵、事件綁定與初始化
+ * ============================================================ */
+
+/**
+ * 處理快捷鍵（主頁面與 iframe 轉送共用）
+ * Ctrl+T / Ctrl+W 會被瀏覽器保留，故分頁操作改用 Alt
+ * @param {{ Key: string, Ctrl: boolean, Alt: boolean, Shift: boolean }} info  Key 為小寫
+ * @returns {boolean} 是否已處理
+ */
+function HandleShortcut({ Key, Ctrl, Alt, Shift }) {
+    if (Ctrl && !Alt) {
+        switch (Key) {
+            case "k": {
+                const input = GetActiveTab()?.ViewEl.querySelector(".StartSearch input");
+                (input || Dom.AddressInput).focus();
+                return true;
+            }
+            case "l":
+                Dom.AddressInput.focus();
+                return true;
+            case "f":
+                OpenFindBar();
+                return true;
+            case "d":
+                ToggleBookmark();
+                return true;
+            case "=":
+            case "+":
+                return ChangeZoom(1);
+            case "-":
+                return ChangeZoom(-1);
+            case "0":
+                return ChangeZoom(0);
+        }
+    }
+
+    if (Alt && !Ctrl) {
+        switch (Key) {
+            case "t":
+                if (Shift) ReopenClosedTab();
+                else CreateTab();
+                return true;
+            case "w":
+                if (State.ActiveId) CloseTab(State.ActiveId);
+                return true;
+            case "arrowleft":
+                GoBack();
+                return true;
+            case "arrowright":
+                GoForward();
+                return true;
+        }
+    }
+
+    if (Key === "f5" && !Ctrl) {
+        Reload();
+        return true;
+    }
+
+    return false;
+}
+
+function BindEvents() {
+    /* ---------- 工具列 ---------- */
+    Dom.AddTabButton.addEventListener("click", () => CreateTab());
+    Dom.BackButton.addEventListener("click", GoBack);
+    Dom.ForwardButton.addEventListener("click", GoForward);
+    Dom.ReloadButton.addEventListener("click", Reload);
+    Dom.ProxyModeButton.addEventListener("click", ToggleCurrentTabLoadMode);
+    Dom.ThemeButton.addEventListener("click", ToggleTheme);
+    Dom.BookmarkButton.addEventListener("click", () => ToggleBookmark());
+    Dom.ZoomButton.addEventListener("click", () => ChangeZoom(0));
+
+    Dom.HomeButton.addEventListener("click", () => {
+        const tab = GetActiveTab();
+        if (tab) Navigate(tab, Config.HomeUrl);
+    });
+
+    Dom.SettingsButton.addEventListener("click", () => {
+        const tab = GetActiveTab();
+        if (tab) Navigate(tab, "owob://settings");
+    });
+
+    /* ---------- 網址列與自動完成 ---------- */
+    Dom.AddressForm.addEventListener("submit", event => {
+        event.preventDefault();
+        if (State.Suggest.Index >= 0) {
+            OpenSuggestion(State.Suggest.Index);
+            return;
+        }
+        HideSuggestions();
+        NavigateFromInput(Dom.AddressInput.value);
+        Dom.AddressInput.blur();
+    });
+
+    Dom.AddressInput.addEventListener("focus", () => Dom.AddressInput.select());
+    Dom.AddressInput.addEventListener("input", UpdateSuggestions);
+    Dom.AddressInput.addEventListener("blur", () => {
+        HideSuggestions();
+        RefreshToolbar();
+    });
+
+    Dom.AddressInput.addEventListener("keydown", event => {
+        if (event.key === "ArrowDown") {
+            event.preventDefault();
+            MoveSuggestion(1);
+        } else if (event.key === "ArrowUp") {
+            event.preventDefault();
+            MoveSuggestion(-1);
+        } else if (event.key === "Escape") {
+            if (!Dom.SuggestList.hidden) {
+                HideSuggestions();
+            } else {
+                Dom.AddressInput.blur();
+            }
+        }
+    });
+
+    // 使用 mousedown：在輸入框 blur（隱藏清單）之前觸發
+    Dom.SuggestList.addEventListener("mousedown", event => {
+        const item = event.target.closest("[data-index]");
+        if (!item) return;
+        event.preventDefault();
+        OpenSuggestion(Number(item.dataset.index));
+    });
+
+    /* ---------- 頁內搜尋列 ---------- */
+    Dom.FindInput.addEventListener("input", () => SendFind({ Restart: true }));
+    Dom.FindInput.addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            SendFind({ Backwards: event.shiftKey });
+        } else if (event.key === "Escape") {
+            event.preventDefault();
+            CloseFindBar();
+        }
+    });
+    Dom.FindPrevButton.addEventListener("click", () => SendFind({ Backwards: true }));
+    Dom.FindNextButton.addEventListener("click", () => SendFind());
+    Dom.FindCloseButton.addEventListener("click", CloseFindBar);
+
+    /* ---------- 匯入設定 ---------- */
+    Dom.ImportInput.addEventListener("change", () => {
+        const file = Dom.ImportInput.files && Dom.ImportInput.files[0];
+        if (file) ImportSettings(file);
+    });
+
+    /* ---------- 右鍵選單關閉 ---------- */
+    document.addEventListener("mousedown", event => {
+        if (ActiveContextMenu && !ActiveContextMenu.contains(event.target)) HideContextMenu();
+    });
+    window.addEventListener("blur", HideContextMenu);
+    window.addEventListener("resize", HideContextMenu);
+
+    /* ---------- 全域快捷鍵 ---------- */
+    document.addEventListener("keydown", event => {
+        // 對話框開啟時不處理
+        if (document.querySelector(".DialogOverlay")) return;
+
+        if (event.key === "Escape") {
+            if (ActiveContextMenu) {
+                HideContextMenu();
+                return;
+            }
+            if (State.Find.Open) {
+                CloseFindBar();
+                return;
+            }
+        }
+
+        const key = String(event.key || "").toLowerCase();
+        if (!key) return;
+
+        const handled = HandleShortcut({
+            Key:   key,
+            Ctrl:  Boolean(event.ctrlKey || event.metaKey),
+            Alt:   Boolean(event.altKey),
+            Shift: Boolean(event.shiftKey)
+        });
+        if (handled) event.preventDefault();
+    });
+}
+
+/** 初始化（只使用 DOMContentLoaded，不覆寫 window.onload） */
+document.addEventListener("DOMContentLoaded", () => {
+    localStorage.removeItem("OwOb.SearchEngine");   // 移除舊版搜尋引擎選擇
+    ApplyTheme(localStorage.getItem(Config.StorageKeys.Theme) || "light");
+    BindEvents();
+    RestoreTabs();
+});
