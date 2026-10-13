@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v36
+ *  OwO Simple Browser - 主程式 v37
  *
  *  架構：
  *     1. 設定與狀態
@@ -3654,6 +3654,14 @@ function OwObFrameAgent(Options) {
 
     /** 檢查並改寫元素現有屬性 */
     function FixElement(element) {
+        if (element && element.tagName === "LINK") {
+            var linkRel = String(element.getAttribute("rel") || "").toLowerCase();
+            var linkHref = String(element.getAttribute("href") || "");
+            if (linkRel === "preload" && /\/svc\/shreddit\/pdp-right-rail\//i.test(linkHref)) {
+                element.remove();
+                return;
+            }
+        }
         if (!IsRewritable(element)) return;
         ResourceRules[element.tagName].forEach(function (name) {
             var value = element.getAttribute(name);
@@ -3668,7 +3676,7 @@ function OwObFrameAgent(Options) {
         if (!node || node.nodeType !== 1) return;
         FixElement(node);
         if (node.querySelectorAll) {
-            var list = node.querySelectorAll("img,source,video,audio,track,embed,input,script");
+            var list = node.querySelectorAll("img,source,video,audio,track,embed,input,iframe,script,link");
             for (var i = 0; i < list.length; i++) FixElement(list[i]);
         }
     }
@@ -3857,6 +3865,7 @@ function OwObFrameAgent(Options) {
             var NativeSendBeacon = navigator.sendBeacon.bind(navigator);
             try {
                 navigator.sendBeacon = function (url, data) {
+                    if (IsNonEssentialBackgroundRequest(url)) return true;
                     return NativeSendBeacon(ToProxy(String(url)), data);
                 };
             } catch (error) { /* 唯讀實作維持原樣 */ }
@@ -3866,7 +3875,11 @@ function OwObFrameAgent(Options) {
         XMLHttpRequest.prototype.open = function (method, url) {
             var args = Array.prototype.slice.call(arguments);
             try {
-                args[1] = ToProxy(String(url));
+                if (IsNonEssentialBackgroundRequest(url)) {
+                    args[1] = "data:application/json,{}";
+                } else {
+                    args[1] = ToProxy(String(url));
+                }
             } catch (error) {
                 /* 改寫失敗時以原網址送出 */
             }

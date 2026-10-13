@@ -472,12 +472,39 @@ async function FetchWithRedirects(startUrl, options) {
         }
 
         /* ---------- 發出請求 ---------- */
-        const response = await fetch(currentUrl.toString(), {
-            method,
-            headers,
-            body:     ["GET", "HEAD"].includes(method) ? undefined : body,
-            redirect: "manual"
-        });
+        // Reddit 靜態 JavaScript 偶發 502 Server Hangup。GET / HEAD 可安全重送，
+        // 在 Worker 內完成重試，避免瀏覽器拿到缺少必要腳本的半成品頁面。
+        const canRetry = method === "GET" || method === "HEAD";
+        const maxAttempts = canRetry ? 3 : 1;
+        let response = null;
+        let lastFetchError = null;
+
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            try {
+                response = await fetch(currentUrl.toString(), {
+                    method,
+                    headers,
+                    body: canRetry ? undefined : body,
+                    redirect: "manual",
+                    cf: { cacheTtl: 0, cacheEverything: false }
+                });
+                lastFetchError = null;
+
+                const retryableStatus = response.status === 502 || response.status === 503 || response.status === 504;
+                if (!retryableStatus || attempt === maxAttempts - 1) break;
+
+                if (response.body) await response.body.cancel().catch(() => {});
+                await new Promise(resolve => setTimeout(resolve, 120 * (attempt + 1)));
+            } catch (error) {
+                lastFetchError = error;
+                if (attempt === maxAttempts - 1) throw error;
+                await new Promise(resolve => setTimeout(resolve, 120 * (attempt + 1)));
+            }
+        }
+
+        if (!response) {
+            throw lastFetchError || new ProxyError(502, "上游沒有回傳有效回應");
+        }
 
         /* ---------- 收集 Set-Cookie ---------- */
         GetSetCookies(response.headers).forEach(cookie => {
@@ -609,7 +636,7 @@ document.addEventListener("submit",function(e){var form=e.target;if(!(form insta
 function title(){var host=new U(C.pageUrl).hostname.toLowerCase();return /(^|\\.)reddit\\.com$/.test(host)?"Reddit - 網路心之所在":(document.title||host);}
 function sync(){parent.postMessage({OwObSameOrigin:true,Type:"State",Title:title(),Url:abs(location.href)},"*");}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",sync,{once:true});else sync();window.addEventListener("load",sync,{once:true});
-window.__OwOSameOriginCompatibility={version:"2.7.2",absolute:abs,proxy:px,retryPartial:run};
+window.__OwOSameOriginCompatibility={version:"2.7.3",absolute:abs,proxy:px,retryPartial:run};
 })(${config});`;
 }
 
@@ -725,7 +752,7 @@ export default {
         }
 
         const requestUrl=new URL(request.url);
-        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"9.7.8",...BuildCorsHeaders(origin)}});}
+        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"9.7.9",...BuildCorsHeaders(origin)}});}
 
         /* ---------- 存取金鑰檢查（預檢請求不帶金鑰，故放在預檢之後） ---------- */
         if (!IsKeyValid(request, requestUrl, GetAccessKey(env))) {
@@ -739,7 +766,7 @@ export default {
         // 沒帶 url 參數且不是同源路徑 → 健康檢查
         if (!target && !sameOriginMode) {
             return JsonResponse(200, "OwOb Proxy 運作中", origin, {
-                version:     "9.7.8",
+                version:     "9.7.9",
                 usage:       "/?url=<encoded url> 或 /__owo_proxy__/https/example.com/path",
                 keyRequired: Boolean(GetAccessKey(env)),
                 allowedOrigins,
@@ -784,7 +811,7 @@ export default {
             Object.entries(BuildCorsHeaders(origin)).forEach(([key, value]) => headers.set(key, value));
             headers.set("X-Final-URL",    result.FinalUrl);
             headers.set("X-Proxy-Status", String(upstream.status));
-            headers.set("X-OwOb-Worker-Version", "9.7.8");
+            headers.set("X-OwOb-Worker-Version", "9.7.9");
 
             if (result.SetCookies.length > 0) {
                 headers.set("X-Proxy-Set-Cookie", encodeURIComponent(JSON.stringify(result.SetCookies)));
