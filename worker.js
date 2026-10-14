@@ -145,7 +145,49 @@ function ExtractRssTag(item, name) {
     return match ? DecodeXml(match[1]).trim() : "";
 }
 
-function ParseBingRssItems(xml) {
+function NormalizeSearchText(value) {
+    return String(value || "")
+        .normalize("NFKC")
+        .toLocaleLowerCase("zh-TW")
+        .replace(/%[0-9a-f]{2}/gi, match => {
+            try { return decodeURIComponent(match); } catch { return match; }
+        });
+}
+
+function GetSearchTerms(query) {
+    const normalized = NormalizeSearchText(query)
+        .replace(/["'“”‘’()[\]{}<>]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    if (!normalized) return [];
+    return normalized
+        .split(" ")
+        .map(term => term.trim())
+        .filter(term => term.length >= 2)
+        .slice(0, 8);
+}
+
+function IsRelevantBingRssItem(item, query) {
+    const terms = GetSearchTerms(query);
+    if (!terms.length) return false;
+
+    let decodedLink = item.Link;
+    try { decodedLink = decodeURIComponent(item.Link); } catch {}
+
+    const haystack = NormalizeSearchText([
+        item.Title,
+        decodedLink,
+        item.Description
+    ].join(" "));
+
+    // 至少一個有效關鍵詞必須實際出現在標題、網址或摘要中。
+    // 可阻擋 Bing RSS 偶爾回傳的快取錯置或完全不相關結果。
+    return terms.some(term => haystack.includes(term));
+}
+
+function ParseBingRssItems(xml, query) {
+    const seen = new Set();
     return (String(xml || "").match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item>/gi) || [])
         .map(item => ({
             Title: ExtractRssTag(item, "title"),
@@ -153,6 +195,13 @@ function ParseBingRssItems(xml) {
             Description: ExtractRssTag(item, "description")
         }))
         .filter(item => item.Title && /^https?:\/\//i.test(item.Link))
+        .filter(item => IsRelevantBingRssItem(item, query))
+        .filter(item => {
+            const key = item.Link.toLocaleLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        })
         .slice(0, 10);
 }
 
@@ -180,22 +229,36 @@ async function RecoverBingSearchWithRss(html, finalUrl, jar) {
     const hasNoResults = /沒有符合的結果|No results|There are no results for/i.test(html);
     if (hasResults || !hasNoResults) return { Html: html, Used: false, Count: 0 };
 
-    const rssUrl = new URL(searchUrl.toString());
-    rssUrl.searchParams.set("format", "rss");
-    rssUrl.searchParams.delete("form");
+    const originalQuery = searchUrl.searchParams.get("q") || "";
+    const queryCandidates = [
+        originalQuery,
+        originalQuery && !/^".*"$/.test(originalQuery.trim()) ? `"${originalQuery.trim()}"` : ""
+    ].filter(Boolean);
 
     const headers = new Headers(BrowserHeaders);
     headers.set("Accept", "application/rss+xml,application/xml,text/xml;q=0.9,*/*;q=0.8");
+    headers.set("Accept-Language", "zh-TW,zh-Hant;q=0.9,en-US;q=0.8,en;q=0.7");
     headers.set("Referer", "https://www.bing.com/");
-    const cookie = GetCookieHeaderForHost(jar, rssUrl.hostname);
+    const cookie = GetCookieHeaderForHost(jar, searchUrl.hostname);
     if (cookie) headers.set("Cookie", cookie);
 
     try {
-        const response = await fetch(rssUrl.toString(), { method: "GET", headers, redirect: "follow" });
-        if (!response.ok) return { Html: html, Used: false, Count: 0 };
-        const items = ParseBingRssItems(await response.text());
-        if (!items.length) return { Html: html, Used: false, Count: 0 };
-        return { Html: ReplaceBingNoResultList(html, items), Used: true, Count: items.length };
+        for (const candidateQuery of queryCandidates) {
+            const rssUrl = new URL(searchUrl.toString());
+            rssUrl.searchParams.set("q", candidateQuery);
+            rssUrl.searchParams.set("format", "rss");
+            rssUrl.searchParams.set("count", "10");
+            rssUrl.searchParams.set("mkt", "zh-TW");
+            rssUrl.searchParams.delete("form");
+
+            const response = await fetch(rssUrl.toString(), { method: "GET", headers, redirect: "follow" });
+            if (!response.ok) continue;
+            const items = ParseBingRssItems(await response.text(), originalQuery);
+            if (items.length) {
+                return { Html: ReplaceBingNoResultList(html, items), Used: true, Count: items.length };
+            }
+        }
+        return { Html: html, Used: false, Count: 0 };
     } catch {
         return { Html: html, Used: false, Count: 0 };
     }
@@ -849,7 +912,7 @@ export default {
         }
 
         const requestUrl=new URL(request.url);
-        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"10.1.0",...BuildCorsHeaders(origin)}});}
+        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"10.1.1",...BuildCorsHeaders(origin)}});}
 
         /* ---------- 存取金鑰檢查（預檢請求不帶金鑰，故放在預檢之後） ---------- */
         if (!IsKeyValid(request, requestUrl, GetAccessKey(env))) {
@@ -863,7 +926,7 @@ export default {
         // 沒帶 url 參數且不是同源路徑 → 健康檢查
         if (!target && !sameOriginMode) {
             return JsonResponse(200, "OwOb Proxy 運作中", origin, {
-                version:     "10.1.0",
+                version:     "10.1.1",
                 usage:       "/?url=<encoded url> 或 /__owo_proxy__/https/example.com/path",
                 keyRequired: Boolean(GetAccessKey(env)),
                 allowedOrigins,
@@ -909,7 +972,7 @@ export default {
             Object.entries(BuildCorsHeaders(origin)).forEach(([key, value]) => headers.set(key, value));
             headers.set("X-Final-URL",    result.FinalUrl);
             headers.set("X-Proxy-Status", String(upstream.status));
-            headers.set("X-OwOb-Worker-Version", "10.1.0");
+            headers.set("X-OwOb-Worker-Version", "10.1.1");
 
             if (result.SetCookies.length > 0) {
                 headers.set("X-Proxy-Set-Cookie", encodeURIComponent(JSON.stringify(result.SetCookies)));
