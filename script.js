@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v34
+ *  OwO Simple Browser - 主程式 v35
  *
  *  架構：
  *     1. 設定與狀態
@@ -2586,9 +2586,30 @@ function IsSearchResultPage(url) {
         return ((h==="bing.com"||h.endsWith(".bing.com"))&&p==="/search")||((h==="google.com"||h.endsWith(".google.com")||/^www\.google\.[a-z.]+$/.test(h))&&p==="/search")||((h==="duckduckgo.com"||h.endsWith(".duckduckgo.com"))&&(p==="/"||p.includes("html")))||((h==="search.yahoo.com"||h.endsWith(".search.yahoo.com"))&&p.includes("search"));
     } catch { return false; }
 }
-function SimplifySearchResultHtml(html,url) {
-    if(!IsSearchResultPage(url))return String(html);
-    return String(html).replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,"").replace(/<script\b[^>]*\/?>/gi,"").replace(/<link\b[^>]*\brel\s*=\s*["']?(?:preload|prefetch|modulepreload|dns-prefetch|preconnect)["']?[^>]*>/gi,"").replace(/<iframe\b[^>]*(?:ad|analytics|telemetry|tracking)[^>]*>[\s\S]*?<\/iframe\s*>/gi,"");
+function SimplifySearchResultHtml(html, url) {
+    const source = String(html);
+
+    // Bing 搜尋結果保留伺服器回傳的完整文件。
+    // Bing 的結果清單與頁面狀態會使用內嵌腳本中的初始化資料；
+    // 若沿用一般搜尋頁的全面移除腳本處理，可能只剩下「沒有符合的結果」。
+    try {
+        const parsed = new URL(url);
+        const host = parsed.hostname.toLowerCase();
+        if ((host === "bing.com" || host.endsWith(".bing.com")) &&
+            parsed.pathname.toLowerCase() === "/search") {
+            return source;
+        }
+    } catch {
+        return source;
+    }
+
+    // 其他搜尋引擎維持原有的精簡規則，不改變既有行為。
+    if (!IsSearchResultPage(url)) return source;
+    return source
+        .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, "")
+        .replace(/<script\b[^>]*\/?>/gi, "")
+        .replace(/<link\b[^>]*\brel\s*=\s*["']?(?:preload|prefetch|modulepreload|dns-prefetch|preconnect)["']?[^>]*>/gi, "")
+        .replace(/<iframe\b[^>]*(?:ad|analytics|telemetry|tracking)[^>]*>[\s\S]*?<\/iframe\s*>/gi, "");
 }
 
 /* ---------- 外部樣式表內嵌 ----------
