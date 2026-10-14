@@ -2525,6 +2525,17 @@ async function LoadExternalPage(tab, url, postData = null) {
         if (contentType.includes("text/html") || contentType.includes("application/xhtml")) {
             const rawHtml = await response.text();
             const isSearchPage = IsSearchResultPage(finalUrl);
+
+            // 搜尋引擎對資料中心代理出口回傳不可信的空結果頁時，
+            // 直接交由一般瀏覽器載入原生搜尋頁，避免顯示錯誤或自行重建的結果。
+            if (!postData && isSearchPage && IsUnusableProxiedSearchHtml(rawHtml, finalUrl)) {
+                clearTimeout(timer);
+                if (tab.Abort === controller) tab.Abort = null;
+                SetLoading(tab, false);
+                NavigateSearchDirectly(finalUrl);
+                return;
+            }
+
             const preparedHtml = SimplifySearchResultHtml(rawHtml, finalUrl);
 
             // 搜尋結果頁直接使用已取得的 HTML，避免逐份等待代理 CSS 逾時。
@@ -2578,6 +2589,61 @@ async function LoadExternalPage(tab, url, postData = null) {
         if (tab.Id === State.ActiveId) RefreshToolbar();
         SaveOpenTabs();
     }
+}
+
+
+/**
+ * 判斷搜尋引擎透過代理取得的 HTML 是否明顯不可用。
+ * 僅依通用搜尋頁結構與「查無結果」訊息判斷，不依賴特定搜尋詞或結果網站。
+ */
+function IsUnusableProxiedSearchHtml(html, url) {
+    if (!IsSearchResultPage(url)) return false;
+
+    const source = String(html || "");
+    let target;
+    try {
+        target = new URL(url);
+    } catch {
+        return false;
+    }
+
+    const host = target.hostname.toLowerCase();
+    if (host === "bing.com" || host.endsWith(".bing.com")) {
+        const hasNativeResults = /\bclass=["'][^"']*\bb_algo\b/i.test(source);
+        const hasNoResults = /沒有符合的結果|No results|There are no results for/i.test(source);
+        return !hasNativeResults && hasNoResults;
+    }
+
+    if (host === "google.com" || host.endsWith(".google.com") || /^www\.google\.[a-z.]+$/.test(host)) {
+        const hasNativeResults = /\bid=["']search["']|\bclass=["'][^"']*\bg\b/i.test(source);
+        const hasNoResults = /找不到符合|did not match any documents|No results found/i.test(source);
+        return !hasNativeResults && hasNoResults;
+    }
+
+    if (host === "duckduckgo.com" || host.endsWith(".duckduckgo.com")) {
+        const hasNativeResults = /\bclass=["'][^"']*\bresult\b/i.test(source);
+        const hasNoResults = /No results|沒有結果/i.test(source);
+        return !hasNativeResults && hasNoResults;
+    }
+
+    if (host === "search.yahoo.com" || host.endsWith(".search.yahoo.com")) {
+        const hasNativeResults = /\bid=["']web["']|\bclass=["'][^"']*\balgo\b/i.test(source);
+        const hasNoResults = /We did not find results|找不到搜尋結果/i.test(source);
+        return !hasNativeResults && hasNoResults;
+    }
+
+    return false;
+}
+
+/**
+ * 代理出口拿不到可信的原生搜尋內容時，改用瀏覽器直接導覽。
+ * 如此保留搜尋引擎原生排序、版面、站內連結與互動，不製造替代結果。
+ */
+function NavigateSearchDirectly(url) {
+    const target = new URL(url);
+    target.searchParams.set("owob_direct", "1");
+    target.searchParams.delete("owob_direct");
+    window.location.assign(target.href);
 }
 
 function IsSearchResultPage(url) {

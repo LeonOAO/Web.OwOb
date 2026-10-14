@@ -72,218 +72,11 @@ const StripResponseHeaders = [
 
 // 模擬一般瀏覽器的請求標頭，降低被目標網站拒絕的機率
 const BrowserHeaders = {
-    "User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+    "User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
     "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
     "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7"
 };
 
-
-
-/** 判斷是否為 Bing 一般網頁搜尋主文件。 */
-function IsBingSearchUrl(url) {
-    return url instanceof URL &&
-        (url.hostname === "bing.com" || url.hostname.endsWith(".bing.com")) &&
-        url.pathname === "/search" &&
-        Boolean(url.searchParams.get("q"));
-}
-
-/**
- * 只針對 Bing 搜尋補齊一般台灣繁體中文瀏覽器的必要參數。
- * 不變更其他網站，也不套用舊版點擊、彈窗或相容性修補。
- */
-function NormalizeBingSearchUrl(url) {
-    const normalized = new URL(url.toString());
-    if (!IsBingSearchUrl(normalized)) return normalized;
-
-    if (!normalized.searchParams.has("form")) {
-        normalized.searchParams.set("form", "QBLH");
-    }
-    if (!normalized.searchParams.has("setlang")) {
-        normalized.searchParams.set("setlang", "zh-Hant");
-    }
-    if (!normalized.searchParams.has("cc")) {
-        normalized.searchParams.set("cc", "TW");
-    }
-    return normalized;
-}
-
-/** 套用 Bing 搜尋主文件專用的瀏覽器型請求標頭。 */
-function ApplyBingSearchHeaders(headers, url) {
-    if (!IsBingSearchUrl(url)) return;
-
-    headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36");
-    headers.set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
-    headers.set("Accept-Language", "zh-TW,zh-Hant;q=0.9,en-US;q=0.8,en;q=0.7");
-    headers.set("Referer", "https://www.bing.com/");
-    headers.set("Upgrade-Insecure-Requests", "1");
-    headers.set("Sec-CH-UA", '"Not(A:Brand";v="99", "Chromium";v="154"');
-    headers.set("Sec-CH-UA-Mobile", "?0");
-    headers.set("Sec-CH-UA-Platform", '"Windows"');
-}
-
-function EscapeHtml(value) {
-    return String(value || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
-}
-
-function DecodeXml(value) {
-    return String(value || "")
-        .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&apos;/g, "'")
-        .replace(/&amp;/g, "&");
-}
-
-function ExtractRssTag(item, name) {
-    const match = item.match(new RegExp("<" + name + "(?:\\s[^>]*)?>([\\s\\S]*?)<\\/" + name + ">", "i"));
-    return match ? DecodeXml(match[1]).trim() : "";
-}
-
-function NormalizeSearchText(value) {
-    return String(value || "")
-        .normalize("NFKC")
-        .toLocaleLowerCase("zh-TW")
-        .replace(/%[0-9a-f]{2}/gi, match => {
-            try { return decodeURIComponent(match); } catch { return match; }
-        });
-}
-
-function GetSearchTerms(query) {
-    const normalized = NormalizeSearchText(query)
-        .replace(/["'“”‘’()[\]{}<>]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-
-    if (!normalized) return [];
-    return normalized
-        .split(" ")
-        .map(term => term.trim())
-        .filter(term => term.length >= 2)
-        .slice(0, 8);
-}
-
-function EscapeRegularExpression(value) {
-    return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function IsCompactLatinTerm(term) {
-    return /^[a-z0-9][a-z0-9._+-]{1,3}$/i.test(term);
-}
-
-function ContainsTermWithBoundary(text, term) {
-    const escaped = EscapeRegularExpression(term);
-    const expression = new RegExp("(^|[^a-z0-9])" + escaped + "([^a-z0-9]|$)", "i");
-    return expression.test(text);
-}
-
-function IsRelevantBingRssItem(item, query) {
-    const terms = GetSearchTerms(query);
-    if (!terms.length) return false;
-
-    let decodedLink = item.Link;
-    try { decodedLink = decodeURIComponent(item.Link); } catch {}
-
-    const title = NormalizeSearchText(item.Title);
-    const link = NormalizeSearchText(decodedLink);
-    const description = NormalizeSearchText(item.Description);
-    const primary = title + " " + link;
-    const allText = primary + " " + description;
-
-    // 通用短英文／數字代號規則：短代號容易在摘要內偶然撞字，
-    // 因此必須以完整邊界出現在標題或網址，不採用摘要的子字串命中。
-    const compactTerms = terms.filter(IsCompactLatinTerm);
-    if (compactTerms.length) {
-        return compactTerms.every(term => ContainsTermWithBoundary(primary, term));
-    }
-
-    // 一般查詢要求每個有效詞都出現在標題或網址。
-    // 摘要僅作顯示用途，避免摘要中的否定句、推薦字或隱藏文字造成誤判。
-    return terms.every(term => primary.includes(term));
-}
-
-function ParseBingRssItems(xml, query) {
-    const seen = new Set();
-    return (String(xml || "").match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item>/gi) || [])
-        .map(item => ({
-            Title: ExtractRssTag(item, "title"),
-            Link: ExtractRssTag(item, "link"),
-            Description: ExtractRssTag(item, "description")
-        }))
-        .filter(item => item.Title && /^https?:\/\//i.test(item.Link))
-        .filter(item => IsRelevantBingRssItem(item, query))
-        .filter(item => {
-            const key = item.Link.toLocaleLowerCase();
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        })
-        .slice(0, 10);
-}
-
-function BuildBingResultList(items) {
-    return items.map(item => {
-        let host = "";
-        try { host = new URL(item.Link).hostname; } catch {}
-        const description = item.Description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-        return '<li class="b_algo"><div class="b_tpcn"><a class="tilk" href="' + EscapeHtml(item.Link) + '"><div><div class="tptt">' + EscapeHtml(host) + '</div></div></a></div><h2><a href="' + EscapeHtml(item.Link) + '">' + EscapeHtml(item.Title) + '</a></h2><div class="b_caption"><p>' + EscapeHtml(description) + '</p></div></li>';
-    }).join("");
-}
-
-function ReplaceBingNoResultList(html, items) {
-    if (!items.length) return html;
-    const resultList = BuildBingResultList(items);
-    const pattern = /(<ol\b[^>]*\bid=["']b_results["'][^>]*>)[\s\S]*?(<\/ol>)/i;
-    return pattern.test(html) ? html.replace(pattern, "$1" + resultList + "$2") : html;
-}
-
-async function RecoverBingSearchWithRss(html, finalUrl, jar) {
-    const searchUrl = new URL(finalUrl);
-    if (!IsBingSearchUrl(searchUrl)) return { Html: html, Used: false, Count: 0 };
-
-    const hasResults = /\bclass=["'][^"']*\bb_algo\b/i.test(html);
-    const hasNoResults = /沒有符合的結果|No results|There are no results for/i.test(html);
-    if (hasResults || !hasNoResults) return { Html: html, Used: false, Count: 0 };
-
-    const originalQuery = searchUrl.searchParams.get("q") || "";
-    const queryCandidates = [
-        originalQuery,
-        originalQuery && !/^".*"$/.test(originalQuery.trim()) ? `"${originalQuery.trim()}"` : ""
-    ].filter(Boolean);
-
-    const headers = new Headers(BrowserHeaders);
-    headers.set("Accept", "application/rss+xml,application/xml,text/xml;q=0.9,*/*;q=0.8");
-    headers.set("Accept-Language", "zh-TW,zh-Hant;q=0.9,en-US;q=0.8,en;q=0.7");
-    headers.set("Referer", "https://www.bing.com/");
-    const cookie = GetCookieHeaderForHost(jar, searchUrl.hostname);
-    if (cookie) headers.set("Cookie", cookie);
-
-    try {
-        for (const candidateQuery of queryCandidates) {
-            const rssUrl = new URL(searchUrl.toString());
-            rssUrl.searchParams.set("q", candidateQuery);
-            rssUrl.searchParams.set("format", "rss");
-            rssUrl.searchParams.set("count", "10");
-            rssUrl.searchParams.set("mkt", "zh-TW");
-            rssUrl.searchParams.delete("form");
-
-            const response = await fetch(rssUrl.toString(), { method: "GET", headers, redirect: "follow" });
-            if (!response.ok) continue;
-            const items = ParseBingRssItems(await response.text(), originalQuery);
-            if (items.length) {
-                return { Html: ReplaceBingNoResultList(html, items), Used: true, Count: items.length };
-            }
-        }
-        return { Html: html, Used: false, Count: 0 };
-    } catch {
-        return { Html: html, Used: false, Count: 0 };
-    }
-}
 
 /* ============================================================
  *  2. CORS 工具函式
@@ -371,7 +164,7 @@ function BuildCorsHeaders(origin, requestedHeaders = null) {
         "Access-Control-Allow-Origin":   origin || "*",
         "Access-Control-Allow-Methods":  "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS",
         "Access-Control-Allow-Headers":  requestedHeaders || DefaultAllowHeaders,
-        "Access-Control-Expose-Headers": "Content-Type, Content-Range, Accept-Ranges, X-Final-URL, X-Proxy-Status, X-Proxy-Set-Cookie, X-OwOb-Worker-Version, X-OwOb-Upstream-HTML-Length, X-OwOb-Upstream-BAlgo-Count, X-OwOb-Upstream-No-Results, X-OwOb-Bing-RSS-Fallback, X-OwOb-Bing-RSS-Result-Count, X-OwOb-Bing-Cookie-Forwarded",
+        "Access-Control-Expose-Headers": "Content-Type, Content-Range, Accept-Ranges, X-Final-URL, X-Proxy-Status, X-Proxy-Set-Cookie, X-OwOb-Worker-Version",
         "Access-Control-Max-Age":        "86400",
         "Vary":                          "Origin"
     };
@@ -623,7 +416,7 @@ function GetSetCookies(headers) {
  * ============================================================ */
 
 async function FetchWithRedirects(startUrl, options) {
-    let currentUrl = NormalizeBingSearchUrl(new URL(startUrl));
+    let currentUrl = new URL(startUrl);
     let method     = options.Method;
     let body       = options.Body;
     let referer    = options.Referer;
@@ -650,7 +443,6 @@ async function FetchWithRedirects(startUrl, options) {
 
         /* ---------- 組合請求標頭 ---------- */
         const headers = new Headers(BrowserHeaders);
-        ApplyBingSearchHeaders(headers, currentUrl);
 
         if (options.ForwardHeaders) {
             Object.entries(options.ForwardHeaders).forEach(([name, value]) => {
@@ -933,7 +725,7 @@ export default {
         }
 
         const requestUrl=new URL(request.url);
-        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"10.1.2",...BuildCorsHeaders(origin)}});}
+        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"9.7.5",...BuildCorsHeaders(origin)}});}
 
         /* ---------- 存取金鑰檢查（預檢請求不帶金鑰，故放在預檢之後） ---------- */
         if (!IsKeyValid(request, requestUrl, GetAccessKey(env))) {
@@ -947,7 +739,7 @@ export default {
         // 沒帶 url 參數且不是同源路徑 → 健康檢查
         if (!target && !sameOriginMode) {
             return JsonResponse(200, "OwOb Proxy 運作中", origin, {
-                version:     "10.1.2",
+                version:     "9.7.5",
                 usage:       "/?url=<encoded url> 或 /__owo_proxy__/https/example.com/path",
                 keyRequired: Boolean(GetAccessKey(env)),
                 allowedOrigins,
@@ -971,13 +763,12 @@ export default {
             // 圖片等資源請求帶有具體 Accept 時則照實轉送
             const accept = request.headers.get("Accept") || "";
 
-            const requestJar = BuildRequestJar(request, targetUrl);
             const result = await FetchWithRedirects(targetUrl, {
                 Method:      request.method,
                 Body:        hasBody ? await request.arrayBuffer() : null,
                 ForwardHeaders: forwardHeaders,
                 ContentType: request.headers.get("Content-Type") || "application/x-www-form-urlencoded",
-                Jar:         requestJar,
+                Jar:         BuildRequestJar(request, targetUrl),
                 Referer:     request.headers.get("X-Proxy-Referer") || "",
                 Accept:      accept && accept !== "*/*" ? accept : "",
                 Range:       request.headers.get("Range") || ""
@@ -993,7 +784,7 @@ export default {
             Object.entries(BuildCorsHeaders(origin)).forEach(([key, value]) => headers.set(key, value));
             headers.set("X-Final-URL",    result.FinalUrl);
             headers.set("X-Proxy-Status", String(upstream.status));
-            headers.set("X-OwOb-Worker-Version", "10.1.2");
+            headers.set("X-OwOb-Worker-Version", "9.7.5");
 
             if (result.SetCookies.length > 0) {
                 headers.set("X-Proxy-Set-Cookie", encodeURIComponent(JSON.stringify(result.SetCookies)));
@@ -1001,21 +792,7 @@ export default {
 
             let responseBody = request.method === "HEAD" ? null : upstream.body;
             const responseType = String(headers.get("Content-Type") || "").toLowerCase();
-            const isBingSearchHtml = request.method !== "HEAD" && responseType.includes("text/html") && IsBingSearchUrl(new URL(result.FinalUrl));
-            if (isBingSearchHtml) {
-                const originalHtml = await upstream.text();
-                const recovered = await RecoverBingSearchWithRss(originalHtml, result.FinalUrl, requestJar);
-                responseBody = sameOriginMode ? RewriteSameOriginHtml(recovered.Html, result.FinalUrl, requestUrl) : recovered.Html;
-                headers.delete("Content-Encoding");
-                headers.set("Content-Type", "text/html; charset=utf-8");
-                headers.set("Cache-Control", "no-store");
-                headers.set("X-OwOb-Upstream-HTML-Length", String(originalHtml.length));
-                headers.set("X-OwOb-Upstream-BAlgo-Count", String((originalHtml.match(/\bclass=["'][^"']*\bb_algo\b/gi) || []).length));
-                headers.set("X-OwOb-Upstream-No-Results", /沒有符合的結果|No results|There are no results for/i.test(originalHtml) ? "1" : "0");
-                headers.set("X-OwOb-Bing-RSS-Fallback", recovered.Used ? "1" : "0");
-                headers.set("X-OwOb-Bing-RSS-Result-Count", String(recovered.Count));
-                headers.set("X-OwOb-Bing-Cookie-Forwarded", GetCookieHeaderForHost(requestJar, targetUrl.hostname) ? "1" : "0");
-            } else if (sameOriginMode && request.method !== "HEAD" && responseType.includes("text/html")) {
+            if (sameOriginMode && request.method !== "HEAD" && responseType.includes("text/html")) {
                 responseBody = RewriteSameOriginHtml(await upstream.text(), result.FinalUrl, requestUrl);
                 headers.delete("Content-Encoding");
                 headers.set("Content-Type", "text/html; charset=utf-8");
