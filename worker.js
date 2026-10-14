@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwOb Proxy - Cloudflare Worker（CORS / 同源反向代理）v11
+ *  OwOb Proxy - Cloudflare Worker（CORS / 同源反向代理）v9
  *
  *  用法：
  *      GET  https://owob-proxy.kkwan812.workers.dev/?url=<已編碼的目標網址>
@@ -164,7 +164,7 @@ function BuildCorsHeaders(origin, requestedHeaders = null) {
         "Access-Control-Allow-Origin":   origin || "*",
         "Access-Control-Allow-Methods":  "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS",
         "Access-Control-Allow-Headers":  requestedHeaders || DefaultAllowHeaders,
-        "Access-Control-Expose-Headers": "Content-Type, Content-Range, Accept-Ranges, X-Final-URL, X-Proxy-Status, X-Proxy-Set-Cookie, X-OwOb-Worker-Version, Retry-After",
+        "Access-Control-Expose-Headers": "Content-Type, Content-Range, Accept-Ranges, X-Final-URL, X-Proxy-Status, X-Proxy-Set-Cookie, X-OwOb-Worker-Version",
         "Access-Control-Max-Age":        "86400",
         "Vary":                          "Origin"
     };
@@ -651,92 +651,6 @@ function RewritePttOver18Redirect(html, sourceUrl, requestUrl) {
         : redirectScript + output;
 }
 
-
-function EscapeBingFallbackHtml(value) {
-    return String(value == null ? "" : value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
-}
-
-function IsBingSearchUrl(value) {
-    try {
-        const parsed = new URL(value);
-        const host = parsed.hostname.toLowerCase();
-        return (host === "bing.com" || host.endsWith(".bing.com")) &&
-            parsed.pathname.toLowerCase() === "/search" &&
-            Boolean(parsed.searchParams.get("q"));
-    } catch {
-        return false;
-    }
-}
-
-function BingHtmlHasResults(html) {
-    const source = String(html);
-    return /id=["']b_results["'][\s\S]*?class=["'][^"']*\bb_algo\b/i.test(source) ||
-        /class=["'][^"']*\bb_algo\b/i.test(source);
-}
-
-function DecodeXmlText(value) {
-    return String(value || "")
-        .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&apos;/g, "'")
-        .replace(/&amp;/g, "&");
-}
-
-function ReadRssTag(block, name) {
-    const match = String(block).match(new RegExp("<" + name + "(?:\\s[^>]*)?>([\\s\\S]*?)<\\/" + name + ">", "i"));
-    return match ? DecodeXmlText(match[1]).trim() : "";
-}
-
-async function BuildBingSearchFallback(originalHtml, finalUrl) {
-    if (!IsBingSearchUrl(finalUrl) || BingHtmlHasResults(originalHtml)) return String(originalHtml);
-
-    const searchUrl = new URL(finalUrl);
-    const query = searchUrl.searchParams.get("q") || "";
-    const rssUrl = new URL("https://www.bing.com/search");
-    rssUrl.searchParams.set("q", query);
-    rssUrl.searchParams.set("format", "rss");
-    rssUrl.searchParams.set("setlang", "zh-Hant");
-    rssUrl.searchParams.set("cc", "TW");
-
-    try {
-        const response = await fetch(rssUrl.toString(), {
-            headers: {
-                "User-Agent": BrowserHeaders["User-Agent"],
-                "Accept": "application/rss+xml,application/xml,text/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
-                "Cache-Control": "no-cache"
-            },
-            redirect: "follow",
-            cf: { cacheTtl: 0, cacheEverything: false }
-        });
-        if (!response.ok) return String(originalHtml);
-
-        const xml = await response.text();
-        const items = xml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item>/gi) || [];
-        if (!items.length) return String(originalHtml);
-
-        const rows = items.map(item => {
-            const title = ReadRssTag(item, "title");
-            const link = ReadRssTag(item, "link");
-            const description = ReadRssTag(item, "description").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-            if (!/^https?:\/\//i.test(link)) return "";
-            return `<li class="b_algo"><h2><a href="${EscapeBingFallbackHtml(link)}">${EscapeBingFallbackHtml(title || link)}</a></h2><div class="b_attribution"><cite>${EscapeBingFallbackHtml(link)}</cite></div><p>${EscapeBingFallbackHtml(description)}</p></li>`;
-        }).filter(Boolean).join("");
-        if (!rows) return String(originalHtml);
-
-        return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${EscapeBingFallbackHtml(query)} - 搜尋</title><style>body{margin:0;font-family:"Segoe UI","Microsoft JhengHei",Arial,sans-serif;color:#202124;background:#fff}header{padding:22px 28px 16px;border-bottom:1px solid #e5e7eb}.search{display:flex;align-items:center;gap:14px;max-width:760px}.logo{font-weight:700;color:#0875d1}.query{flex:1;padding:11px 18px;border:1px solid #c8cdd3;border-radius:24px;font-size:16px}main{max-width:760px;padding:22px 28px}#b_results{margin:0;padding:0;list-style:none}.b_algo{margin:0 0 25px}.b_algo h2{margin:0 0 5px;font-size:20px;font-weight:500}.b_algo a{color:#4007a2;text-decoration:none}.b_algo a:hover{text-decoration:underline}.b_attribution{color:#137333;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.b_algo p{margin:5px 0 0;color:#4d5156;font-size:14px;line-height:1.55}.notice{margin-bottom:18px;color:#5f6368;font-size:13px}@media(max-width:620px){header,main{padding-left:16px;padding-right:16px}}</style></head><body><header><div class="search"><span class="logo">Bing</span><input class="query" value="${EscapeBingFallbackHtml(query)}" readonly></div></header><main><div class="notice">搜尋結果已使用相容模式顯示</div><ol id="b_results">${rows}</ol></main></body></html>`;
-    } catch {
-        return String(originalHtml);
-    }
-}
-
 function RewriteSameOriginHtml(html, sourceUrl, requestUrl) {
     html = RewritePttOver18Redirect(html, sourceUrl, requestUrl);
     html = SimplifySearchResultHtml(html, sourceUrl);
@@ -811,7 +725,7 @@ export default {
         }
 
         const requestUrl=new URL(request.url);
-        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"11.0.0",...BuildCorsHeaders(origin)}});}
+        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"9.7.5",...BuildCorsHeaders(origin)}});}
 
         /* ---------- 存取金鑰檢查（預檢請求不帶金鑰，故放在預檢之後） ---------- */
         if (!IsKeyValid(request, requestUrl, GetAccessKey(env))) {
@@ -870,10 +784,7 @@ export default {
             Object.entries(BuildCorsHeaders(origin)).forEach(([key, value]) => headers.set(key, value));
             headers.set("X-Final-URL",    result.FinalUrl);
             headers.set("X-Proxy-Status", String(upstream.status));
-            headers.set("X-OwOb-Worker-Version", "11.0.0");
-            if (upstream.status === 429 && !headers.has("Retry-After")) {
-                headers.set("Retry-After", "120");
-            }
+            headers.set("X-OwOb-Worker-Version", "9.7.5");
 
             if (result.SetCookies.length > 0) {
                 headers.set("X-Proxy-Set-Cookie", encodeURIComponent(JSON.stringify(result.SetCookies)));
@@ -881,20 +792,8 @@ export default {
 
             let responseBody = request.method === "HEAD" ? null : upstream.body;
             const responseType = String(headers.get("Content-Type") || "").toLowerCase();
-            const isBingSearchHtml = request.method !== "HEAD" && responseType.includes("text/html") && IsBingSearchUrl(result.FinalUrl);
-            let bingPreparedHtml = null;
-            if (isBingSearchHtml) {
-                bingPreparedHtml = await BuildBingSearchFallback(await upstream.text(), result.FinalUrl);
-                responseBody = bingPreparedHtml;
-                headers.delete("Content-Encoding");
-                headers.set("Content-Type", "text/html; charset=utf-8");
-                headers.set("Cache-Control", "no-store");
-                headers.set("X-OwOb-Bing-Compatibility", BingHtmlHasResults(bingPreparedHtml) ? "results" : "upstream-empty");
-            }
-
             if (sameOriginMode && request.method !== "HEAD" && responseType.includes("text/html")) {
-                const sourceHtml = bingPreparedHtml !== null ? bingPreparedHtml : await upstream.text();
-                responseBody = RewriteSameOriginHtml(sourceHtml, result.FinalUrl, requestUrl);
+                responseBody = RewriteSameOriginHtml(await upstream.text(), result.FinalUrl, requestUrl);
                 headers.delete("Content-Encoding");
                 headers.set("Content-Type", "text/html; charset=utf-8");
                 headers.set("Cache-Control", "no-store");

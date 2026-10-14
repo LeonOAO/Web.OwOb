@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v40
+ *  OwO Simple Browser - 主程式 v33
  *
  *  架構：
  *     1. 設定與狀態
@@ -2429,26 +2429,6 @@ function RenderErrorPage(tab, title, detail, retryUrl) {
  * ============================================================ */
 
 /**
- * 將指定分頁載入同源反向代理 iframe。
- * 此模式保留 Cookie、Storage 與同源 frame 通訊，供 reCAPTCHA 等驗證元件使用。
- */
-function LoadSameOriginFrame(tab, url, controller, timer) {
-    const frame = CreateFrame(tab, true);
-    frame.src = BuildSameOriginProxyUrl(url);
-    frame.addEventListener("load", () => {
-        if (tab.Abort === controller) tab.Abort = null;
-        clearTimeout(timer);
-        SetLoading(tab, false);
-        tab.Title = GetHostname(url) || "同源代理頁面";
-        UpdateTabHeader(tab);
-        RefreshToolbar();
-        SaveOpenTabs();
-    }, { once: true });
-    SetTabContent(tab, frame, true);
-    tab.HasAgent = false;
-}
-
-/**
  * 經由代理載入外部頁面
  * @param {object}      tab       目標分頁
  * @param {string}      url       目標網址
@@ -2465,7 +2445,18 @@ async function LoadExternalPage(tab, url, postData = null) {
 
     if (!postData && tab.LoadMode === "same-origin") {
         try {
-            LoadSameOriginFrame(tab, url, controller, timer);
+            const frame = CreateFrame(tab, true);
+            frame.src = BuildSameOriginProxyUrl(url);
+            frame.addEventListener("load", () => {
+                if (tab.Abort === controller) tab.Abort = null;
+                clearTimeout(timer);
+                SetLoading(tab, false);
+                tab.Title = GetHostname(url) || "同源代理頁面";
+                UpdateTabHeader(tab);
+                RefreshToolbar();
+            }, { once: true });
+            SetTabContent(tab, frame, true);
+            tab.HasAgent = false;
             return;
         } catch (error) {
             clearTimeout(timer);
@@ -2477,25 +2468,6 @@ async function LoadExternalPage(tab, url, postData = null) {
     }
 
     try {
-        let isGoogleRequest = false;
-        try {
-            const requestHost = new URL(url).hostname.toLowerCase();
-            isGoogleRequest = requestHost === "google.com" || requestHost.endsWith(".google.com");
-        } catch {
-            isGoogleRequest = false;
-        }
-        const googleCooldownUntil = Number(sessionStorage.getItem("OwOb.Google429Until") || 0);
-        if (!postData && isGoogleRequest && googleCooldownUntil > Date.now()) {
-            const remaining = Math.max(1, Math.ceil((googleCooldownUntil - Date.now()) / 1000));
-            RenderErrorPage(
-                tab,
-                "Google 代理連線冷卻中",
-                `為避免重複觸發 HTTP 429，代理請求暫停中。剩餘約 ${remaining} 秒。\n\n可使用「直接開啟原網址」在 Google 原始網域瀏覽。`,
-                url
-            );
-            return;
-        }
-
         /* ---------- 組合代理請求 ---------- */
         const headers = {};
         const siteJar = GetSiteCookieJar(url);
@@ -2531,54 +2503,6 @@ async function LoadExternalPage(tab, url, postData = null) {
             const postParams = new URLSearchParams(postData.Body || "");
             const returnPath = GetCanonicalPttReturnPath(postParams.get("from"), url);
             finalUrl = new URL(returnPath, "https://www.ptt.cc").href;
-        }
-
-        // Google 對共用代理出口回傳驗證頁時，不把驗證內容放進 origin=null 的 srcdoc。
-        // 僅驗證內容使用具備 Cookie、Storage 與 Frame 通訊能力的同源代理框架；
-        // 分頁本身仍維持使用者選擇的標準模式，不自動改變 LoadMode 或工具列狀態。
-        let isGoogleTarget = false;
-        try {
-            const targetHost = new URL(finalUrl || url).hostname.toLowerCase();
-            isGoogleTarget = targetHost === "google.com" || targetHost.endsWith(".google.com");
-        } catch {
-            isGoogleTarget = false;
-        }
-
-        if (!postData && response.status === 429 && isGoogleTarget) {
-            if (response.body) await response.body.cancel().catch(() => {});
-            if (GetTabUrl(tab) !== url) return;
-
-            const retryAfter = Number(response.headers.get("Retry-After"));
-            const cooldownSeconds = Number.isFinite(retryAfter) && retryAfter > 0
-                ? Clamp(Math.ceil(retryAfter), 30, 3600)
-                : 120;
-            const cooldownUntil = Date.now() + cooldownSeconds * 1000;
-            sessionStorage.setItem("OwOb.Google429Until", String(cooldownUntil));
-
-            RenderErrorPage(
-                tab,
-                "Google 暫時限制代理連線",
-                `${finalUrl || url}\n\nGoogle 對目前的代理出口回傳 HTTP 429。代理網域中的驗證元件會因來源網域與 Google 管理的網站金鑰不一致而失效，因此不再載入失效的驗證框架。\n\n請使用「直接開啟原網址」在 Google 原始網域完成操作。代理重試將暫停 ${cooldownSeconds} 秒，避免連續請求再次觸發限制。`,
-                url
-            );
-
-            const retryButton = tab.ViewEl.querySelector('[data-action="retry"]');
-            if (retryButton) {
-                retryButton.disabled = true;
-                const originalText = retryButton.textContent;
-                const updateCooldown = () => {
-                    const remaining = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
-                    if (remaining <= 0) {
-                        retryButton.disabled = false;
-                        retryButton.textContent = originalText;
-                        return;
-                    }
-                    retryButton.textContent = `稍後重試（${remaining}）`;
-                    setTimeout(updateCooldown, 1000);
-                };
-                updateCooldown();
-            }
-            return;
         }
 
         // 代理回傳的錯誤（JSON 格式）
@@ -2662,30 +2586,9 @@ function IsSearchResultPage(url) {
         return ((h==="bing.com"||h.endsWith(".bing.com"))&&p==="/search")||((h==="google.com"||h.endsWith(".google.com")||/^www\.google\.[a-z.]+$/.test(h))&&p==="/search")||((h==="duckduckgo.com"||h.endsWith(".duckduckgo.com"))&&(p==="/"||p.includes("html")))||((h==="search.yahoo.com"||h.endsWith(".search.yahoo.com"))&&p.includes("search"));
     } catch { return false; }
 }
-function SimplifySearchResultHtml(html, url) {
-    const source = String(html);
-
-    // Bing 搜尋結果保留伺服器回傳的完整文件。
-    // Bing 的結果清單與頁面狀態會使用內嵌腳本中的初始化資料；
-    // 若沿用一般搜尋頁的全面移除腳本處理，可能只剩下「沒有符合的結果」。
-    try {
-        const parsed = new URL(url);
-        const host = parsed.hostname.toLowerCase();
-        if ((host === "bing.com" || host.endsWith(".bing.com")) &&
-            parsed.pathname.toLowerCase() === "/search") {
-            return source;
-        }
-    } catch {
-        return source;
-    }
-
-    // 其他搜尋引擎維持原有的精簡規則，不改變既有行為。
-    if (!IsSearchResultPage(url)) return source;
-    return source
-        .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, "")
-        .replace(/<script\b[^>]*\/?>/gi, "")
-        .replace(/<link\b[^>]*\brel\s*=\s*["']?(?:preload|prefetch|modulepreload|dns-prefetch|preconnect)["']?[^>]*>/gi, "")
-        .replace(/<iframe\b[^>]*(?:ad|analytics|telemetry|tracking)[^>]*>[\s\S]*?<\/iframe\s*>/gi, "");
+function SimplifySearchResultHtml(html,url) {
+    if(!IsSearchResultPage(url))return String(html);
+    return String(html).replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,"").replace(/<script\b[^>]*\/?>/gi,"").replace(/<link\b[^>]*\brel\s*=\s*["']?(?:preload|prefetch|modulepreload|dns-prefetch|preconnect)["']?[^>]*>/gi,"").replace(/<iframe\b[^>]*(?:ad|analytics|telemetry|tracking)[^>]*>[\s\S]*?<\/iframe\s*>/gi,"");
 }
 
 /* ---------- 外部樣式表內嵌 ----------
@@ -3706,7 +3609,6 @@ function OwObFrameAgent(Options) {
         TRACK:  ["src"],
         EMBED:  ["src"],
         INPUT:  ["src"],
-        IFRAME: ["src"],
         SCRIPT: ["src"],
         LINK:   ["href"]
     };
@@ -3716,9 +3618,6 @@ function OwObFrameAgent(Options) {
     /** 此元素是否需要改寫 */
     function IsRewritable(element) {
         if (!element || !ResourceRules[element.tagName]) return false;
-        // 巢狀 iframe 屬於主動內容。即使使用者關閉一般資源代理，
-        // 仍必須經 HTTPS 代理，避免 srcdoc 內的 HTTP 重新導向觸發 Mixed Content。
-        if (element.tagName === "IFRAME") return true;
         if (element.tagName === "SCRIPT") return Options.ProxyScripts;
         if (element.tagName === "LINK") {
             var rel = String(element.getAttribute("rel") || "").toLowerCase();
@@ -3748,7 +3647,7 @@ function OwObFrameAgent(Options) {
         if (!node || node.nodeType !== 1) return;
         FixElement(node);
         if (node.querySelectorAll) {
-            var list = node.querySelectorAll("img,source,video,audio,track,embed,input,iframe,script,link");
+            var list = node.querySelectorAll("img,source,video,audio,track,embed,input,script");
             for (var i = 0; i < list.length; i++) FixElement(list[i]);
         }
     }
@@ -3782,7 +3681,6 @@ function OwObFrameAgent(Options) {
         HookProperty(window.HTMLTrackElement,  "src");
         HookProperty(window.HTMLEmbedElement,  "src");
         HookProperty(window.HTMLInputElement,  "src");
-        HookProperty(window.HTMLIFrameElement, "src");
         HookProperty(window.HTMLScriptElement, "src");
         HookProperty(window.HTMLLinkElement,   "href");
 
