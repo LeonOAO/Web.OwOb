@@ -556,6 +556,14 @@ function BuildSameOriginProxyUrl(url) {
     proxy.pathname = `/__owo_proxy__/${protocolName}/${target.host}${target.pathname}`;
     proxy.search = target.search;
     if (GetProxyKey()) proxy.searchParams.set("_owo_key", GetProxyKey());
+
+    // 瀏覽器可能封鎖第三方 iframe Cookie。將前端已保存的同站 Cookie Jar
+    // 隨同源代理導覽交給 Worker，避免工作階段只存在於 srcdoc 流程。
+    const cookieJar = GetSiteCookieJar(url);
+    if (cookieJar.length > 0) {
+        proxy.searchParams.set("_owo_jar", encodeURIComponent(JSON.stringify(cookieJar)));
+    }
+
     proxy.hash = target.hash;
     return proxy.toString();
 }
