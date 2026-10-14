@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v33
+ *  OwO Simple Browser - 主程式 v30
  *
  *  架構：
  *     1. 設定與狀態
@@ -309,67 +309,42 @@ function UnwrapRedirectUrl(url) {
     return IsWebUrl(target) ? target : url;
 }
 
-/** 由 PTT over18 網址或本文遞迴取出最終看板路徑，避免 /ask/over18 巢狀。 */
-function GetCanonicalPttReturnPath(value, fallbackPageUrl = "") {
-    const candidates = [String(value || ""), String(fallbackPageUrl || "")];
-
-    for (const candidate of candidates) {
-        let current = candidate;
-        for (let depth = 0; depth < 10; depth++) {
-            if (!current || current === "srcdoc" || current === "about:srcdoc" || current.startsWith("about:")) break;
-            try {
-                const parsed = new URL(current, "https://www.ptt.cc/");
-                if (parsed.hostname.toLowerCase() !== "www.ptt.cc") break;
-                if (parsed.pathname !== "/ask/over18") {
-                    if (parsed.pathname.startsWith("/")) return parsed.pathname + parsed.search;
-                    break;
-                }
-                const nested = String(parsed.searchParams.get("from") || "").trim();
-                if (!nested || nested === current) break;
-                current = nested;
-            } catch {
-                if (current.startsWith("/") && !current.startsWith("/ask/over18")) return current;
-                break;
-            }
-        }
-    }
-    return "/";
-}
-
-/** 判斷 OwO Cookie 罐是否已有 PTT 年齡確認 Cookie。 */
-function HasPttOver18Cookie() {
-    const jar = LoadCookieJar();
-    return Object.entries(jar).some(([domain, cookies]) =>
-        (domain === "ptt.cc" || domain.endsWith(".ptt.cc")) &&
-        cookies && cookies.over18 && String(cookies.over18.Value) === "1"
-    );
-}
-
-/** 修正 PTT 年齡確認網址，永遠只保留一層 canonical from。 */
+/** 修正 PTT 年齡確認頁在 srcdoc 中產生的無效返回路徑。 */
 function NormalizePttOver18Url(value, pageUrl) {
     try {
-        const current = new URL(pageUrl, "https://www.ptt.cc/");
+        const current = new URL(pageUrl);
         const target = new URL(value, current);
         if (target.hostname.toLowerCase() !== "www.ptt.cc" || target.pathname !== "/ask/over18") {
             return target.href;
         }
-        const returnPath = GetCanonicalPttReturnPath(target.searchParams.get("from"), current.href);
-        target.search = "";
-        target.searchParams.set("from", returnPath);
+        const from = String(target.searchParams.get("from") || "").trim();
+        if (!from || from === "srcdoc" || from === "about:srcdoc" || from.startsWith("about:") || !from.startsWith("/")) {
+            const returnPath = current.hostname.toLowerCase() === "www.ptt.cc"
+                ? current.pathname + current.search
+                : "/";
+            target.searchParams.set("from", returnPath);
+        }
         return target.href;
     } catch {
         return value;
     }
 }
 
-/** 修正 PTT 年齡確認 POST 本文，保留 yes 並將 from 去巢狀化。 */
+/** 修正 PTT 年齡確認 POST 本文中的 from=srcdoc。 */
 function NormalizePttOver18PostBody(url, body, pageUrl) {
     try {
         const target = new URL(url, pageUrl);
-        if (target.hostname.toLowerCase() !== "www.ptt.cc" || target.pathname !== "/ask/over18") return body;
+        if (target.hostname.toLowerCase() !== "www.ptt.cc" || target.pathname !== "/ask/over18") {
+            return body;
+        }
+        const current = new URL(pageUrl);
         const params = new URLSearchParams(body);
-        const returnPath = GetCanonicalPttReturnPath(params.get("from"), target.href || pageUrl);
-        params.set("from", returnPath);
+        const from = String(params.get("from") || "").trim();
+        if (!from || from === "srcdoc" || from === "about:srcdoc" || !from.startsWith("/")) {
+            params.set("from", current.hostname.toLowerCase() === "www.ptt.cc"
+                ? current.pathname + current.search
+                : "/");
+        }
         return params.toString();
     } catch {
         return body;
@@ -2493,17 +2468,10 @@ async function LoadExternalPage(tab, url, postData = null) {
         const response = await fetch(BuildProxyUrl(url), requestOptions);
         const contentType = response.headers.get("Content-Type") || "";
         const reportedFinalUrl = response.headers.get("X-Final-URL") || url;
+        const finalUrl = NormalizePttOver18Url(reportedFinalUrl, url);
 
         // 先保存目標網站設定的 Cookie（驗證頁的通過紀錄就在這裡）
         StoreProxyCookies(response.headers.get("X-Proxy-Set-Cookie"));
-
-        let finalUrl = NormalizePttOver18Url(reportedFinalUrl, url);
-        const isPttOver18Post = Boolean(postData) && /https:\/\/www\.ptt\.cc\/ask\/over18/i.test(url);
-        if (isPttOver18Post && HasPttOver18Cookie()) {
-            const postParams = new URLSearchParams(postData.Body || "");
-            const returnPath = GetCanonicalPttReturnPath(postParams.get("from"), url);
-            finalUrl = new URL(returnPath, "https://www.ptt.cc").href;
-        }
 
         // 代理回傳的錯誤（JSON 格式）
         if (!response.ok && contentType.includes("application/json")) {
@@ -2525,17 +2493,6 @@ async function LoadExternalPage(tab, url, postData = null) {
         if (contentType.includes("text/html") || contentType.includes("application/xhtml")) {
             const rawHtml = await response.text();
             const isSearchPage = IsSearchResultPage(finalUrl);
-
-            // 搜尋引擎對資料中心代理出口回傳不可信的空結果頁時，
-            // 直接交由一般瀏覽器載入原生搜尋頁，避免顯示錯誤或自行重建的結果。
-            if (!postData && isSearchPage && IsUnusableProxiedSearchHtml(rawHtml, finalUrl)) {
-                clearTimeout(timer);
-                if (tab.Abort === controller) tab.Abort = null;
-                SetLoading(tab, false);
-                NavigateSearchDirectly(finalUrl);
-                return;
-            }
-
             const preparedHtml = SimplifySearchResultHtml(rawHtml, finalUrl);
 
             // 搜尋結果頁直接使用已取得的 HTML，避免逐份等待代理 CSS 逾時。
@@ -2589,61 +2546,6 @@ async function LoadExternalPage(tab, url, postData = null) {
         if (tab.Id === State.ActiveId) RefreshToolbar();
         SaveOpenTabs();
     }
-}
-
-
-/**
- * 判斷搜尋引擎透過代理取得的 HTML 是否明顯不可用。
- * 僅依通用搜尋頁結構與「查無結果」訊息判斷，不依賴特定搜尋詞或結果網站。
- */
-function IsUnusableProxiedSearchHtml(html, url) {
-    if (!IsSearchResultPage(url)) return false;
-
-    const source = String(html || "");
-    let target;
-    try {
-        target = new URL(url);
-    } catch {
-        return false;
-    }
-
-    const host = target.hostname.toLowerCase();
-    if (host === "bing.com" || host.endsWith(".bing.com")) {
-        const hasNativeResults = /\bclass=["'][^"']*\bb_algo\b/i.test(source);
-        const hasNoResults = /沒有符合的結果|No results|There are no results for/i.test(source);
-        return !hasNativeResults && hasNoResults;
-    }
-
-    if (host === "google.com" || host.endsWith(".google.com") || /^www\.google\.[a-z.]+$/.test(host)) {
-        const hasNativeResults = /\bid=["']search["']|\bclass=["'][^"']*\bg\b/i.test(source);
-        const hasNoResults = /找不到符合|did not match any documents|No results found/i.test(source);
-        return !hasNativeResults && hasNoResults;
-    }
-
-    if (host === "duckduckgo.com" || host.endsWith(".duckduckgo.com")) {
-        const hasNativeResults = /\bclass=["'][^"']*\bresult\b/i.test(source);
-        const hasNoResults = /No results|沒有結果/i.test(source);
-        return !hasNativeResults && hasNoResults;
-    }
-
-    if (host === "search.yahoo.com" || host.endsWith(".search.yahoo.com")) {
-        const hasNativeResults = /\bid=["']web["']|\bclass=["'][^"']*\balgo\b/i.test(source);
-        const hasNoResults = /We did not find results|找不到搜尋結果/i.test(source);
-        return !hasNativeResults && hasNoResults;
-    }
-
-    return false;
-}
-
-/**
- * 代理出口拿不到可信的原生搜尋內容時，改用瀏覽器直接導覽。
- * 如此保留搜尋引擎原生排序、版面、站內連結與互動，不製造替代結果。
- */
-function NavigateSearchDirectly(url) {
-    const target = new URL(url);
-    target.searchParams.set("owob_direct", "1");
-    target.searchParams.delete("owob_direct");
-    window.location.assign(target.href);
 }
 
 function IsSearchResultPage(url) {
@@ -2849,54 +2751,12 @@ function RewriteHtmlResources(html, baseUrl) {
 }
 
 /**
- * 偵測並移除 PTT 在標準 srcdoc 模式中直接執行的年齡確認跳轉。
- * PTT 原始腳本使用 location.pathname；在 srcdoc 中會得到 "srcdoc"，
- * 且 location 導覽會繞過 OwO 代理，因此改由外層 Navigate() 接管。
- */
-function ExtractPttOver18ScriptRedirect(html, baseUrl) {
-    let page;
-    try {
-        page = new URL(baseUrl);
-    } catch {
-        return null;
-    }
-
-    if (page.hostname.toLowerCase() !== "www.ptt.cc") return null;
-
-    let detected = false;
-    const cleanedHtml = String(html).replace(
-        /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi,
-        (whole, attributes, body) => {
-            const isOver18Redirect = /\/ask\/over18/i.test(body) &&
-                /(?:document\.)?(?:window\.)?location(?:\.pathname|\s*=|\.href|\.replace\s*\()/i.test(body);
-            if (!isOver18Redirect) return whole;
-            detected = true;
-            return "<!-- OwO: PTT over18 srcdoc redirect moved to outer proxy navigation -->";
-        }
-    );
-
-    if (!detected) return null;
-
-    // 已有 over18=1 時，PTT 原始腳本在 srcdoc 仍讀不到真實 Cookie；
-    // 此時只移除錯誤導向，直接保留看板內容。
-    if (HasPttOver18Cookie()) return { Html: cleanedHtml, Url: null };
-
-    const target = new URL("/ask/over18", page.origin);
-    target.searchParams.set("from", GetCanonicalPttReturnPath(page.href));
-    return { Html: cleanedHtml, Url: target.href };
-}
-
-/**
  * 將抓回的 HTML 放進沙箱 iframe
  *  - <base> 讓相對路徑的圖片、CSS 正確指向原網站
  *  - 注入 iframe 代理程式（連結、表單、資源、請求、頁內搜尋、快捷鍵）
  *  - sandbox 不含 allow-same-origin，網頁腳本無法存取 OwOb 本身
  */
 function RenderHtmlInFrame(tab, html, baseUrl) {
-    // PTT 的 inline location 導向在 srcdoc 中會產生 from=srcdoc 並繞過代理。
-    const pttRedirect = ExtractPttOver18ScriptRedirect(html, baseUrl);
-    if (pttRedirect) html = pttRedirect.Html;
-
     // <meta http-equiv="refresh"> 會讓 iframe 繞過代理直接跳轉，
     // 因此從 HTML 移除，改由 OwOb 經代理導覽
     const refresh = ExtractMetaRefresh(html, baseUrl);
@@ -2940,18 +2800,14 @@ ${MakeProxyUrl.toString()}
     SetTabContent(tab, frame, true);
     tab.HasAgent = true;
 
-    const outerRedirect = pttRedirect && pttRedirect.Url
-        ? { Url: pttRedirect.Url, DelayMs: 0 }
-        : (!pttRedirect ? refresh : null);
-
-    if (outerRedirect) {
+    if (refresh) {
         const expectedUrl = GetTabUrl(tab);
         setTimeout(() => {
             // 期間使用者已切換頁面則不跳轉
             if (GetTabUrl(tab) === expectedUrl) {
-                Navigate(tab, NormalizePttOver18Url(outerRedirect.Url, baseUrl));
+                Navigate(tab, refresh.Url);
             }
-        }, outerRedirect.DelayMs);
+        }, refresh.DelayMs);
     }
 }
 
@@ -3585,23 +3441,6 @@ function OwObFrameAgent(Options) {
 
     /* ---------- 1. 連結點擊 ---------- */
 
-    var OwObLastNavigation = { Url: "", Type: "", Time: 0 };
-
-    function SendNavigationOnce(type, url) {
-        var now = Date.now();
-        if (
-            OwObLastNavigation.Url === url &&
-            OwObLastNavigation.Type === type &&
-            now - OwObLastNavigation.Time < 700
-        ) {
-            return;
-        }
-        OwObLastNavigation.Url = url;
-        OwObLastNavigation.Type = type;
-        OwObLastNavigation.Time = now;
-        Send({ Type: type, Url: url });
-    }
-
     document.addEventListener("click", function (event) {
         var link = event.target && event.target.closest && event.target.closest("a[href]");
         if (!link || event.defaultPrevented) return;
@@ -3609,14 +3448,12 @@ function OwObFrameAgent(Options) {
         var href = link.getAttribute("href") || "";
         if (href.charAt(0) === "#" || /^(javascript|mailto|tel|data|blob):/i.test(href)) return;
 
+        event.preventDefault();
+        event.stopPropagation();
         var absolute = ToAbsolute(link.getAttribute("href") || link.href);
         if (!absolute || !/^https?:\/\//i.test(absolute)) return;
-
-        event.preventDefault();
-        event.stopImmediatePropagation();
-
         var newTab = link.target === "_blank" || event.ctrlKey || event.metaKey || event.button === 1;
-        SendNavigationOnce(newTab ? "OpenTab" : "Navigate", absolute);
+        Send({ Type: newTab ? "OpenTab" : "Navigate", Url: absolute });
     }, true);
 
     /* ---------- 1. 表單送出（GET / POST） ---------- */
@@ -4005,21 +3842,6 @@ function OwObFrameAgent(Options) {
     }, true);
 }
 
-function ShouldIgnoreRepeatedNavigation(tab, type, url) {
-    const now = Date.now();
-    if (
-        tab.LastFrameNavigationUrl === url &&
-        tab.LastFrameNavigationType === type &&
-        now - Number(tab.LastFrameNavigationTime || 0) < 700
-    ) {
-        return true;
-    }
-    tab.LastFrameNavigationUrl = url;
-    tab.LastFrameNavigationType = type;
-    tab.LastFrameNavigationTime = now;
-    return false;
-}
-
 /* ============================================================
  * 14. iframe 訊息接收
  * ============================================================ */
@@ -4038,15 +3860,14 @@ window.addEventListener("message", event => {
             return;
         }
         if (data.Type === "Navigate" && IsWebUrl(data.Url)) {
-            const targetUrl = NormalizePttOver18Url(UnwrapRedirectUrl(data.Url), pageUrl);
-            if (!ShouldIgnoreRepeatedNavigation(t, "Navigate", targetUrl)) Navigate(t, targetUrl);
+            Navigate(t, NormalizePttOver18Url(UnwrapRedirectUrl(data.Url), pageUrl));
             return;
         }
         if (data.Type === "OpenTab" && IsWebUrl(data.Url)) {
-            const targetUrl = NormalizePttOver18Url(UnwrapRedirectUrl(data.Url), pageUrl);
-            if (!ShouldIgnoreRepeatedNavigation(t, "OpenTab", targetUrl)) {
-                CreateTab(targetUrl, true, { AfterId: t.Id, LoadMode: t.LoadMode });
-            }
+            CreateTab(NormalizePttOver18Url(UnwrapRedirectUrl(data.Url), pageUrl), true, {
+                AfterId: t.Id,
+                LoadMode: t.LoadMode
+            });
             return;
         }
         if (data.Type === "Post" && IsWebUrl(data.Url) && typeof data.Body === "string") {
@@ -4069,22 +3890,16 @@ window.addEventListener("message", event => {
     switch (data.Type) {
         case "Navigate":
             if (IsWebUrl(data.Url)) {
-                const targetUrl = NormalizePttOver18Url(data.Url, GetTabUrl(tab));
-                if (!ShouldIgnoreRepeatedNavigation(tab, "Navigate", targetUrl)) {
-                    Navigate(tab, targetUrl);
-                }
+                Navigate(tab, NormalizePttOver18Url(data.Url, GetTabUrl(tab)));
             }
             break;
 
         case "OpenTab":
             if (IsWebUrl(data.Url)) {
-                const targetUrl = NormalizePttOver18Url(data.Url, GetTabUrl(tab));
-                if (!ShouldIgnoreRepeatedNavigation(tab, "OpenTab", targetUrl)) {
-                    CreateTab(targetUrl, true, {
-                        AfterId: tab.Id,
-                        LoadMode: tab.LoadMode
-                    });
-                }
+                CreateTab(NormalizePttOver18Url(data.Url, GetTabUrl(tab)), true, {
+                    AfterId: tab.Id,
+                    LoadMode: tab.LoadMode
+                });
             }
             break;
 
