@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v36
+ *  OwO Simple Browser - 主程式 v37
  *
  *  架構：
  *     1. 設定與狀態
@@ -3543,9 +3543,34 @@ function OwObFrameAgent(Options) {
         Send({ Type: type, Url: url });
     }
 
+    var OwObAnchorTargets = new WeakMap();
+    var NativeAnchorClick = window.HTMLAnchorElement && window.HTMLAnchorElement.prototype.click;
+
+    /** 儲存原 target，清除瀏覽器原生開窗路徑。 */
+    function RememberAnchorTarget(anchor) {
+        if (!anchor || anchor.tagName !== "A") return;
+        var target = anchor.getAttribute("target") || "";
+        if (target) OwObAnchorTargets.set(anchor, target);
+    }
+
+    /** 程式直接呼叫 anchor.click() 時，也不走沙箱原生開窗。 */
+    if (NativeAnchorClick) {
+        window.HTMLAnchorElement.prototype.click = function () {
+            var href = this.getAttribute("href") || this.href || "";
+            var absolute = ToAbsolute(href);
+            if (absolute && /^https?:\/\//i.test(absolute)) {
+                var savedTarget = OwObAnchorTargets.get(this) || this.getAttribute("target") || "";
+                SendNavigationOnce(savedTarget === "_blank" ? "OpenTab" : "Navigate", absolute);
+                return;
+            }
+            return NativeAnchorClick.apply(this, arguments);
+        };
+    }
+
     /** 清除連結自己的開窗與滑鼠處理器，所有 HTTP / HTTPS 導覽統一交由 OwO。 */
     function NeutralizeAnchor(anchor) {
         if (!anchor || anchor.tagName !== "A") return;
+        RememberAnchorTarget(anchor);
         anchor.removeAttribute("target");
         ["onclick", "onauxclick", "onmousedown", "onmouseup", "onpointerdown", "onpointerup"].forEach(function (name) {
             try { anchor[name] = null; } catch (error) { /* 保持頁面可執行 */ }
@@ -3602,7 +3627,8 @@ function OwObFrameAgent(Options) {
         event.preventDefault();
         event.stopImmediatePropagation();
 
-        var newTab = link.target === "_blank" || event.ctrlKey || event.metaKey || event.button === 1;
+        var savedTarget = OwObAnchorTargets.get(link) || link.getAttribute("target") || "";
+        var newTab = savedTarget === "_blank" || event.ctrlKey || event.metaKey || event.button === 1;
         SendNavigationOnce(newTab ? "OpenTab" : "Navigate", absolute);
     }, true);
 
