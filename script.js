@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v33
+ *  OwO Simple Browser - 主程式 v34
  *
  *  架構：
  *     1. 設定與狀態
@@ -3538,7 +3538,12 @@ function OwObFrameAgent(Options) {
 
     document.addEventListener("click", function (event) {
         var link = event.target && event.target.closest && event.target.closest("a[href]");
-        if (!link || event.defaultPrevented) return;
+        if (!link) return;
+
+        // Bing 新版搜尋結果會先由站內 click handler 呼叫 preventDefault()，
+        // 再以 target=_blank 或 window.open() 前往 /ck/a 追蹤網址。
+        // 標準模式 iframe 未授予 allow-popups，若因 defaultPrevented 提前退出，
+        // 連結就會被瀏覽器封鎖。即使事件已被網站處理，仍由 OwO 接管導覽。
 
         var href = link.getAttribute("href") || "";
         if (href.charAt(0) === "#" || /^(javascript|mailto|tel|data|blob):/i.test(href)) return;
