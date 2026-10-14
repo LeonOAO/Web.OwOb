@@ -680,19 +680,95 @@ function RewriteSameOriginCss(css, sourceUrl, requestUrl) {
  *  8. 主要處理流程
  * ============================================================ */
 
+/**
+ * 同源代理 Cookie 橋接：將上游 Cookie 以目標主機命名空間保存於 Worker 網域。
+ * 瀏覽器後續載入同一目標主機的代理路徑時，Worker 可還原上游 Cookie。
+ */
+function EncodeCookieBridgeHost(host) {
+    return String(host || "").toLowerCase().replace(
+        /[^a-z0-9]/g,
+        character => `_${character.charCodeAt(0).toString(16)}_`
+    );
+}
+
+function GetCookieBridgePrefix(host) {
+    return `__OwOb_${EncodeCookieBridgeHost(host)}_`;
+}
+
+function ParseBrowserCookieHeader(text) {
+    const result = [];
+    String(text || "").split(";").forEach(part => {
+        const separator = part.indexOf("=");
+        if (separator <= 0) return;
+        result.push({
+            Name:  part.slice(0, separator).trim(),
+            Value: part.slice(separator + 1).trim()
+        });
+    });
+    return result;
+}
+
+function AddCookieBridgeEntries(jar, request, targetUrl) {
+    const prefix = GetCookieBridgePrefix(targetUrl.hostname);
+    ParseBrowserCookieHeader(request.headers.get("Cookie")).forEach(cookie => {
+        if (!cookie.Name.startsWith(prefix)) return;
+        const upstreamName = cookie.Name.slice(prefix.length);
+        if (!upstreamName) return;
+        ApplySetCookieToJar(
+            jar,
+            targetUrl.hostname,
+            `${upstreamName}=${cookie.Value}; Path=/; Domain=${targetUrl.hostname}`
+        );
+    });
+    return jar;
+}
+
+function BuildCookieBridgeHeaders(setCookies, targetUrl) {
+    const prefix = GetCookieBridgePrefix(targetUrl.hostname);
+    const proxyPath = `${SameOriginPrefix}${targetUrl.protocol.slice(0, -1)}/${targetUrl.host}/`;
+    const output = [];
+
+    setCookies.forEach(entry => {
+        if (!entry || String(entry.Host || "").toLowerCase() !== targetUrl.hostname.toLowerCase()) return;
+        const source = String(entry.Cookie || "");
+        const pair = source.split(";", 1)[0];
+        const separator = pair.indexOf("=");
+        if (separator <= 0) return;
+        const name = pair.slice(0, separator).trim();
+        const value = pair.slice(separator + 1).trim();
+        if (!name) return;
+
+        const maxAge = source.match(/(?:^|;)\s*Max-Age=([^;]+)/i);
+        const expires = source.match(/(?:^|;)\s*Expires=([^;]+)/i);
+        let bridged = `${prefix}${name}=${value}; Path=${proxyPath}; SameSite=None; Secure; HttpOnly; Partitioned`;
+        if (maxAge) bridged += `; Max-Age=${maxAge[1].trim()}`;
+        if (expires) bridged += `; Expires=${expires[1].trim()}`;
+        output.push(bridged);
+    });
+
+    return output;
+}
+
 /** 由前端請求標頭建立 Cookie 罐 */
 function BuildRequestJar(request, targetUrl) {
+    let jar;
     const rawJar = request.headers.get("X-Proxy-Cookie-Jar");
 
     if (rawJar) {
         try {
-            return CreateCookieJar(JSON.parse(decodeURIComponent(rawJar)));
+            jar = CreateCookieJar(JSON.parse(decodeURIComponent(rawJar)));
         } catch {
             /* 格式錯誤時改用舊格式 */
         }
     }
 
-    return CreateCookieJar(ParseLegacyCookie(request.headers.get("X-Proxy-Cookie"), targetUrl.hostname));
+    if (!jar) {
+        jar = CreateCookieJar(
+            ParseLegacyCookie(request.headers.get("X-Proxy-Cookie"), targetUrl.hostname)
+        );
+    }
+
+    return AddCookieBridgeEntries(jar, request, targetUrl);
 }
 
 export default {
@@ -788,6 +864,13 @@ export default {
 
             if (result.SetCookies.length > 0) {
                 headers.set("X-Proxy-Set-Cookie", encodeURIComponent(JSON.stringify(result.SetCookies)));
+
+                // iframe 的同源代理導覽不會經過前端 fetch。將上游 Cookie
+                // 保存成依目標主機隔離的分割 Cookie，供後續頁面請求還原。
+                if (sameOriginMode) {
+                    BuildCookieBridgeHeaders(result.SetCookies, targetUrl)
+                        .forEach(cookie => headers.append("Set-Cookie", cookie));
+                }
             }
 
             let responseBody = request.method === "HEAD" ? null : upstream.body;
