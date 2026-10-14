@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v34
+ *  OwO Simple Browser - 主程式 v35
  *
  *  架構：
  *     1. 設定與狀態
@@ -3536,8 +3536,11 @@ function OwObFrameAgent(Options) {
         Send({ Type: type, Url: url });
     }
 
-    document.addEventListener("click", function (event) {
-        var link = event.target && event.target.closest && event.target.closest("a[href]");
+    // 使用 window 捕捉層，早於 document、元素 onclick 與 Bing 動態處理器。
+    // 這可確保所有 HTTP / HTTPS 連結先交由 OwO，再阻止沙箱頁自行開啟視窗。
+    window.addEventListener("click", function (event) {
+        var eventTarget = event.composedPath && event.composedPath()[0] || event.target;
+        var link = eventTarget && eventTarget.closest && eventTarget.closest("a[href]");
         if (!link) return;
 
         // Bing 新版搜尋結果會先由站內 click handler 呼叫 preventDefault()，
