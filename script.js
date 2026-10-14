@@ -32,7 +32,7 @@ const Config = {
     DefaultProxyBase: "https://owob-proxy.kkwan812.workers.dev/?url=",
 
     // 內建搜尋引擎（固定使用 Bing）
-    SearchUrl: "https://html.duckduckgo.com/html/?q=",
+    SearchUrl: "https://search.brave.com/search?q=",
 
     // 首頁網址
     HomeUrl: "owob://start",
@@ -1707,7 +1707,7 @@ function RenderStartPage(tab) {
             </h1>
             <form class="StartSearch" autocomplete="off">
                 <i class="fa-brands fa-microsoft"></i>
-                <input type="text" placeholder="使用 Bing 搜尋或輸入網址（Ctrl+K）" spellcheck="false">
+                <input type="text" placeholder="使用 Brave 搜尋或輸入網址（Ctrl+K）" spellcheck="false">
             </form>
             <div class="Shortcuts">
                 ${shortcuts}
