@@ -556,14 +556,6 @@ function BuildSameOriginProxyUrl(url) {
     proxy.pathname = `/__owo_proxy__/${protocolName}/${target.host}${target.pathname}`;
     proxy.search = target.search;
     if (GetProxyKey()) proxy.searchParams.set("_owo_key", GetProxyKey());
-
-    // 瀏覽器可能封鎖第三方 iframe Cookie。將前端已保存的同站 Cookie Jar
-    // 隨同源代理導覽交給 Worker，避免工作階段只存在於 srcdoc 流程。
-    const cookieJar = GetSiteCookieJar(url);
-    if (cookieJar.length > 0) {
-        proxy.searchParams.set("_owo_jar", encodeURIComponent(JSON.stringify(cookieJar)));
-    }
-
     proxy.hash = target.hash;
     return proxy.toString();
 }
@@ -575,6 +567,7 @@ function ToggleCurrentTabLoadMode() {
         return;
     }
     tab.LoadMode = tab.LoadMode === "same-origin" ? "standard" : "same-origin";
+    tab.TransportLocked = false;
     RefreshToolbar();
     ShowToast(tab.LoadMode === "same-origin" ? "已切換：同源反向代理模式" : "已切換：標準代理模式");
     Navigate(tab, GetTabUrl(tab), false);
@@ -1174,6 +1167,7 @@ function CreateTab(url = Config.HomeUrl, activate = true, options = {}) {
         Zoom:     options.Zoom || 1,
         HasAgent: false,
         LoadMode: options.LoadMode === "same-origin" ? "same-origin" : "standard",
+        TransportLocked: false,
         TabEl:    tabEl,
         ViewEl:   viewEl,
         Abort:    null
@@ -2502,12 +2496,9 @@ async function LoadExternalPage(tab, url, postData = null) {
             requestOptions.method   = "POST";
             requestOptions.body     = postData.Body;
             headers["Content-Type"] = "application/x-www-form-urlencoded";
-            // 同源模式的表單 POST 保持為 CORS simple request，避免
-            // X-Proxy-Referer 觸發 OPTIONS 預檢後中止年齡確認。
-            if (tab.LoadMode !== "same-origin" && postData.Referer && IsWebUrl(postData.Referer)) {
+            if (postData.Referer && IsWebUrl(postData.Referer)) {
                 headers["X-Proxy-Referer"] = postData.Referer;
             }
-
         }
 
         const response = await fetch(BuildProxyUrl(url), requestOptions);
@@ -4018,6 +4009,11 @@ window.addEventListener("message", event => {
                     historyUrl = new URL(returnValue, postTarget.origin).href;
                 }
             } catch {}
+
+            // 同源頁面的表單 POST 由標準代理完成後，鎖定此分頁繼續使用
+            // 標準傳輸，避免後續連結又切回同源 iframe 而遺失工作階段。
+            t.LoadMode = "standard";
+            t.TransportLocked = true;
 
             Navigate(t, postUrl, true, {
                 Body: postBody,

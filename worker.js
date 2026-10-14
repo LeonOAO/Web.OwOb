@@ -568,9 +568,7 @@ function ParseSameOriginTarget(requestUrl) {
     const path = pathStart < 0 ? "/" : hostAndPath.slice(pathStart);
     if (!/^(?:http|https)$/.test(protocol) || !host) throw new ProxyError(400, "同源代理路徑格式錯誤");
     const target = new URL(`${protocol}://${host}${path}`);
-    requestUrl.searchParams.forEach((value, key) => {
-        if (key !== "_owo_key" && key !== "_owo_jar") target.searchParams.append(key, value);
-    });
+    requestUrl.searchParams.forEach((value, key) => { if (key !== "_owo_key") target.searchParams.append(key, value); });
     return target;
 }
 function BuildSameOriginPath(requestUrl, value, baseUrl) {
@@ -580,14 +578,11 @@ function BuildSameOriginPath(requestUrl, value, baseUrl) {
     result.search = target.search;
     const key = requestUrl.searchParams.get("_owo_key");
     if (key) result.searchParams.set("_owo_key", key);
-    const jar = requestUrl.searchParams.get("_owo_jar");
-    const sourceOrigin = new URL(baseUrl).origin;
-    if (jar && target.origin === sourceOrigin) result.searchParams.set("_owo_jar", jar);
     result.hash = target.hash;
     return result.toString();
 }
 function BuildSameOriginCompatibilityAgent(sourceUrl, requestUrl) {
-    const config = JSON.stringify({ pageUrl:new URL(sourceUrl).toString(), pageOrigin:new URL(sourceUrl).origin, proxyOrigin:requestUrl.origin, key:requestUrl.searchParams.get("_owo_key")||"", jar:requestUrl.searchParams.get("_owo_jar")||"" });
+    const config = JSON.stringify({ pageUrl:new URL(sourceUrl).toString(), pageOrigin:new URL(sourceUrl).origin, proxyOrigin:requestUrl.origin, key:requestUrl.searchParams.get("_owo_key")||"" });
     return `(function(C){"use strict";
 if(window.__OwOSameOriginCompatibility)return;
 var U=window.URL,F=window.fetch&&window.fetch.bind(window),XO=XMLHttpRequest.prototype.open,P=new WeakMap();
@@ -595,7 +590,7 @@ var MARK="/__owo_proxy__/";
 function extract(v){try{var raw=String(v==null?"":v),pos=raw.lastIndexOf(MARK);if(pos<0)return null;var tail=raw.slice(pos+MARK.length),q=tail.indexOf("?"),pathPart=q<0?tail:tail.slice(0,q),query=q<0?"":tail.slice(q),i=pathPart.indexOf("/"),scheme=pathPart.slice(0,i),hp=pathPart.slice(i+1),j=hp.indexOf("/"),host=j<0?hp:hp.slice(0,j),path=j<0?"/":hp.slice(j);if(!/^(?:http|https)$/.test(scheme)||!host)return null;var out=new U(scheme+"://"+host+path+query);out.searchParams.delete("_owo_key");return out.href;}catch(e){return null;}}
 function isCanonical(v){try{var u=new U(String(v),C.proxyOrigin),first=u.pathname.indexOf(MARK);return u.origin===C.proxyOrigin&&first===0&&u.pathname.indexOf(MARK,MARK.length)<0&&!u.pathname.slice(MARK.length).includes(C.proxyOrigin.replace(/^https?:\\/\\//,""));}catch(e){return false;}}
 function abs(v){var raw=String(v==null?"":v).trim().replace(/^null(?=\\/)/i,""),peeled=extract(raw),t=peeled||raw;try{var u=new U(t,t.charAt(0)==="/"?C.pageOrigin:C.pageUrl),m=u.pathname.match(/\\/null(\\/(?:svc|api|graphql)(?:\\/|$).*)/i);if(m)u.pathname=m[1];return u.href;}catch(e){return null;}}
-function px(v){if(isCanonical(v))return new U(String(v),C.proxyOrigin).href;var t=abs(v);if(!t)return v;var u=new U(t),o=new U(C.proxyOrigin);o.pathname=MARK+u.protocol.slice(0,-1)+"/"+u.host+u.pathname;o.search=u.search;if(C.key)o.searchParams.set("_owo_key",C.key);if(C.jar&&u.origin===C.pageOrigin)o.searchParams.set("_owo_jar",C.jar);o.hash=u.hash;return o.href;}
+function px(v){if(isCanonical(v))return new U(String(v),C.proxyOrigin).href;var t=abs(v);if(!t)return v;var u=new U(t),o=new U(C.proxyOrigin);o.pathname=MARK+u.protocol.slice(0,-1)+"/"+u.host+u.pathname;o.search=u.search;if(C.key)o.searchParams.set("_owo_key",C.key);o.hash=u.hash;return o.href;}
 function map(v){return !!String(v||"")&&!/^(?:data:|blob:|about:|javascript:|mailto:|tel:|#)/i.test(String(v))&&!isCanonical(v);}
 var SA=Element.prototype.setAttribute,AC=Node.prototype.appendChild,IB=Node.prototype.insertBefore;
 function node(n){if(!(n instanceof Element))return n;["src","href","action","formaction","poster"].forEach(function(a){var v=n.getAttribute(a);if(v&&map(v))SA.call(n,a,px(v));});return n;}
@@ -757,20 +752,9 @@ function BuildCookieBridgeHeaders(setCookies, targetUrl) {
 /** 由前端請求標頭建立 Cookie 罐 */
 function BuildRequestJar(request, targetUrl) {
     let jar;
-    const requestUrl = new URL(request.url);
-    const navigationJar = requestUrl.searchParams.get("_owo_jar");
-
-    if (navigationJar) {
-        try {
-            jar = CreateCookieJar(JSON.parse(decodeURIComponent(navigationJar)));
-        } catch {
-            /* 導覽 Cookie Jar 格式錯誤時改用原有來源 */
-        }
-    }
-
     const rawJar = request.headers.get("X-Proxy-Cookie-Jar");
 
-    if (!jar && rawJar) {
+    if (rawJar) {
         try {
             jar = CreateCookieJar(JSON.parse(decodeURIComponent(rawJar)));
         } catch {
@@ -784,9 +768,7 @@ function BuildRequestJar(request, targetUrl) {
         );
     }
 
-    return navigationJar
-        ? jar
-        : AddCookieBridgeEntries(jar, request, targetUrl);
+    return AddCookieBridgeEntries(jar, request, targetUrl);
 }
 
 export default {
@@ -885,7 +867,7 @@ export default {
 
                 // iframe 的同源代理導覽不會經過前端 fetch。將上游 Cookie
                 // 保存成依目標主機隔離的分割 Cookie，供後續頁面請求還原。
-                if (sameOriginMode || request.method === "POST") {
+                if (sameOriginMode) {
                     BuildCookieBridgeHeaders(result.SetCookies, targetUrl)
                         .forEach(cookie => headers.append("Set-Cookie", cookie));
                 }
