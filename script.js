@@ -1414,7 +1414,7 @@ function SetTabContent(tab, content, hasFrame = false) {
  * @param {object}       tab       目標分頁
  * @param {string}       url       已解析的網址
  * @param {boolean}      pushState 是否寫入分頁歷史（上下頁時為 false）
- * @param {object|null}  postData  POST 表單資料 { Body, Referer }；GET 時為 null
+ * @param {object|null}  postData  POST 表單資料 { Body, Referer, HistoryUrl? }；GET 時為 null
  */
 function Navigate(tab, url, pushState = true, postData = null) {
     // 搜尋結果的追蹤轉址 → 直接換成目的網址（POST 不處理）
@@ -1422,9 +1422,15 @@ function Navigate(tab, url, pushState = true, postData = null) {
         url = UnwrapRedirectUrl(url);
     }
 
+    // POST 可指定完成後應顯示及寫入歷史的目標網址。
+    // 表單 action 仍用於實際請求，避免把中介處理端點暫時顯示在網址列。
+    const historyUrl = postData && IsWebUrl(postData.HistoryUrl)
+        ? postData.HistoryUrl
+        : url;
+
     if (pushState) {
         tab.History = tab.History.slice(0, tab.Index + 1);
-        tab.History.push(url);
+        tab.History.push(historyUrl);
         tab.Index = tab.History.length - 1;
     }
 
@@ -2435,6 +2441,9 @@ function RenderErrorPage(tab, title, detail, retryUrl) {
  * @param {object|null} postData  POST 資料 { Body, Referer }；null 表示 GET
  */
 async function LoadExternalPage(tab, url, postData = null) {
+    const historyUrl = postData && IsWebUrl(postData.HistoryUrl)
+        ? postData.HistoryUrl
+        : url;
     const timeoutMs  = GetTimeoutMs();
     const controller = new AbortController();
     const timer      = setTimeout(() => controller.abort("timeout"), timeoutMs);
@@ -2514,10 +2523,10 @@ async function LoadExternalPage(tab, url, postData = null) {
         }
 
         // 已被切到其他網址，捨棄結果
-        if (GetTabUrl(tab) !== url) return;
+        if (GetTabUrl(tab) !== historyUrl) return;
 
         // 轉址後更新分頁網址與瀏覽紀錄（不新增上下頁紀錄）
-        if (finalUrl !== url) {
+        if (finalUrl !== historyUrl) {
             tab.History[tab.Index] = finalUrl;
             ReplaceHistoryUrl(url, finalUrl);
         }
@@ -2534,7 +2543,7 @@ async function LoadExternalPage(tab, url, postData = null) {
                 : await InlineStylesheets(preparedHtml, finalUrl, controller.signal);
 
             // 處理期間使用者已切換頁面則捨棄
-            if (GetTabUrl(tab) !== finalUrl && GetTabUrl(tab) !== url) return;
+            if (GetTabUrl(tab) !== finalUrl && GetTabUrl(tab) !== historyUrl) return;
 
             // 圖片、影音、字型（及選用的腳本）改經代理
             const html = RewriteHtmlResources(preparedForFrame, finalUrl);
@@ -3985,9 +3994,24 @@ window.addEventListener("message", event => {
         }
         if (data.Type === "Post" && IsWebUrl(data.Url) && typeof data.Body === "string") {
             const postUrl = NormalizePttOver18Url(data.Url, pageUrl);
+            const postBody = NormalizePttOver18PostBody(postUrl, data.Body, pageUrl);
+            let historyUrl = postUrl;
+
+            // 通用原則：若 POST 處理端點明確帶有回跳目標，歷史與網址列
+            // 應記錄回跳頁，而不是短暫記錄表單 action。
+            try {
+                const postTarget = new URL(postUrl);
+                const bodyParams = new URLSearchParams(postBody);
+                const returnValue = bodyParams.get("from") || postTarget.searchParams.get("from");
+                if (returnValue) {
+                    historyUrl = new URL(returnValue, postTarget.origin).href;
+                }
+            } catch {}
+
             Navigate(t, postUrl, true, {
-                Body: NormalizePttOver18PostBody(postUrl, data.Body, pageUrl),
-                Referer: pageUrl
+                Body: postBody,
+                Referer: pageUrl,
+                HistoryUrl: historyUrl
             });
             return;
         }
