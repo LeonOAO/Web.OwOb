@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v33
+ *  OwO Simple Browser - 主程式 v1.0.0
  *
  *  架構：
  *     1. 設定與狀態
@@ -548,7 +548,7 @@ function BuildProxyUrl(url) {
     return MakeProxyUrl(GetProxyBase(), GetProxyKey(), url);
 }
 
-/** 組合同源反向代理路徑。需要搭配 v21 worker.js 部署。 */
+/** 組合同源反向代理路徑。需要搭配 v1.0.0 worker.js 部署。 */
 function BuildSameOriginProxyUrl(url) {
     const target = new URL(url);
     const proxy = new URL(GetProxyBase());
@@ -2462,7 +2462,7 @@ async function LoadExternalPage(tab, url, postData = null) {
             clearTimeout(timer);
             if (tab.Abort === controller) tab.Abort = null;
             SetLoading(tab, false);
-            RenderErrorPage(tab, "同源反向代理模式無法啟動", `${url}\n\n${error.message}\n\n請確認已部署 v21 worker.js，或切回標準模式。`, url);
+            RenderErrorPage(tab, "同源反向代理模式無法啟動", `${url}\n\n${error.message}\n\n請確認已部署 v1.0.0 worker.js，或切回標準模式。`, url);
             return;
         }
     }
@@ -3379,7 +3379,7 @@ function OwObFrameAgent(Options) {
 
         /*
          * Reddit 可能直接替換整個 faceplate-partial，因此只監看其子節點仍會閃出錯誤頁。
-         * v17 改用獨立 OwO 預留區：先隱藏原元件，再以預留區承接載入、成功內容及最終錯誤。
+         * v1.0.0 改用獨立 OwO 預留區：先隱藏原元件，再以預留區承接載入、成功內容及最終錯誤。
          */
         var placeholder = document.createElement("div");
         placeholder.className = "owob-partial-placeholder";
