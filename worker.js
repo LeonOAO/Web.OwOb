@@ -581,8 +581,7 @@ function BuildSameOriginPath(requestUrl, value, baseUrl) {
     const key = requestUrl.searchParams.get("_owo_key");
     if (key) result.searchParams.set("_owo_key", key);
     const jar = requestUrl.searchParams.get("_owo_jar");
-    const sourceOrigin = new URL(baseUrl).origin;
-    if (jar && target.origin === sourceOrigin) result.searchParams.set("_owo_jar", jar);
+    if (jar && target.origin === new URL(baseUrl).origin) result.searchParams.set("_owo_jar", jar);
     result.hash = target.hash;
     return result.toString();
 }
@@ -650,8 +649,8 @@ function RewritePttOver18Redirect(html, sourceUrl, requestUrl, cookieHeader = ""
     const target = new URL("/ask/over18", page.origin);
     target.searchParams.set("from", page.pathname + page.search);
     const proxyTarget = BuildSameOriginPath(requestUrl, target.href, sourceUrl);
-    // 原頁面腳本只在缺少同意 Cookie 時才跳轉；同源代理必須保留相同條件，
-    // 不可改成無條件跳轉，否則已同意的工作階段每次換頁都會被導回同意頁。
+    // 原頁面腳本只在缺少同意 Cookie 時才跳轉；改寫後必須保留相同條件，
+    // 否則已同意的工作階段每次換頁都會被強制導回同意頁。
     if (/(?:^|;\s*)over18=1(?:;|$)/.test(String(cookieHeader || ""))) return output;
     const redirectScript = `<script>location.replace(${JSON.stringify(proxyTarget)});<\/script>`;
     return /<head[^>]*>/i.test(output)
@@ -688,108 +687,29 @@ function RewriteSameOriginCss(css, sourceUrl, requestUrl) {
  *  8. 主要處理流程
  * ============================================================ */
 
-/**
- * 同源代理 Cookie 橋接：將上游 Cookie 以目標主機命名空間保存於 Worker 網域。
- * 瀏覽器後續載入同一目標主機的代理路徑時，Worker 可還原上游 Cookie。
- */
-function EncodeCookieBridgeHost(host) {
-    return String(host || "").toLowerCase().replace(
-        /[^a-z0-9]/g,
-        character => `_${character.charCodeAt(0).toString(16)}_`
-    );
-}
-
-function GetCookieBridgePrefix(host) {
-    return `__OwOb_${EncodeCookieBridgeHost(host)}_`;
-}
-
-function ParseBrowserCookieHeader(text) {
-    const result = [];
-    String(text || "").split(";").forEach(part => {
-        const separator = part.indexOf("=");
-        if (separator <= 0) return;
-        result.push({
-            Name:  part.slice(0, separator).trim(),
-            Value: part.slice(separator + 1).trim()
-        });
-    });
-    return result;
-}
-
-function AddCookieBridgeEntries(jar, request, targetUrl) {
-    const prefix = GetCookieBridgePrefix(targetUrl.hostname);
-    ParseBrowserCookieHeader(request.headers.get("Cookie")).forEach(cookie => {
-        if (!cookie.Name.startsWith(prefix)) return;
-        const upstreamName = cookie.Name.slice(prefix.length);
-        if (!upstreamName) return;
-        ApplySetCookieToJar(
-            jar,
-            targetUrl.hostname,
-            `${upstreamName}=${cookie.Value}; Path=/; Domain=${targetUrl.hostname}`
-        );
-    });
-    return jar;
-}
-
-function BuildCookieBridgeHeaders(setCookies, targetUrl) {
-    const prefix = GetCookieBridgePrefix(targetUrl.hostname);
-    const proxyPath = `${SameOriginPrefix}${targetUrl.protocol.slice(0, -1)}/${targetUrl.host}/`;
-    const output = [];
-
-    setCookies.forEach(entry => {
-        if (!entry || String(entry.Host || "").toLowerCase() !== targetUrl.hostname.toLowerCase()) return;
-        const source = String(entry.Cookie || "");
-        const pair = source.split(";", 1)[0];
-        const separator = pair.indexOf("=");
-        if (separator <= 0) return;
-        const name = pair.slice(0, separator).trim();
-        const value = pair.slice(separator + 1).trim();
-        if (!name) return;
-
-        const maxAge = source.match(/(?:^|;)\s*Max-Age=([^;]+)/i);
-        const expires = source.match(/(?:^|;)\s*Expires=([^;]+)/i);
-        let bridged = `${prefix}${name}=${value}; Path=${proxyPath}; SameSite=None; Secure; HttpOnly; Partitioned`;
-        if (maxAge) bridged += `; Max-Age=${maxAge[1].trim()}`;
-        if (expires) bridged += `; Expires=${expires[1].trim()}`;
-        output.push(bridged);
-    });
-
-    return output;
-}
-
 /** 由前端請求標頭建立 Cookie 罐 */
 function BuildRequestJar(request, targetUrl) {
-    let jar;
-    const requestUrl = new URL(request.url);
-    const navigationJar = requestUrl.searchParams.get("_owo_jar");
-
+    // 同源 iframe 導覽以網址參數攜帶 Cookie Jar
+    const navigationJar = new URL(request.url).searchParams.get("_owo_jar");
     if (navigationJar) {
         try {
-            jar = CreateCookieJar(JSON.parse(decodeURIComponent(navigationJar)));
+            return CreateCookieJar(JSON.parse(navigationJar));
         } catch {
-            /* 導覽 Cookie Jar 格式錯誤時改用原有來源 */
+            /* 格式錯誤時改用標頭 */
         }
     }
 
     const rawJar = request.headers.get("X-Proxy-Cookie-Jar");
 
-    if (!jar && rawJar) {
+    if (rawJar) {
         try {
-            jar = CreateCookieJar(JSON.parse(decodeURIComponent(rawJar)));
+            return CreateCookieJar(JSON.parse(decodeURIComponent(rawJar)));
         } catch {
             /* 格式錯誤時改用舊格式 */
         }
     }
 
-    if (!jar) {
-        jar = CreateCookieJar(
-            ParseLegacyCookie(request.headers.get("X-Proxy-Cookie"), targetUrl.hostname)
-        );
-    }
-
-    return navigationJar
-        ? jar
-        : AddCookieBridgeEntries(jar, request, targetUrl);
+    return CreateCookieJar(ParseLegacyCookie(request.headers.get("X-Proxy-Cookie"), targetUrl.hostname));
 }
 
 export default {
@@ -886,13 +806,6 @@ export default {
 
             if (result.SetCookies.length > 0) {
                 headers.set("X-Proxy-Set-Cookie", encodeURIComponent(JSON.stringify(result.SetCookies)));
-
-                // iframe 的同源代理導覽不會經過前端 fetch。將上游 Cookie
-                // 保存成依目標主機隔離的分割 Cookie，供後續頁面請求還原。
-                if (sameOriginMode || request.method === "POST") {
-                    BuildCookieBridgeHeaders(result.SetCookies, targetUrl)
-                        .forEach(cookie => headers.append("Set-Cookie", cookie));
-                }
             }
 
             let responseBody = request.method === "HEAD" ? null : upstream.body;
