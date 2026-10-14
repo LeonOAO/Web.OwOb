@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwOb Proxy - Cloudflare Worker（CORS / 同源反向代理）v10
+ *  OwOb Proxy - Cloudflare Worker（CORS / 同源反向代理）v11
  *
  *  用法：
  *      GET  https://owob-proxy.kkwan812.workers.dev/?url=<已編碼的目標網址>
@@ -164,7 +164,7 @@ function BuildCorsHeaders(origin, requestedHeaders = null) {
         "Access-Control-Allow-Origin":   origin || "*",
         "Access-Control-Allow-Methods":  "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS",
         "Access-Control-Allow-Headers":  requestedHeaders || DefaultAllowHeaders,
-        "Access-Control-Expose-Headers": "Content-Type, Content-Range, Accept-Ranges, X-Final-URL, X-Proxy-Status, X-Proxy-Set-Cookie, X-OwOb-Worker-Version",
+        "Access-Control-Expose-Headers": "Content-Type, Content-Range, Accept-Ranges, X-Final-URL, X-Proxy-Status, X-Proxy-Set-Cookie, X-OwOb-Worker-Version, Retry-After",
         "Access-Control-Max-Age":        "86400",
         "Vary":                          "Origin"
     };
@@ -811,7 +811,7 @@ export default {
         }
 
         const requestUrl=new URL(request.url);
-        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"9.7.5",...BuildCorsHeaders(origin)}});}
+        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"11.0.0",...BuildCorsHeaders(origin)}});}
 
         /* ---------- 存取金鑰檢查（預檢請求不帶金鑰，故放在預檢之後） ---------- */
         if (!IsKeyValid(request, requestUrl, GetAccessKey(env))) {
@@ -870,7 +870,10 @@ export default {
             Object.entries(BuildCorsHeaders(origin)).forEach(([key, value]) => headers.set(key, value));
             headers.set("X-Final-URL",    result.FinalUrl);
             headers.set("X-Proxy-Status", String(upstream.status));
-            headers.set("X-OwOb-Worker-Version", "10.0.0");
+            headers.set("X-OwOb-Worker-Version", "11.0.0");
+            if (upstream.status === 429 && !headers.has("Retry-After")) {
+                headers.set("Retry-After", "120");
+            }
 
             if (result.SetCookies.length > 0) {
                 headers.set("X-Proxy-Set-Cookie", encodeURIComponent(JSON.stringify(result.SetCookies)));

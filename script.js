@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v39
+ *  OwO Simple Browser - 主程式 v40
  *
  *  架構：
  *     1. 設定與狀態
@@ -2477,6 +2477,25 @@ async function LoadExternalPage(tab, url, postData = null) {
     }
 
     try {
+        let isGoogleRequest = false;
+        try {
+            const requestHost = new URL(url).hostname.toLowerCase();
+            isGoogleRequest = requestHost === "google.com" || requestHost.endsWith(".google.com");
+        } catch {
+            isGoogleRequest = false;
+        }
+        const googleCooldownUntil = Number(sessionStorage.getItem("OwOb.Google429Until") || 0);
+        if (!postData && isGoogleRequest && googleCooldownUntil > Date.now()) {
+            const remaining = Math.max(1, Math.ceil((googleCooldownUntil - Date.now()) / 1000));
+            RenderErrorPage(
+                tab,
+                "Google 代理連線冷卻中",
+                `為避免重複觸發 HTTP 429，代理請求暫停中。剩餘約 ${remaining} 秒。\n\n可使用「直接開啟原網址」在 Google 原始網域瀏覽。`,
+                url
+            );
+            return;
+        }
+
         /* ---------- 組合代理請求 ---------- */
         const headers = {};
         const siteJar = GetSiteCookieJar(url);
@@ -2529,8 +2548,36 @@ async function LoadExternalPage(tab, url, postData = null) {
             if (response.body) await response.body.cancel().catch(() => {});
             if (GetTabUrl(tab) !== url) return;
 
-            ShowToast("正在顯示 Google 驗證頁");
-            LoadSameOriginFrame(tab, finalUrl || url, controller, timer);
+            const retryAfter = Number(response.headers.get("Retry-After"));
+            const cooldownSeconds = Number.isFinite(retryAfter) && retryAfter > 0
+                ? Clamp(Math.ceil(retryAfter), 30, 3600)
+                : 120;
+            const cooldownUntil = Date.now() + cooldownSeconds * 1000;
+            sessionStorage.setItem("OwOb.Google429Until", String(cooldownUntil));
+
+            RenderErrorPage(
+                tab,
+                "Google 暫時限制代理連線",
+                `${finalUrl || url}\n\nGoogle 對目前的代理出口回傳 HTTP 429。代理網域中的驗證元件會因來源網域與 Google 管理的網站金鑰不一致而失效，因此不再載入失效的驗證框架。\n\n請使用「直接開啟原網址」在 Google 原始網域完成操作。代理重試將暫停 ${cooldownSeconds} 秒，避免連續請求再次觸發限制。`,
+                url
+            );
+
+            const retryButton = tab.ViewEl.querySelector('[data-action="retry"]');
+            if (retryButton) {
+                retryButton.disabled = true;
+                const originalText = retryButton.textContent;
+                const updateCooldown = () => {
+                    const remaining = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
+                    if (remaining <= 0) {
+                        retryButton.disabled = false;
+                        retryButton.textContent = originalText;
+                        return;
+                    }
+                    retryButton.textContent = `稍後重試（${remaining}）`;
+                    setTimeout(updateCooldown, 1000);
+                };
+                updateCooldown();
+            }
             return;
         }
 
