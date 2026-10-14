@@ -2506,11 +2506,6 @@ async function LoadExternalPage(tab, url, postData = null) {
                 headers["X-Proxy-Referer"] = postData.Referer;
             }
 
-            // 同源分頁仍沿用 v4 已驗證可進入頁面的標準 POST 流程，
-            // 但允許瀏覽器接收 Worker 設定的橋接 Cookie。
-            if (tab.LoadMode === "same-origin") {
-                requestOptions.credentials = "include";
-            }
         }
 
         const response = await fetch(BuildProxyUrl(url), requestOptions);
