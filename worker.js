@@ -168,6 +168,20 @@ function GetSearchTerms(query) {
         .slice(0, 8);
 }
 
+function EscapeRegularExpression(value) {
+    return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function IsCompactLatinTerm(term) {
+    return /^[a-z0-9][a-z0-9._+-]{1,3}$/i.test(term);
+}
+
+function ContainsTermWithBoundary(text, term) {
+    const escaped = EscapeRegularExpression(term);
+    const expression = new RegExp("(^|[^a-z0-9])" + escaped + "([^a-z0-9]|$)", "i");
+    return expression.test(text);
+}
+
 function IsRelevantBingRssItem(item, query) {
     const terms = GetSearchTerms(query);
     if (!terms.length) return false;
@@ -175,15 +189,22 @@ function IsRelevantBingRssItem(item, query) {
     let decodedLink = item.Link;
     try { decodedLink = decodeURIComponent(item.Link); } catch {}
 
-    const haystack = NormalizeSearchText([
-        item.Title,
-        decodedLink,
-        item.Description
-    ].join(" "));
+    const title = NormalizeSearchText(item.Title);
+    const link = NormalizeSearchText(decodedLink);
+    const description = NormalizeSearchText(item.Description);
+    const primary = title + " " + link;
+    const allText = primary + " " + description;
 
-    // 至少一個有效關鍵詞必須實際出現在標題、網址或摘要中。
-    // 可阻擋 Bing RSS 偶爾回傳的快取錯置或完全不相關結果。
-    return terms.some(term => haystack.includes(term));
+    // 通用短英文／數字代號規則：短代號容易在摘要內偶然撞字，
+    // 因此必須以完整邊界出現在標題或網址，不採用摘要的子字串命中。
+    const compactTerms = terms.filter(IsCompactLatinTerm);
+    if (compactTerms.length) {
+        return compactTerms.every(term => ContainsTermWithBoundary(primary, term));
+    }
+
+    // 一般查詢要求每個有效詞都出現在標題或網址。
+    // 摘要僅作顯示用途，避免摘要中的否定句、推薦字或隱藏文字造成誤判。
+    return terms.every(term => primary.includes(term));
 }
 
 function ParseBingRssItems(xml, query) {
@@ -912,7 +933,7 @@ export default {
         }
 
         const requestUrl=new URL(request.url);
-        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"10.1.1",...BuildCorsHeaders(origin)}});}
+        if(requestUrl.pathname==="/__owo_same_origin_agent__.js"){if(!IsKeyValid(request,requestUrl,GetAccessKey(env)))return new Response("/* key rejected */",{status:401});let page;try{page=new URL(requestUrl.searchParams.get("page"));}catch{return new Response("throw new Error('Invalid agent URL')",{status:400,headers:{"Content-Type":"application/javascript"}});}return new Response(BuildSameOriginCompatibilityAgent(page.toString(),requestUrl),{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store","X-OwOb-Worker-Version":"10.1.2",...BuildCorsHeaders(origin)}});}
 
         /* ---------- 存取金鑰檢查（預檢請求不帶金鑰，故放在預檢之後） ---------- */
         if (!IsKeyValid(request, requestUrl, GetAccessKey(env))) {
@@ -926,7 +947,7 @@ export default {
         // 沒帶 url 參數且不是同源路徑 → 健康檢查
         if (!target && !sameOriginMode) {
             return JsonResponse(200, "OwOb Proxy 運作中", origin, {
-                version:     "10.1.1",
+                version:     "10.1.2",
                 usage:       "/?url=<encoded url> 或 /__owo_proxy__/https/example.com/path",
                 keyRequired: Boolean(GetAccessKey(env)),
                 allowedOrigins,
@@ -972,7 +993,7 @@ export default {
             Object.entries(BuildCorsHeaders(origin)).forEach(([key, value]) => headers.set(key, value));
             headers.set("X-Final-URL",    result.FinalUrl);
             headers.set("X-Proxy-Status", String(upstream.status));
-            headers.set("X-OwOb-Worker-Version", "10.1.1");
+            headers.set("X-OwOb-Worker-Version", "10.1.2");
 
             if (result.SetCookies.length > 0) {
                 headers.set("X-Proxy-Set-Cookie", encodeURIComponent(JSON.stringify(result.SetCookies)));
