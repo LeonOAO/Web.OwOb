@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v35
+ *  OwO Simple Browser - 主程式 v36
  *
  *  架構：
  *     1. 設定與狀態
@@ -2838,6 +2838,13 @@ function RenderHtmlInFrame(tab, html, baseUrl) {
         html = html.replace(/<meta[^>]+http-equiv\s*=\s*["']?refresh["']?[^>]*>/gi, "");
     }
 
+    // 所有連結統一交由 OwO 導覽。先移除 HTML 內會直接開窗或搶先導覽的
+    // target 與滑鼠事件屬性，避免網站以 element.onclick() 直接呼叫而繞過事件捕捉。
+    html = String(html).replace(/<a\b[^>]*>/gi, tag => tag
+        .replace(/\s+target\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+        .replace(/\s+on(?:click|auxclick|mousedown|mouseup|pointerdown|pointerup)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    );
+
     const agentOptions = {
         TabId:          tab.Id,
         PageUrl:        baseUrl,
@@ -3536,8 +3543,46 @@ function OwObFrameAgent(Options) {
         Send({ Type: type, Url: url });
     }
 
-    // 使用 window 捕捉層，早於 document、元素 onclick 與 Bing 動態處理器。
-    // 這可確保所有 HTTP / HTTPS 連結先交由 OwO，再阻止沙箱頁自行開啟視窗。
+    /** 清除連結自己的開窗與滑鼠處理器，所有 HTTP / HTTPS 導覽統一交由 OwO。 */
+    function NeutralizeAnchor(anchor) {
+        if (!anchor || anchor.tagName !== "A") return;
+        anchor.removeAttribute("target");
+        ["onclick", "onauxclick", "onmousedown", "onmouseup", "onpointerdown", "onpointerup"].forEach(function (name) {
+            try { anchor[name] = null; } catch (error) { /* 保持頁面可執行 */ }
+            anchor.removeAttribute(name);
+        });
+    }
+
+    function NeutralizeAnchorTree(node) {
+        if (!node || node.nodeType !== 1) return;
+        if (node.tagName === "A") NeutralizeAnchor(node);
+        if (node.querySelectorAll) {
+            var anchors = node.querySelectorAll("a[href]");
+            for (var anchorIndex = 0; anchorIndex < anchors.length; anchorIndex++) {
+                NeutralizeAnchor(anchors[anchorIndex]);
+            }
+        }
+    }
+
+    NeutralizeAnchorTree(document.documentElement);
+    new MutationObserver(function (mutations) {
+        mutations.forEach(function (mutation) {
+            if (mutation.type === "attributes") {
+                NeutralizeAnchor(mutation.target);
+                return;
+            }
+            for (var nodeIndex = 0; nodeIndex < mutation.addedNodes.length; nodeIndex++) {
+                NeutralizeAnchorTree(mutation.addedNodes[nodeIndex]);
+            }
+        });
+    }).observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["target", "onclick", "onauxclick", "onmousedown", "onmouseup", "onpointerdown", "onpointerup"]
+    });
+
+    // 使用 window 捕捉層，早於 document 與元素事件處理器。
     window.addEventListener("click", function (event) {
         var eventTarget = event.composedPath && event.composedPath()[0] || event.target;
         var link = eventTarget && eventTarget.closest && eventTarget.closest("a[href]");
