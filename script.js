@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v37
+ *  OwO Simple Browser - 主程式 v38
  *
  *  架構：
  *     1. 設定與狀態
@@ -2514,9 +2514,9 @@ async function LoadExternalPage(tab, url, postData = null) {
             finalUrl = new URL(returnPath, "https://www.ptt.cc").href;
         }
 
-        // Google 對共用代理出口回傳驗證頁時，標準 srcdoc 模式缺少
-        // allow-same-origin，reCAPTCHA 無法使用 Cookie、Storage 與跨 frame 通訊。
-        // 自動改用同源反向代理重新載入，讓驗證元件在正常來源環境中顯示。
+        // Google 對共用代理出口回傳驗證頁時，不把驗證內容放進 origin=null 的 srcdoc。
+        // 僅驗證內容使用具備 Cookie、Storage 與 Frame 通訊能力的同源代理框架；
+        // 分頁本身仍維持使用者選擇的標準模式，不自動改變 LoadMode 或工具列狀態。
         let isGoogleTarget = false;
         try {
             const targetHost = new URL(finalUrl || url).hostname.toLowerCase();
@@ -2529,8 +2529,7 @@ async function LoadExternalPage(tab, url, postData = null) {
             if (response.body) await response.body.cancel().catch(() => {});
             if (GetTabUrl(tab) !== url) return;
 
-            tab.LoadMode = "same-origin";
-            ShowToast("Google 驗證頁：已切換同源反向代理模式");
+            ShowToast("正在顯示 Google 驗證頁");
             LoadSameOriginFrame(tab, finalUrl || url, controller, timer);
             return;
         }
