@@ -581,7 +581,8 @@ function BuildSameOriginPath(requestUrl, value, baseUrl) {
     const key = requestUrl.searchParams.get("_owo_key");
     if (key) result.searchParams.set("_owo_key", key);
     const jar = requestUrl.searchParams.get("_owo_jar");
-    if (jar) result.searchParams.set("_owo_jar", jar);
+    const sourceOrigin = new URL(baseUrl).origin;
+    if (jar && target.origin === sourceOrigin) result.searchParams.set("_owo_jar", jar);
     result.hash = target.hash;
     return result.toString();
 }
@@ -594,7 +595,7 @@ var MARK="/__owo_proxy__/";
 function extract(v){try{var raw=String(v==null?"":v),pos=raw.lastIndexOf(MARK);if(pos<0)return null;var tail=raw.slice(pos+MARK.length),q=tail.indexOf("?"),pathPart=q<0?tail:tail.slice(0,q),query=q<0?"":tail.slice(q),i=pathPart.indexOf("/"),scheme=pathPart.slice(0,i),hp=pathPart.slice(i+1),j=hp.indexOf("/"),host=j<0?hp:hp.slice(0,j),path=j<0?"/":hp.slice(j);if(!/^(?:http|https)$/.test(scheme)||!host)return null;var out=new U(scheme+"://"+host+path+query);out.searchParams.delete("_owo_key");return out.href;}catch(e){return null;}}
 function isCanonical(v){try{var u=new U(String(v),C.proxyOrigin),first=u.pathname.indexOf(MARK);return u.origin===C.proxyOrigin&&first===0&&u.pathname.indexOf(MARK,MARK.length)<0&&!u.pathname.slice(MARK.length).includes(C.proxyOrigin.replace(/^https?:\\/\\//,""));}catch(e){return false;}}
 function abs(v){var raw=String(v==null?"":v).trim().replace(/^null(?=\\/)/i,""),peeled=extract(raw),t=peeled||raw;try{var u=new U(t,t.charAt(0)==="/"?C.pageOrigin:C.pageUrl),m=u.pathname.match(/\\/null(\\/(?:svc|api|graphql)(?:\\/|$).*)/i);if(m)u.pathname=m[1];return u.href;}catch(e){return null;}}
-function px(v){if(isCanonical(v))return new U(String(v),C.proxyOrigin).href;var t=abs(v);if(!t)return v;var u=new U(t),o=new U(C.proxyOrigin);o.pathname=MARK+u.protocol.slice(0,-1)+"/"+u.host+u.pathname;o.search=u.search;if(C.key)o.searchParams.set("_owo_key",C.key);if(C.jar)o.searchParams.set("_owo_jar",C.jar);o.hash=u.hash;return o.href;}
+function px(v){if(isCanonical(v))return new U(String(v),C.proxyOrigin).href;var t=abs(v);if(!t)return v;var u=new U(t),o=new U(C.proxyOrigin);o.pathname=MARK+u.protocol.slice(0,-1)+"/"+u.host+u.pathname;o.search=u.search;if(C.key)o.searchParams.set("_owo_key",C.key);if(C.jar&&u.origin===C.pageOrigin)o.searchParams.set("_owo_jar",C.jar);o.hash=u.hash;return o.href;}
 function map(v){return !!String(v||"")&&!/^(?:data:|blob:|about:|javascript:|mailto:|tel:|#)/i.test(String(v))&&!isCanonical(v);}
 var SA=Element.prototype.setAttribute,AC=Node.prototype.appendChild,IB=Node.prototype.insertBefore;
 function node(n){if(!(n instanceof Element))return n;["src","href","action","formaction","poster"].forEach(function(a){var v=n.getAttribute(a);if(v&&map(v))SA.call(n,a,px(v));});return n;}
@@ -783,7 +784,9 @@ function BuildRequestJar(request, targetUrl) {
         );
     }
 
-    return AddCookieBridgeEntries(jar, request, targetUrl);
+    return navigationJar
+        ? jar
+        : AddCookieBridgeEntries(jar, request, targetUrl);
 }
 
 export default {
