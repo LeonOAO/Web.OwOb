@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v37
+ *  OwO Simple Browser - 主程式 v33
  *
  *  架構：
  *     1. 設定與狀態
@@ -2838,13 +2838,6 @@ function RenderHtmlInFrame(tab, html, baseUrl) {
         html = html.replace(/<meta[^>]+http-equiv\s*=\s*["']?refresh["']?[^>]*>/gi, "");
     }
 
-    // 所有連結統一交由 OwO 導覽。先移除 HTML 內會直接開窗或搶先導覽的
-    // target 與滑鼠事件屬性，避免網站以 element.onclick() 直接呼叫而繞過事件捕捉。
-    html = String(html).replace(/<a\b[^>]*>/gi, tag => tag
-        .replace(/\s+target\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-        .replace(/\s+on(?:click|auxclick|mousedown|mouseup|pointerdown|pointerup)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    );
-
     const agentOptions = {
         TabId:          tab.Id,
         PageUrl:        baseUrl,
@@ -3543,80 +3536,9 @@ function OwObFrameAgent(Options) {
         Send({ Type: type, Url: url });
     }
 
-    var OwObAnchorTargets = new WeakMap();
-    var NativeAnchorClick = window.HTMLAnchorElement && window.HTMLAnchorElement.prototype.click;
-
-    /** 儲存原 target，清除瀏覽器原生開窗路徑。 */
-    function RememberAnchorTarget(anchor) {
-        if (!anchor || anchor.tagName !== "A") return;
-        var target = anchor.getAttribute("target") || "";
-        if (target) OwObAnchorTargets.set(anchor, target);
-    }
-
-    /** 程式直接呼叫 anchor.click() 時，也不走沙箱原生開窗。 */
-    if (NativeAnchorClick) {
-        window.HTMLAnchorElement.prototype.click = function () {
-            var href = this.getAttribute("href") || this.href || "";
-            var absolute = ToAbsolute(href);
-            if (absolute && /^https?:\/\//i.test(absolute)) {
-                var savedTarget = OwObAnchorTargets.get(this) || this.getAttribute("target") || "";
-                SendNavigationOnce(savedTarget === "_blank" ? "OpenTab" : "Navigate", absolute);
-                return;
-            }
-            return NativeAnchorClick.apply(this, arguments);
-        };
-    }
-
-    /** 清除連結自己的開窗與滑鼠處理器，所有 HTTP / HTTPS 導覽統一交由 OwO。 */
-    function NeutralizeAnchor(anchor) {
-        if (!anchor || anchor.tagName !== "A") return;
-        RememberAnchorTarget(anchor);
-        anchor.removeAttribute("target");
-        ["onclick", "onauxclick", "onmousedown", "onmouseup", "onpointerdown", "onpointerup"].forEach(function (name) {
-            try { anchor[name] = null; } catch (error) { /* 保持頁面可執行 */ }
-            anchor.removeAttribute(name);
-        });
-    }
-
-    function NeutralizeAnchorTree(node) {
-        if (!node || node.nodeType !== 1) return;
-        if (node.tagName === "A") NeutralizeAnchor(node);
-        if (node.querySelectorAll) {
-            var anchors = node.querySelectorAll("a[href]");
-            for (var anchorIndex = 0; anchorIndex < anchors.length; anchorIndex++) {
-                NeutralizeAnchor(anchors[anchorIndex]);
-            }
-        }
-    }
-
-    NeutralizeAnchorTree(document.documentElement);
-    new MutationObserver(function (mutations) {
-        mutations.forEach(function (mutation) {
-            if (mutation.type === "attributes") {
-                NeutralizeAnchor(mutation.target);
-                return;
-            }
-            for (var nodeIndex = 0; nodeIndex < mutation.addedNodes.length; nodeIndex++) {
-                NeutralizeAnchorTree(mutation.addedNodes[nodeIndex]);
-            }
-        });
-    }).observe(document.documentElement, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ["target", "onclick", "onauxclick", "onmousedown", "onmouseup", "onpointerdown", "onpointerup"]
-    });
-
-    // 使用 window 捕捉層，早於 document 與元素事件處理器。
-    window.addEventListener("click", function (event) {
-        var eventTarget = event.composedPath && event.composedPath()[0] || event.target;
-        var link = eventTarget && eventTarget.closest && eventTarget.closest("a[href]");
-        if (!link) return;
-
-        // Bing 新版搜尋結果會先由站內 click handler 呼叫 preventDefault()，
-        // 再以 target=_blank 或 window.open() 前往 /ck/a 追蹤網址。
-        // 標準模式 iframe 未授予 allow-popups，若因 defaultPrevented 提前退出，
-        // 連結就會被瀏覽器封鎖。即使事件已被網站處理，仍由 OwO 接管導覽。
+    document.addEventListener("click", function (event) {
+        var link = event.target && event.target.closest && event.target.closest("a[href]");
+        if (!link || event.defaultPrevented) return;
 
         var href = link.getAttribute("href") || "";
         if (href.charAt(0) === "#" || /^(javascript|mailto|tel|data|blob):/i.test(href)) return;
@@ -3627,8 +3549,7 @@ function OwObFrameAgent(Options) {
         event.preventDefault();
         event.stopImmediatePropagation();
 
-        var savedTarget = OwObAnchorTargets.get(link) || link.getAttribute("target") || "";
-        var newTab = savedTarget === "_blank" || event.ctrlKey || event.metaKey || event.button === 1;
+        var newTab = link.target === "_blank" || event.ctrlKey || event.metaKey || event.button === 1;
         SendNavigationOnce(newTab ? "OpenTab" : "Navigate", absolute);
     }, true);
 
