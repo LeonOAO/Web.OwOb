@@ -2499,18 +2499,7 @@ async function LoadExternalPage(tab, url, postData = null) {
             }
         }
 
-        // 同源模式的 POST 必須直接送往同源代理路徑，讓 Worker 能在
-        // 回應中建立同源 Cookie 橋接。若仍送往標準 ?url= 代理，POST
-        // 雖會成功，但下一次 iframe 導覽無法延續該工作階段。
-        const requestUrl = postData && tab.LoadMode === "same-origin"
-            ? BuildSameOriginProxyUrl(url)
-            : BuildProxyUrl(url);
-
-        if (postData && tab.LoadMode === "same-origin") {
-            requestOptions.credentials = "include";
-        }
-
-        const response = await fetch(requestUrl, requestOptions);
+        const response = await fetch(BuildProxyUrl(url), requestOptions);
         const contentType = response.headers.get("Content-Type") || "";
         const reportedFinalUrl = response.headers.get("X-Final-URL") || url;
 
@@ -2543,26 +2532,6 @@ async function LoadExternalPage(tab, url, postData = null) {
         }
 
         if (contentType.includes("text/html") || contentType.includes("application/xhtml")) {
-            // 同源 POST 完成後不再把回應降級成 srcdoc。重新以同源 iframe
-            // 載入最終網址，讓後續連結沿用 Worker 剛建立的 Cookie 工作階段。
-            if (postData && tab.LoadMode === "same-origin") {
-                await response.text();
-                const frame = CreateFrame(tab, true);
-                frame.src = BuildSameOriginProxyUrl(finalUrl);
-                frame.addEventListener("load", () => {
-                    if (tab.Abort === controller) tab.Abort = null;
-                    clearTimeout(timer);
-                    SetLoading(tab, false);
-                    tab.Title = GetHostname(finalUrl) || "同源代理頁面";
-                    UpdateTabHeader(tab);
-                    RefreshToolbar();
-                }, { once: true });
-                SetTabContent(tab, frame, true);
-                tab.HasAgent = false;
-                UpdateHistoryTitle(finalUrl, tab.Title);
-                return;
-            }
-
             const rawHtml = await response.text();
             const isSearchPage = IsSearchResultPage(finalUrl);
             const preparedHtml = SimplifySearchResultHtml(rawHtml, finalUrl);
