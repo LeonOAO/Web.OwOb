@@ -31,7 +31,7 @@ const Config = {
     // 預設代理（自架 Cloudflare Worker）；介面上不顯示，使用者可於設定頁自填覆蓋
     DefaultProxyBase: "https://owob-proxy.kkwan812.workers.dev/?url=",
 
-    // 內建搜尋引擎（固定使用 Bing）
+    // 內建搜尋引擎（固定使用 Brave）
     SearchUrl: "https://search.brave.com/search?q=",
 
     // 首頁網址
@@ -381,7 +381,7 @@ function NormalizePttOver18PostBody(url, body, pageUrl) {
  *   owob://xxx         → 內部頁面
  *   含協定的網址         → 原樣
  *   像網域的字串         → 補上 https://
- *   其他                → 使用 Bing 搜尋
+ *   其他                → 使用 Brave 搜尋
  */
 function ResolveInput(input) {
     const text = NormalizeInternalInput(input);
@@ -1576,7 +1576,7 @@ function GetSuggestions(query) {
 
     return [...map.values()]
         .filter(item =>
-            // 不建議 Bing 搜尋結果頁，避免清單被搜尋紀錄塞滿
+            // 不建議搜尋結果頁，避免清單被搜尋紀錄塞滿
             !item.Url.startsWith(Config.SearchUrl) &&
             (item.Url.toLowerCase().includes(needle) || item.Title.toLowerCase().includes(needle))
         )
