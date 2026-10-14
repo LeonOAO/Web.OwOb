@@ -2502,7 +2502,9 @@ async function LoadExternalPage(tab, url, postData = null) {
             requestOptions.method   = "POST";
             requestOptions.body     = postData.Body;
             headers["Content-Type"] = "application/x-www-form-urlencoded";
-            if (postData.Referer && IsWebUrl(postData.Referer)) {
+            // 同源模式的表單 POST 保持為 CORS simple request，避免
+            // X-Proxy-Referer 觸發 OPTIONS 預檢後中止年齡確認。
+            if (tab.LoadMode !== "same-origin" && postData.Referer && IsWebUrl(postData.Referer)) {
                 headers["X-Proxy-Referer"] = postData.Referer;
             }
 
