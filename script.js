@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v36
+ *  OwO Simple Browser - 主程式 v37
  *
  *  架構：
  *     1. 設定與狀態
@@ -2429,6 +2429,26 @@ function RenderErrorPage(tab, title, detail, retryUrl) {
  * ============================================================ */
 
 /**
+ * 將指定分頁載入同源反向代理 iframe。
+ * 此模式保留 Cookie、Storage 與同源 frame 通訊，供 reCAPTCHA 等驗證元件使用。
+ */
+function LoadSameOriginFrame(tab, url, controller, timer) {
+    const frame = CreateFrame(tab, true);
+    frame.src = BuildSameOriginProxyUrl(url);
+    frame.addEventListener("load", () => {
+        if (tab.Abort === controller) tab.Abort = null;
+        clearTimeout(timer);
+        SetLoading(tab, false);
+        tab.Title = GetHostname(url) || "同源代理頁面";
+        UpdateTabHeader(tab);
+        RefreshToolbar();
+        SaveOpenTabs();
+    }, { once: true });
+    SetTabContent(tab, frame, true);
+    tab.HasAgent = false;
+}
+
+/**
  * 經由代理載入外部頁面
  * @param {object}      tab       目標分頁
  * @param {string}      url       目標網址
@@ -2445,18 +2465,7 @@ async function LoadExternalPage(tab, url, postData = null) {
 
     if (!postData && tab.LoadMode === "same-origin") {
         try {
-            const frame = CreateFrame(tab, true);
-            frame.src = BuildSameOriginProxyUrl(url);
-            frame.addEventListener("load", () => {
-                if (tab.Abort === controller) tab.Abort = null;
-                clearTimeout(timer);
-                SetLoading(tab, false);
-                tab.Title = GetHostname(url) || "同源代理頁面";
-                UpdateTabHeader(tab);
-                RefreshToolbar();
-            }, { once: true });
-            SetTabContent(tab, frame, true);
-            tab.HasAgent = false;
+            LoadSameOriginFrame(tab, url, controller, timer);
             return;
         } catch (error) {
             clearTimeout(timer);
@@ -2505,9 +2514,9 @@ async function LoadExternalPage(tab, url, postData = null) {
             finalUrl = new URL(returnPath, "https://www.ptt.cc").href;
         }
 
-        // Google 對共用代理出口回傳 429 時，不把驗證 / reCAPTCHA 頁塞進 srcdoc。
-        // 該頁依賴同源 Cookie、跨 frame 存取與完整瀏覽器狀態，在隔離沙箱中只會
-        // 產生 SecurityError、reCAPTCHA Timeout 與未定義函式等連鎖錯誤。
+        // Google 對共用代理出口回傳驗證頁時，標準 srcdoc 模式缺少
+        // allow-same-origin，reCAPTCHA 無法使用 Cookie、Storage 與跨 frame 通訊。
+        // 自動改用同源反向代理重新載入，讓驗證元件在正常來源環境中顯示。
         let isGoogleTarget = false;
         try {
             const targetHost = new URL(finalUrl || url).hostname.toLowerCase();
@@ -2516,16 +2525,13 @@ async function LoadExternalPage(tab, url, postData = null) {
             isGoogleTarget = false;
         }
 
-        if (response.status === 429 && isGoogleTarget) {
+        if (!postData && response.status === 429 && isGoogleTarget) {
             if (response.body) await response.body.cancel().catch(() => {});
             if (GetTabUrl(tab) !== url) return;
 
-            RenderErrorPage(
-                tab,
-                "Google 暫時限制代理連線",
-                `${finalUrl}\n\nGoogle 對目前的共用代理出口回傳 HTTP 429（Too Many Requests）。\n\n此回應屬於來源網站的流量限制；OwO 已停止載入驗證頁，避免 reCAPTCHA 與沙箱錯誤持續出現在 Console。\n\n可稍後重試，或使用下方按鈕直接在外部瀏覽器開啟。`,
-                url
-            );
+            tab.LoadMode = "same-origin";
+            ShowToast("Google 驗證頁：已切換同源反向代理模式");
+            LoadSameOriginFrame(tab, finalUrl || url, controller, timer);
             return;
         }
 
