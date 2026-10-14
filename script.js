@@ -1,5 +1,5 @@
 /* ============================================================
- *  OwO Simple Browser - 主程式 v35
+ *  OwO Simple Browser - 主程式 v36
  *
  *  架構：
  *     1. 設定與狀態
@@ -2503,6 +2503,30 @@ async function LoadExternalPage(tab, url, postData = null) {
             const postParams = new URLSearchParams(postData.Body || "");
             const returnPath = GetCanonicalPttReturnPath(postParams.get("from"), url);
             finalUrl = new URL(returnPath, "https://www.ptt.cc").href;
+        }
+
+        // Google 對共用代理出口回傳 429 時，不把驗證 / reCAPTCHA 頁塞進 srcdoc。
+        // 該頁依賴同源 Cookie、跨 frame 存取與完整瀏覽器狀態，在隔離沙箱中只會
+        // 產生 SecurityError、reCAPTCHA Timeout 與未定義函式等連鎖錯誤。
+        let isGoogleTarget = false;
+        try {
+            const targetHost = new URL(finalUrl || url).hostname.toLowerCase();
+            isGoogleTarget = targetHost === "google.com" || targetHost.endsWith(".google.com");
+        } catch {
+            isGoogleTarget = false;
+        }
+
+        if (response.status === 429 && isGoogleTarget) {
+            if (response.body) await response.body.cancel().catch(() => {});
+            if (GetTabUrl(tab) !== url) return;
+
+            RenderErrorPage(
+                tab,
+                "Google 暫時限制代理連線",
+                `${finalUrl}\n\nGoogle 對目前的共用代理出口回傳 HTTP 429（Too Many Requests）。\n\n此回應屬於來源網站的流量限制；OwO 已停止載入驗證頁，避免 reCAPTCHA 與沙箱錯誤持續出現在 Console。\n\n可稍後重試，或使用下方按鈕直接在外部瀏覽器開啟。`,
+                url
+            );
+            return;
         }
 
         // 代理回傳的錯誤（JSON 格式）
